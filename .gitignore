@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+
+# Python
+*.pyc
+__pycache__/
+
+# 后端
+backend/.env
+backend/bills.db
+backend/logs/
+backend/nohup.out
+backend/__pycache__/
+backend/api/__pycache__/
+backend/models/__pycache__/
+backend/parsers/__pycache__/
+backend/schemas/__pycache__/
+backend/config/__pycache__/
+backend/utils/__pycache__/
+
+# 前端
+frontend/.deps_installed
+frontend/node_modules/
+frontend/dist/
+frontend/.DS_Store
+
+# 依赖标记
+.deps_installed
+
+# 账单导入文件
+bills/*.csv
+bills/*.pdf
+
+# 日志
+*.log
+nohup.out 
