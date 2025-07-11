@@ -99,12 +99,12 @@ const LoginPage: React.FC = () => {
             </Form.Item>
           </Form>
 
-          <div style={{ textAlign: 'center' }}>
+          {/* <div style={{ textAlign: 'center' }}>
             <Text type="secondary">
               还没有账户？{' '}
               <Link to="/register">立即注册</Link>
             </Text>
-          </div>
+          </div> */}
         </Space>
       </Card>
     </div>

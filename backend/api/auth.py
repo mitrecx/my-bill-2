@@ -63,54 +63,54 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
-@router.post("/register", response_model=AuthResponse)
-async def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    """用户注册"""
-    # 检查用户名是否已存在
-    db_user = db.query(User).filter(User.username == user_in.username).first()
-    if db_user:
-        raise HTTPException(
-            status_code=400,
-            detail="用户名已被注册"
-        )
-    
-    # 检查邮箱是否已存在
-    db_user = db.query(User).filter(User.email == user_in.email).first()
-    if db_user:
-        raise HTTPException(
-            status_code=400,
-            detail="邮箱已被注册"
-        )
-    
-    # 创建新用户
-    hashed_password = get_password_hash(user_in.password)
-    db_user = User(
-        username=user_in.username,
-        email=user_in.email,
-        password_hash=hashed_password,
-        full_name=user_in.full_name
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    
-    # 创建访问令牌
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user_in.username}, expires_delta=access_token_expires
-    )
-    
-    token_data = Token(
-        access_token=access_token,
-        token_type="bearer",
-        user=UserResponse.from_orm(db_user)
-    )
-    
-    return AuthResponse(
-        success=True,
-        message="注册成功",
-        data=token_data
-    )
+# @router.post("/register", response_model=AuthResponse)
+# async def register(user_in: UserCreate, db: Session = Depends(get_db)):
+#     """用户注册"""
+#     # 检查用户名是否已存在
+#     db_user = db.query(User).filter(User.username == user_in.username).first()
+#     if db_user:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="用户名已被注册"
+#         )
+#     
+#     # 检查邮箱是否已存在
+#     db_user = db.query(User).filter(User.email == user_in.email).first()
+#     if db_user:
+#         raise HTTPException(
+#             status_code=400,
+#             detail="邮箱已被注册"
+#         )
+#     
+#     # 创建新用户
+#     hashed_password = get_password_hash(user_in.password)
+#     db_user = User(
+#         username=user_in.username,
+#         email=user_in.email,
+#         password_hash=hashed_password,
+#         full_name=user_in.full_name
+#     )
+#     db.add(db_user)
+#     db.commit()
+#     db.refresh(db_user)
+#     
+#     # 创建访问令牌
+#     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+#     access_token = create_access_token(
+#         data={"sub": user_in.username}, expires_delta=access_token_expires
+#     )
+#     
+#     token_data = Token(
+#         access_token=access_token,
+#         token_type="bearer",
+#         user=UserResponse.from_orm(db_user)
+#     )
+#     
+#     return AuthResponse(
+#         success=True,
+#         message="注册成功",
+#         data=token_data
+#     )
 
 @router.post("/login", response_model=AuthResponse)
 async def login(user_login: UserLogin, db: Session = Depends(get_db)):
