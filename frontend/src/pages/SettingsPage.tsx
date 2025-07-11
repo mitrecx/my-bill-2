@@ -36,7 +36,7 @@ const { Title, Text } = Typography;
 // const { Option } = Select;
 
 const SettingsPage: React.FC = () => {
-  const { user, loadUser, isLoading } = useAuthStore();
+  const { user, loadUser } = useAuthStore();
   
   const [activeTab, setActiveTab] = useState<'profile' | 'family' | 'system'>('profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -86,7 +86,7 @@ const SettingsPage: React.FC = () => {
   const loadFamilies = async () => {
     try {
       const familiesData = await FamilyService.getFamilies();
-      setFamilies(familiesData);
+      setFamilies(familiesData.data);
     } catch (error) {
       message.error('加载家庭列表失败');
     }
@@ -95,7 +95,7 @@ const SettingsPage: React.FC = () => {
   const loadFamilyMembers = async (familyId: number) => {
     try {
       const members = await FamilyService.getFamilyMembers(familyId);
-      setFamilyMembers(members);
+      setFamilyMembers(members.data);
     } catch (error) {
       message.error('加载家庭成员失败');
     }

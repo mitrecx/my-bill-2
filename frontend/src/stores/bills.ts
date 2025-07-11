@@ -194,7 +194,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       set({ categories: response.data });
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || '获取分类失败';
-      set({ error: errorMessage });
+      set({ error: errorMessage, categories: [] });
     }
   },
 

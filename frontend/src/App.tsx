@@ -41,7 +41,7 @@ const PublicRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 };
 
 const App: React.FC = () => {
-  const { loadUser, isAuthenticated } = useAuthStore();
+  const { loadUser } = useAuthStore();
 
   useEffect(() => {
     // 应用启动时尝试加载用户信息

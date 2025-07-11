@@ -16,22 +16,23 @@ import type {
   UploadRecord,
   FileUploadResponse,
   FileUploadConfirm,
+  ApiResponse, // 新增ApiResponse类型导入
 } from '../types';
 
 // 认证服务
 export const AuthService = {
-  async login(credentials: LoginRequest): Promise<AuthResponse> {
+  async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse['data']>> {
     // 使用JSON格式，匹配main_production.py的UserLogin模型
-    const response = await ApiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.LOGIN, credentials, {
+    const response = await ApiClient.post<AuthResponse['data']>(API_ENDPOINTS.AUTH.LOGIN, credentials, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response;
+    return response; // 返回完整响应，不要 .data
   },
 
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
-    const response = await ApiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.REGISTER, userData);
+  async register(userData: RegisterRequest): Promise<ApiResponse<AuthResponse['data']>> {
+    const response = await ApiClient.post<AuthResponse['data']>(API_ENDPOINTS.AUTH.REGISTER, userData);
     return response;
   },
 
@@ -40,8 +41,8 @@ export const AuthService = {
     return response;
   },
 
-  async refreshToken(): Promise<AuthResponse> {
-    const response = await ApiClient.post<AuthResponse>(API_ENDPOINTS.AUTH.REFRESH);
+  async refreshToken(): Promise<ApiResponse<AuthResponse['data']>> {
+    const response = await ApiClient.post<AuthResponse['data']>(API_ENDPOINTS.AUTH.REFRESH);
     return response;
   },
 };

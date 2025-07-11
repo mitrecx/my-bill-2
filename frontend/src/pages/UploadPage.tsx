@@ -54,12 +54,14 @@ const UploadPage: React.FC = () => {
   const loadFamilies = async () => {
     try {
       const familiesData = await FamilyService.getFamilies();
-      setFamilies(familiesData);
-      if (familiesData.length > 0) {
-        setSelectedFamily(familiesData[0].id);
+      console.log('[UploadPage] familiesData', familiesData);
+      setFamilies(Array.isArray(familiesData.data) ? familiesData.data : []);
+      if (Array.isArray(familiesData.data) && familiesData.data.length > 0) {
+        setSelectedFamily(familiesData.data[0].id);
       }
     } catch (error) {
       message.error('加载家庭列表失败');
+      setFamilies([]);
     }
   };
 
@@ -133,7 +135,7 @@ const UploadPage: React.FC = () => {
         (progress) => setUploadProgress(progress)
       );
       
-      setPreviewData(response);
+      setPreviewData(response.data);
       setIsConfirmModalVisible(true);
       message.success('文件解析成功');
     } catch (error: any) {
@@ -253,7 +255,7 @@ const UploadPage: React.FC = () => {
               style={{ width: 200 }}
               placeholder="选择家庭"
             >
-              {families.map(family => (
+              {Array.isArray(families) && families.map(family => (
                 <Option key={family.id} value={family.id}>
                   {family.family_name}
                 </Option>

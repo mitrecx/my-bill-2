@@ -75,9 +75,9 @@ const StatsPage: React.FC = () => {
   const loadFamilies = async () => {
     try {
       const familiesData = await FamilyService.getFamilies();
-      setFamilies(familiesData);
-      if (familiesData.length > 0) {
-        setSelectedFamily(familiesData[0].id);
+      setFamilies(familiesData.data);
+      if (familiesData.data.length > 0) {
+        setSelectedFamily(familiesData.data[0].id);
       }
     } catch (error) {
       setError('加载家庭列表失败');
@@ -166,11 +166,11 @@ const StatsPage: React.FC = () => {
   ];
 
   // 饼图数据处理
-  const pieData = categoryStats.map((item, index) => ({
+  const pieData = Array.isArray(categoryStats) ? categoryStats.map((item, index) => ({
     name: item.category_name,
     value: item.total_amount,
     color: COLORS[index % COLORS.length],
-  }));
+  })) : [];
 
   if (isLoading) {
     return (
@@ -195,7 +195,7 @@ const StatsPage: React.FC = () => {
               style={{ width: 200, marginLeft: 8 }}
               placeholder="选择家庭"
             >
-              {families.map(family => (
+              {Array.isArray(families) && families.map(family => (
                 <Option key={family.id} value={family.id}>
                   {family.family_name}
                 </Option>

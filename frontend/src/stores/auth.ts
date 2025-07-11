@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
     (set, get) => ({
       // 状态
       user: UserManager.getUser(),
-      isAuthenticated: TokenManager.isAuthenticated(),
+      isAuthenticated: !!TokenManager.getToken(),
       isLoading: false,
       error: null,
 
@@ -33,24 +33,29 @@ export const useAuthStore = create<AuthState & AuthActions>()(
       login: async (credentials: LoginRequest) => {
         try {
           set({ isLoading: true, error: null });
-          
+          console.log('[login] start', credentials);
           const response = await AuthService.login(credentials);
-          
+          const { data, success, message } = response;
+          if (!success) throw new Error(message || '登录失败');
           // 保存token和用户信息
-          TokenManager.setToken(response.data.access_token);
-          UserManager.setUser(response.data.user);
-          
+          TokenManager.setToken(data.access_token);
+          UserManager.setUser(data.user);
+          console.log('[login] token set', TokenManager.getToken());
+          console.log('[login] user set', UserManager.getUser());
+          // 登录后立即刷新用户信息，确保状态同步
+          await get().loadUser();
           set({
-            user: response.data.user,
-            isAuthenticated: true,
             isLoading: false,
+            error: null,
           });
+          console.log('[login] after loadUser', get().user, get().isAuthenticated);
         } catch (error: any) {
-          const errorMessage = error.response?.data?.detail || '登录失败，请重试';
+          const errorMessage = error.response?.data?.detail || error.message || '登录失败，请重试';
           set({
             error: errorMessage,
             isLoading: false,
           });
+          console.log('[login] error', errorMessage);
           throw error;
         }
       },
@@ -60,13 +65,13 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           set({ isLoading: true, error: null });
           
           const response = await AuthService.register(userData);
-          
+          const { data } = response;
           // 保存token和用户信息
-          TokenManager.setToken(response.data.access_token);
-          UserManager.setUser(response.data.user);
+          TokenManager.setToken(data.access_token);
+          UserManager.setUser(data.user);
           
           set({
-            user: response.data.user,
+            user: data.user,
             isAuthenticated: true,
             isLoading: false,
           });
@@ -91,25 +96,26 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       loadUser: async () => {
         try {
+          console.log('[loadUser] token', TokenManager.getToken());
           if (!TokenManager.isAuthenticated()) {
+            console.log('[loadUser] not authenticated');
             return;
           }
-
           set({ isLoading: true });
-          
           const response = await AuthService.getCurrentUser();
           const user = response.data;
           UserManager.setUser(user);
-          
           set({
             user,
             isAuthenticated: true,
             isLoading: false,
           });
+          console.log('[loadUser] user loaded', user);
         } catch (error: any) {
           // Token可能已过期
           get().logout();
           set({ isLoading: false });
+          console.log('[loadUser] error, logout');
         }
       },
 
