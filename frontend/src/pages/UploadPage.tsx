@@ -129,11 +129,12 @@ const UploadPage: React.FC = () => {
       setUploading(true);
       setUploadProgress(0);
       
-      const file = fileList[0];
-      const response = await UploadService.previewFile(
-        file as any,
-        (progress) => setUploadProgress(progress)
-      );
+      const file = fileList[0].originFileObj as File;
+      if (!file) {
+        message.warning('文件无效，请重新选择');
+        return;
+      }
+      const response = await UploadService.previewFile(file);
       
       setPreviewData(response.data);
       setIsConfirmModalVisible(true);
@@ -148,25 +149,31 @@ const UploadPage: React.FC = () => {
 
   // 确认上传
   const handleConfirmUpload = async () => {
-    if (!previewData || !selectedFamily) {
+    if (!selectedFamily) {
       message.warning('请选择家庭');
       return;
     }
-
+    if (fileList.length === 0) {
+      message.warning('请先选择账单文件');
+      return;
+    }
+    console.log('[UploadPage] fileList[0]', fileList[0]);
+    const fileObj = (fileList[0] && (fileList[0].originFileObj as File)) || (fileList[0] as unknown as File);
+    if (!fileObj) {
+      message.warning('文件无效，请重新选择');
+      return;
+    }
     try {
       setUploading(true);
-      
+      const response = await UploadService.previewFile(fileObj);
       await UploadService.confirmUpload({
-        upload_id: previewData.upload_id,
+        upload_id: response.data.upload_id,
         family_id: selectedFamily,
       });
-
       message.success('上传成功');
       setFileList([]);
       setPreviewData(null);
       setIsConfirmModalVisible(false);
-      
-      // 刷新账单列表
       fetchBills();
     } catch (error: any) {
       message.error(error.response?.data?.detail || '上传失败');
@@ -220,7 +227,7 @@ const UploadPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>文件上传</Title>
+      <Title level={2}>账单上传</Title>
       
       <Paragraph type="secondary">
         支持上传支付宝、京东、招商银行的账单文件，系统会自动解析并导入账单数据。
@@ -288,11 +295,11 @@ const UploadPage: React.FC = () => {
           <Button
             type="primary"
             icon={<FileTextOutlined />}
-            onClick={handlePreview}
+            onClick={handleConfirmUpload}
             disabled={fileList.length === 0 || uploading}
             loading={uploading}
           >
-            预览文件内容
+            上传
           </Button>
           
           {fileList.length > 0 && (

@@ -392,10 +392,10 @@ async def delete_upload_record(
     """删除上传记录（可选择是否同时删除相关账单）"""
     try:
         # 由于UploadRecord模型不存在，这个功能暂时不可用
-        raise HTTPException(
+            raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="上传记录删除功能暂未实现"
-        )
+            )
         
     except HTTPException:
         raise

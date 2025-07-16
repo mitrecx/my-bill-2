@@ -46,10 +46,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
     """获取当前用户"""
     credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
+                status_code=status.HTTP_401_UNAUTHORIZED,
         detail="无效的认证凭据",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         username: str = payload.get("sub")
@@ -131,11 +131,11 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
     )
     
     token_data = Token(
-        access_token=access_token,
-        token_type="bearer",
+            access_token=access_token,
+            token_type="bearer",
         user=UserResponse.from_orm(user)
-    )
-    
+        )
+        
     return AuthResponse(
         success=True,
         message="登录成功",

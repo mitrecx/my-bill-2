@@ -28,14 +28,14 @@ class Bill(Base):
     family_id = Column(Integer, ForeignKey("families.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("bill_categories.id"), nullable=True)
-    
+
     transaction_time = Column(DateTime(timezone=True), nullable=False)
     amount = Column(Float, nullable=False)
     transaction_type = Column(String, nullable=False)  # income, expense
     transaction_desc = Column(String, nullable=True)
     source_type = Column(String, nullable=False)  # alipay, jd, cmb
     raw_data = Column(JSON, nullable=True)
-    
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

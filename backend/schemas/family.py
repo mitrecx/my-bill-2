@@ -1,6 +1,8 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Generic, TypeVar
 from datetime import datetime
+
+T = TypeVar("T")
 
 class FamilyBase(BaseModel):
     family_name: str
@@ -39,3 +41,8 @@ class FamilyMemberResponse(FamilyMemberBase):
 
 class FamilyWithMembersResponse(FamilyResponse):
     members: List[FamilyMemberResponse] 
+
+class ApiResponse(BaseModel):
+    data: Optional[List[FamilyResponse]] = None
+    success: bool = True
+    message: str = "获取成功" 

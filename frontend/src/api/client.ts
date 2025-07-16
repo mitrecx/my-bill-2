@@ -9,6 +9,7 @@ const createApiClient = (): AxiosInstance => {
     timeout: API_CONFIG.TIMEOUT,
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache', // 禁用所有请求的缓存，防止数据不刷新
     },
   });
 
@@ -126,7 +127,7 @@ export const TokenManager = {
 export const UserManager = {
   getUser(): any | null {
     try {
-      const userStr = localStorage.getItem(API_CONFIG.USER_KEY);
+    const userStr = localStorage.getItem(API_CONFIG.USER_KEY);
       if (!userStr || userStr === 'undefined' || userStr === 'null') {
         return null;
       }
@@ -141,7 +142,7 @@ export const UserManager = {
 
   setUser(user: any): void {
     if (user) {
-      localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(user));
+    localStorage.setItem(API_CONFIG.USER_KEY, JSON.stringify(user));
     }
   },
 
