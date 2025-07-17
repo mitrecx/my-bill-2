@@ -17,9 +17,9 @@ from .bills import (
 
 from .upload import (
     UploadResponse,
-    ParsePreviewResponse,
     UploadHistoryResponse,
-    UploadStatsResponse
+    UploadStatsResponse,
+    UploadRecord
 )
 
 __all__ = [
@@ -40,7 +40,7 @@ __all__ = [
     
     # Upload schemas
     "UploadResponse",
-    "ParsePreviewResponse", 
     "UploadHistoryResponse",
-    "UploadStatsResponse"
-] 
+    "UploadStatsResponse",
+    "UploadRecord"
+]

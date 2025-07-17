@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 ```bash
 # 数据库配置
-DATABASE_URL=postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db
+DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
 
 # 安全配置
 SECRET_KEY=your-very-secret-key-here-change-in-production
@@ -52,11 +52,11 @@ LOG_FILE=logs/app.log
 
 ```bash
 # 连接远程数据库进行测试
-psql -h jo.mitrecx.top -U josie -d bills_db -c "SELECT 1;"
+psql -h localhost -U josie -d bills_db -c "SELECT 1;"
 # 输入密码: bills_password_2024
 
 # 如果需要初始化数据库表结构，可以运行：
-psql -h jo.mitrecx.top -U josie -d bills_db -f init.sql
+psql -h localhost -U josie -d bills_db -f init.sql
 ```
 
 ### 4. 运行项目

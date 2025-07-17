@@ -127,7 +127,7 @@ psql -U postgres -d bills_db -f init.sql
 在 `backend` 目录下创建 `.env` 文件：
 
 ```bash
-DATABASE_URL=postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db
+DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -184,7 +184,7 @@ class Settings:
     secret_key: str = "your-secret-key"
     
     # 数据库配置
-    database_url: str = "postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db"
+    database_url: str = "postgresql://josie:bills_password_2024@localhost:5432/bills_db"
     
     # CORS配置
     allowed_origins: List[str] = [
@@ -361,7 +361,7 @@ EOF
    sudo systemctl status postgresql
    
    # 检查数据库连接
-   psql -h jo.mitrecx.top -U josie -d bills_db -c "SELECT 1"
+   psql -h localhost -U josie -d bills_db -c "SELECT 1"
    ```
 
 2. **CORS跨域错误**

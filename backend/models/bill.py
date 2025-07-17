@@ -41,5 +41,5 @@ class Bill(Base):
 
     # 关系
     family = relationship("Family", back_populates="bills")
-    user = relationship("User")
-    category = relationship("BillCategory") 
+    user = relationship("User", back_populates="bills")
+    category = relationship("BillCategory", back_populates="bills")

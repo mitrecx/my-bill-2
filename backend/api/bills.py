@@ -16,7 +16,11 @@ from schemas.bills import (
     BillStatsResponse,
     BillFilter,
     BillCreate,
-    BillUpdate
+    BillUpdate,
+    BillCategoryCreate,
+    BillCategoryUpdate,
+    BillCategoryResponse,
+    ApiResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -31,7 +35,7 @@ async def get_user_families(user: User, db: Session) -> List[int]:
     return [fm.family_id for fm in family_members]
 
 
-@router.get("/", response_model=BillListResponse)
+@router.get("/", response_model=ApiResponse[BillListResponse])
 async def get_bills(
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页大小"),
@@ -55,12 +59,16 @@ async def get_bills(
         # 获取用户所属家庭
         user_family_ids = await get_user_families(current_user, db)
         if not user_family_ids:
-            return BillListResponse(
-                bills=[],
-                total=0,
-                page=page,
-                size=size,
-                pages=0
+            return ApiResponse(
+                data=BillListResponse(
+                    items=[],
+                    total=0,
+                    page=page,
+                    size=size,
+                    pages=0
+                ),
+                success=True,
+                message="暂无账单数据"
             )
         
         # 构建查询
@@ -84,7 +92,7 @@ async def get_bills(
             query = query.filter(Bill.source_type == source_type)
         
         if merchant_name:
-            query = query.filter(Bill.merchant_name.ilike(f"%{merchant_name}%"))
+            query = query.filter(Bill.transaction_desc.ilike(f"%{merchant_name}%"))
         
         if start_date:
             query = query.filter(Bill.transaction_time >= start_date)
@@ -102,11 +110,7 @@ async def get_bills(
         if search:
             search_term = f"%{search}%"
             query = query.filter(
-                or_(
-                    Bill.merchant_name.ilike(search_term),
-                    Bill.description.ilike(search_term),
-                    Bill.notes.ilike(search_term)
-                )
+                Bill.transaction_desc.ilike(search_term)
             )
         
         # 排序
@@ -127,12 +131,16 @@ async def get_bills(
         # 计算总页数
         pages = (total + size - 1) // size
         
-        return BillListResponse(
-            bills=[BillResponse.from_orm(bill) for bill in bills],
-            total=total,
-            page=page,
-            size=size,
-            pages=pages
+        return ApiResponse(
+            data=BillListResponse(
+                items=[BillResponse.from_bill(bill) for bill in bills],
+                total=total,
+                page=page,
+                size=size,
+                pages=pages
+            ),
+            success=True,
+            message="获取账单列表成功"
         )
         
     except Exception as e:
@@ -290,6 +298,119 @@ async def get_bill_stats(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取账单统计失败"
+        )
+
+
+
+
+
+@router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])
+async def get_categories(
+    family_id: Optional[int] = Query(None, description="家庭ID筛选"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取账单分类列表"""
+    try:
+        # 获取用户所属家庭
+        user_family_ids = await get_user_families(current_user, db)
+        
+        query = db.query(BillCategory).filter(
+            BillCategory.family_id.in_(user_family_ids)
+        )
+        
+        if family_id and family_id in user_family_ids:
+            query = query.filter(BillCategory.family_id == family_id)
+        
+        categories = query.order_by(BillCategory.created_at.desc()).all()
+        
+        # 为每个分类添加账单数量统计
+        category_responses = []
+        for category in categories:
+            bills_count = db.query(Bill).filter(
+                Bill.category_id == category.id,
+                Bill.family_id.in_(user_family_ids)
+            ).count()
+            
+            # 设置bills_count属性
+            category.bills_count = bills_count
+            category_data = BillCategoryResponse.from_orm(category)
+            category_responses.append(category_data)
+        
+        return ApiResponse(
+            success=True,
+            message="获取分类列表成功",
+            data=category_responses
+        )
+        
+    except Exception as e:
+        logger.error(f"获取分类列表失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取分类列表失败"
+        )
+
+
+@router.post("/categories", response_model=ApiResponse[BillCategoryResponse])
+async def create_category(
+    category_data: BillCategoryCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建账单分类"""
+    try:
+        # 获取用户所属家庭
+        user_family_ids = await get_user_families(current_user, db)
+        
+        # 验证家庭ID是否属于用户
+        if category_data.family_id not in user_family_ids:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="无权在该家庭创建分类"
+            )
+        
+        # 检查分类名称是否已存在
+        existing_category = db.query(BillCategory).filter(
+            BillCategory.category_name == category_data.name,
+            BillCategory.family_id == category_data.family_id
+        ).first()
+        
+        if existing_category:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该分类名称已存在"
+            )
+        
+        # 创建新分类
+        new_category = BillCategory(
+            category_name=category_data.name,
+            family_id=category_data.family_id,
+            color=category_data.color,
+            icon=category_data.icon
+        )
+        
+        db.add(new_category)
+        db.commit()
+        db.refresh(new_category)
+        
+        # 设置bills_count属性
+        new_category.bills_count = 0
+        category_response = BillCategoryResponse.from_orm(new_category)
+        
+        return ApiResponse(
+            success=True,
+            message="创建分类成功",
+            data=category_response
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"创建分类失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建分类失败"
         )
 
 

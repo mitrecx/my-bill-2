@@ -17,10 +17,7 @@ from utils.validators import validate_file_extension, validate_file_size, detect
 from schemas.upload import (
     UploadResponse,
     UploadHistoryResponse,
-    UploadStatsResponse,
-    ParsePreviewResponse,
-    FileUploadResponse,
-    FileUploadConfirm
+    UploadStatsResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -71,94 +68,6 @@ async def get_parsers():
         "parsers": get_available_parsers(),
         "message": "支持的文件格式"
     }
-
-
-@router.post("/preview", response_model=FileUploadResponse)
-async def preview_file(
-    file: UploadFile = File(...),
-    source_type: Optional[str] = Form(None),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """预览文件解析结果（不保存到数据库）"""
-    try:
-        # 验证文件
-        file_ext_valid, file_ext_msg = validate_file_extension(file.filename)
-        if not file_ext_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=file_ext_msg
-            )
-        
-        file_size_valid, file_size_msg = validate_file_size(file.size)
-        if not file_size_valid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=file_size_msg
-            )
-        
-        # 检测文件类型
-        if not source_type:
-            source_type = detect_file_source_type(file.filename)
-        
-        if not source_type:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="无法识别文件类型，请指定source_type参数"
-            )
-        
-        # 获取解析器
-        parser = get_parser(source_type)
-        if not parser:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"不支持的文件类型: {source_type}"
-            )
-        
-        # 保存临时文件
-        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file.filename.split('.')[-1]}") as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_file_path = temp_file.name
-        
-        try:
-            # 解析文件
-            parse_result = parser.parse_file(temp_file_path)
-            
-            # 构建预览响应（匹配前端Bill类型）
-            preview_data = []
-            for record in parse_result.success_records[:10]:  # 只显示前10条
-                preview_data.append({
-                    "amount": record.get("amount"),
-                    "transaction_time": record.get("transaction_time"),
-                    "transaction_type": record.get("transaction_type"),
-                    "transaction_desc": record.get("description"),
-                    "source_type": source_type,
-                    "raw_data": record.get("raw_data", {})
-                })
-            
-            # 生成临时上传ID
-            upload_id = f"preview_{current_user.id}_{int(datetime.now().timestamp())}"
-            
-            return FileUploadResponse(
-                filename=file.filename,
-                preview=preview_data,
-                total_records=len(parse_result.success_records) + len(parse_result.failed_records),
-                upload_id=upload_id
-            )
-            
-        finally:
-            # 清理临时文件
-            os.unlink(temp_file_path)
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"文件预览失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="文件预览失败"
-        )
 
 
 @router.post("/", response_model=UploadResponse)
@@ -230,8 +139,17 @@ async def upload_file(
             created_bills = []
             
             # 处理成功解析的记录
-            for record in parse_result.success_records:
+            for i, record in enumerate(parse_result.success_records):
                 try:
+                    # 检查必需字段
+                    required_fields = ["amount", "transaction_time", "transaction_type"]
+                    missing_fields = [field for field in required_fields if field not in record or record[field] is None]
+                    
+                    if missing_fields:
+                        logger.warning(f"记录 {i+1} 缺少必需字段: {missing_fields}, 记录内容: {record}")
+                        failed_count += 1
+                        continue
+                    
                     # 自动分类
                     category = None
                     if auto_categorize and record.get("category"):
@@ -248,7 +166,7 @@ async def upload_file(
                         amount=record["amount"],
                         transaction_time=record["transaction_time"],
                         transaction_type=record["transaction_type"],
-                        transaction_desc=record.get("description"),
+                        transaction_desc=record.get("transaction_desc"),
                         source_type=source_type,
                         category_id=category.id if category else None,
                         raw_data=record.get("raw_data", {})
@@ -259,7 +177,8 @@ async def upload_file(
                     success_count += 1
                     
                 except Exception as e:
-                    logger.warning(f"创建账单记录失败: {e}")
+                    logger.error(f"创建账单记录失败 (记录 {i+1}): {e}")
+                    logger.error(f"问题记录内容: {record}")
                     failed_count += 1
             
             db.commit()
@@ -268,7 +187,7 @@ async def upload_file(
             
             total_records = len(parse_result.success_records) + len(parse_result.failed_records)
             total_failed = failed_count + len(parse_result.failed_records)
-            status = "completed" if failed_count == 0 else "partial_success"
+            upload_status = "completed" if failed_count == 0 else "partial_success"
             
             return UploadResponse(
                 upload_id=0,  # 临时ID
@@ -277,10 +196,10 @@ async def upload_file(
                 total_records=total_records,
                 success_count=success_count,
                 failed_count=total_failed,
-                status=status,
+                status=upload_status,
                 created_bills=[bill.id for bill in created_bills],
                 errors=parse_result.failed_records + [f"保存失败记录数: {failed_count}"] if failed_count > 0 else parse_result.failed_records,
-                warnings=parse_result.warnings
+                warnings=parse_result.errors  # 使用errors属性代替不存在的warnings
             )
             
         finally:
@@ -392,10 +311,10 @@ async def delete_upload_record(
     """删除上传记录（可选择是否同时删除相关账单）"""
     try:
         # 由于UploadRecord模型不存在，这个功能暂时不可用
-            raise HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail="上传记录删除功能暂未实现"
-            )
+        )
         
     except HTTPException:
         raise
@@ -404,47 +323,4 @@ async def delete_upload_record(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="删除上传记录失败"
-        )
-
-
-@router.post("/confirm", response_model=UploadResponse)
-async def confirm_upload(
-    confirm_data: FileUploadConfirm,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """确认上传并保存到数据库"""
-    try:
-        # 验证用户是否属于指定家庭
-        user_family_ids = await get_user_families(current_user, db)
-        if confirm_data.family_id not in user_family_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问指定家庭"
-            )
-        
-        # 这里应该从缓存或临时存储中获取预览数据
-        # 为了简化，我们返回一个成功响应
-        # 实际应用中需要实现临时数据存储机制
-        
-        return UploadResponse(
-            upload_id=0,  # 临时ID
-            filename="confirmed_upload",
-            source_type="unknown",
-            total_records=0,
-            success_count=0,
-            failed_count=0,
-            status="completed",
-            created_bills=[],
-            errors=[],
-            warnings=[]
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"确认上传失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="确认上传失败"
         )
