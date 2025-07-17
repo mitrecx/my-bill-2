@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Typography,
   Card,
@@ -13,6 +13,7 @@ import {
   Table,
   Tag,
   Modal,
+  // Select,
   message,
   Popconfirm,
   Alert,
@@ -32,6 +33,7 @@ import type { Family, FamilyMember } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 
 const { Title, Text } = Typography;
+// const { Option } = Select;
 
 const SettingsPage: React.FC = () => {
   const { user, loadUser } = useAuthStore();
@@ -47,75 +49,64 @@ const SettingsPage: React.FC = () => {
   const [isFamilyModalVisible, setIsFamilyModalVisible] = useState(false);
   const [isEditingFamily, setIsEditingFamily] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [familyLoading, setFamilyLoading] = useState(false);
-  const [userLoading, setUserLoading] = useState(false);
+  const [userDataLoaded, setUserDataLoaded] = useState(false);
 
-  // 使用useCallback来优化函数，避免不必要的重新渲染
-  const loadFamilies = useCallback(async () => {
-    try {
-      setFamilyLoading(true);
-      const familiesData = await FamilyService.getFamilies();
-      console.log('[SettingsPage] families loaded', familiesData);
-      if (familiesData.success && Array.isArray(familiesData.data)) {
-        setFamilies(familiesData.data);
-      } else {
-        setFamilies([]);
-      }
-    } catch (error) {
-      console.error('加载家庭列表失败:', error);
-      message.error('加载家庭列表失败');
-      setFamilies([]);
-    } finally {
-      setFamilyLoading(false);
-    }
-  }, []);
-
-  const loadFamilyMembers = useCallback(async (familyId: number) => {
-    try {
-      const members = await FamilyService.getFamilyMembers(familyId);
-      if (members.success && Array.isArray(members.data)) {
-        setFamilyMembers(members.data);
-      } else {
-        setFamilyMembers([]);
-      }
-    } catch (error) {
-      console.error('加载家庭成员失败:', error);
-      message.error('加载家庭成员失败');
-      setFamilyMembers([]);
-    }
-  }, []);
-
-  // 初始化加载用户数据
+  // 初始化用户数据和表单
   useEffect(() => {
-    const initializeUser = async () => {
+    const initializeData = async () => {
       try {
-        setUserLoading(true);
-        await loadUser();
+        // 如果用户数据不存在或者数据还没有加载过，尝试重新加载
+        if (!user && !userDataLoaded) {
+          await loadUser();
+          setUserDataLoaded(true);
+        } else if (user) {
+          setUserDataLoaded(true);
+        }
       } catch (error) {
         console.error('加载用户数据失败:', error);
         message.error('加载用户数据失败，请刷新页面重试');
-      } finally {
-        setUserLoading(false);
       }
     };
 
-    initializeUser();
-  }, [loadUser]);
+    initializeData();
+    loadFamilies();
+  }, [user, loadUser, userDataLoaded]);
 
-  // 当用户数据加载完成后，设置表单值并加载家庭数据
+  // 当用户数据更新时，设置表单值
   useEffect(() => {
-    if (user) {
-      // 设置个人资料表单的初始值
+    if (user && userDataLoaded) {
       profileForm.setFieldsValue({
         username: user.username,
         email: user.email,
         full_name: user.full_name,
       });
-      
-      // 加载家庭数据
-      loadFamilies();
     }
-  }, [user, profileForm, loadFamilies]);
+  }, [user, profileForm, userDataLoaded]);
+
+  const loadFamilies = async () => {
+    console.log('[SettingsPage] 调试: 开始加载家庭数据...');
+    try {
+      const familiesData = await FamilyService.getFamilies();
+      console.log('[SettingsPage] 调试: familiesData', familiesData);
+      // familiesData 是ApiResponse<Family[]>，应取data字段
+      setFamilies(Array.isArray(familiesData.data) ? familiesData.data : []);
+      console.log('[SettingsPage] 调试: setFamilies', familiesData.data);
+    } catch (error) {
+      message.error('加载家庭列表失败');
+      setFamilies([]);
+      console.error('[SettingsPage] 调试: 加载家庭列表失败', error);
+    }
+    console.log('[SettingsPage] 调试: 加载家庭数据结束');
+  };
+
+  const loadFamilyMembers = async (familyId: number) => {
+    try {
+      const members = await FamilyService.getFamilyMembers(familyId);
+      setFamilyMembers(members.data);
+    } catch (error) {
+      message.error('加载家庭成员失败');
+    }
+  };
 
   // 更新个人资料
   const handleUpdateProfile = async (values: any) => {
@@ -126,7 +117,6 @@ const SettingsPage: React.FC = () => {
       setIsEditingProfile(false);
       message.success('个人资料更新成功');
     } catch (error: any) {
-      console.error('更新个人资料失败:', error);
       message.error(error.response?.data?.detail || '更新失败');
     } finally {
       setLoading(false);
@@ -148,11 +138,8 @@ const SettingsPage: React.FC = () => {
       
       await loadFamilies();
       setIsFamilyModalVisible(false);
-      setIsEditingFamily(false);
-      setSelectedFamily(null);
       familyForm.resetFields();
     } catch (error: any) {
-      console.error('保存家庭失败:', error);
       message.error(error.response?.data?.detail || '操作失败');
     } finally {
       setLoading(false);
@@ -162,22 +149,11 @@ const SettingsPage: React.FC = () => {
   // 删除家庭
   const handleDeleteFamily = async (familyId: number) => {
     try {
-      setLoading(true);
       await FamilyService.deleteFamily(familyId);
       await loadFamilies();
-      
-      // 如果删除的是当前选中的家庭，清空选中状态
-      if (selectedFamily?.id === familyId) {
-        setSelectedFamily(null);
-        setFamilyMembers([]);
-      }
-      
       message.success('家庭删除成功');
     } catch (error: any) {
-      console.error('删除家庭失败:', error);
       message.error(error.response?.data?.detail || '删除失败');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -185,26 +161,6 @@ const SettingsPage: React.FC = () => {
   const handleViewFamily = async (family: Family) => {
     setSelectedFamily(family);
     await loadFamilyMembers(family.id);
-  };
-
-  // 取消编辑个人资料时重置表单
-  const handleCancelEditProfile = () => {
-    setIsEditingProfile(false);
-    if (user) {
-      profileForm.setFieldsValue({
-        username: user.username,
-        email: user.email,
-        full_name: user.full_name,
-      });
-    }
-  };
-
-  // 取消家庭模态框
-  const handleCancelFamilyModal = () => {
-    setIsFamilyModalVisible(false);
-    setIsEditingFamily(false);
-    setSelectedFamily(null);
-    familyForm.resetFields();
   };
 
   // 家庭表格列定义
@@ -224,13 +180,7 @@ const SettingsPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date: string) => {
-        try {
-          return new Date(date).toLocaleDateString();
-        } catch {
-          return '无效日期';
-        }
-      },
+      render: (date: string) => new Date(date).toLocaleDateString(),
     },
     {
       title: '操作',
@@ -264,7 +214,6 @@ const SettingsPage: React.FC = () => {
           </Button>
           <Popconfirm
             title="确定删除这个家庭吗？"
-            description="删除后无法恢复，请谨慎操作。"
             onConfirm={() => handleDeleteFamily(record.id)}
             okText="确定"
             cancelText="取消"
@@ -289,19 +238,16 @@ const SettingsPage: React.FC = () => {
       title: '用户名',
       dataIndex: ['user', 'username'],
       key: 'username',
-      render: (username: string) => username || '未知用户',
     },
     {
       title: '姓名',
       dataIndex: ['user', 'full_name'],
       key: 'full_name',
-      render: (fullName: string) => fullName || '未填写',
     },
     {
       title: '邮箱',
       dataIndex: ['user', 'email'],
       key: 'email',
-      render: (email: string) => email || '未填写',
     },
     {
       title: '角色',
@@ -321,45 +267,34 @@ const SettingsPage: React.FC = () => {
       title: '加入时间',
       dataIndex: 'joined_at',
       key: 'joined_at',
-      render: (date: string) => {
-        try {
-          return new Date(date).toLocaleDateString();
-        } catch {
-          return '无效日期';
-        }
-      },
+      render: (date: string) => new Date(date).toLocaleDateString(),
     },
   ];
 
+  // 家庭数据变化时打印调试日志
+  useEffect(() => {
+    console.log('[SettingsPage] 调试: families 状态变化', families);
+  }, [families]);
+
   const tabContent = {
     profile: (
-      <Card 
-        title="个人资料" 
-        loading={userLoading}
-        extra={
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => {
-              if (isEditingProfile) {
-                handleCancelEditProfile();
-              } else {
-                setIsEditingProfile(true);
-              }
-            }}
-          >
-            {isEditingProfile ? '取消编辑' : '编辑资料'}
-          </Button>
-        }
-      >
+      <Card title="个人资料" extra={
+        <Button
+          type="primary"
+          icon={<EditOutlined />}
+          onClick={() => setIsEditingProfile(!isEditingProfile)}
+        >
+          {isEditingProfile ? '取消编辑' : '编辑资料'}
+        </Button>
+      }>
         <Row gutter={24}>
           <Col xs={24} md={8} style={{ textAlign: 'center' }}>
             <Avatar size={120} icon={<UserOutlined />} style={{ marginBottom: 16 }}>
               {user?.full_name?.[0] || user?.username?.[0]}
             </Avatar>
             <div>
-              <Title level={4}>{user?.full_name || user?.username || '未知用户'}</Title>
-              <Text type="secondary">@{user?.username || 'unknown'}</Text>
+              <Title level={4}>{user?.full_name}</Title>
+              <Text type="secondary">@{user?.username}</Text>
             </div>
           </Col>
           <Col xs={24} md={16}>
@@ -398,21 +333,14 @@ const SettingsPage: React.FC = () => {
               
               {isEditingProfile && (
                 <Form.Item>
-                  <Space>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      icon={<SaveOutlined />}
-                      loading={loading}
-                    >
-                      保存修改
-                    </Button>
-                    <Button
-                      onClick={handleCancelEditProfile}
-                    >
-                      取消
-                    </Button>
-                  </Space>
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    icon={<SaveOutlined />}
+                    loading={loading}
+                  >
+                    保存修改
+                  </Button>
                 </Form.Item>
               )}
             </Form>
@@ -445,31 +373,22 @@ const SettingsPage: React.FC = () => {
             dataSource={families}
             rowKey="id"
             pagination={{ pageSize: 5 }}
-            loading={familyLoading || loading}
+            loading={loading}
           />
         </Card>
 
-        {selectedFamily && (
+        {selectedFamily && familyMembers.length > 0 && (
           <Card
             title={`${selectedFamily.family_name} - 成员列表`}
             style={{ marginTop: 16 }}
           >
-            {familyMembers.length > 0 ? (
-              <Table
-                columns={memberColumns}
-                dataSource={familyMembers}
-                rowKey="id"
-                pagination={false}
-                size="small"
-              />
-            ) : (
-              <Alert
-                message="暂无成员"
-                description="该家庭暂无成员信息"
-                type="info"
-                showIcon
-              />
-            )}
+            <Table
+              columns={memberColumns}
+              dataSource={familyMembers}
+              rowKey="id"
+              pagination={false}
+              size="small"
+            />
           </Card>
         )}
       </div>
@@ -543,7 +462,10 @@ const SettingsPage: React.FC = () => {
       <Modal
         title={isEditingFamily ? '编辑家庭' : '创建家庭'}
         open={isFamilyModalVisible}
-        onCancel={handleCancelFamilyModal}
+        onCancel={() => {
+          setIsFamilyModalVisible(false);
+          familyForm.resetFields();
+        }}
         footer={null}
       >
         <Form
@@ -579,7 +501,10 @@ const SettingsPage: React.FC = () => {
                 {isEditingFamily ? '更新' : '创建'}
               </Button>
               <Button
-                onClick={handleCancelFamilyModal}
+                onClick={() => {
+                  setIsFamilyModalVisible(false);
+                  familyForm.resetFields();
+                }}
               >
                 取消
               </Button>

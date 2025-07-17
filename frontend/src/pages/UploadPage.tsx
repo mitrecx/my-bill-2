@@ -4,48 +4,34 @@ import {
   Upload,
   Button,
   Card,
-  Table,
   Space,
   Alert,
-  Modal,
   Select,
   Form,
   message,
   Progress,
-  Tag,
-  Divider,
 } from 'antd';
 import {
   InboxOutlined,
-  // UploadOutlined,
-  FileTextOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
+  UploadOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
-// import { useAuthStore } from '../stores/auth';
 import { UploadService, FamilyService } from '../api/services';
-import type { Bill, FileUploadResponse, Family } from '../types';
-import type { ColumnsType } from 'antd/es/table';
+import type { Family } from '../types';
 import type { UploadFile, UploadProps } from 'antd/es/upload';
-import dayjs from 'dayjs';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
 const { Option } = Select;
 
 const UploadPage: React.FC = () => {
-  // const { user } = useAuthStore();
   const { fetchBills } = useBillsStore();
   
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [previewData, setPreviewData] = useState<FileUploadResponse | null>(null);
   const [families, setFamilies] = useState<Family[]>([]);
   const [selectedFamily, setSelectedFamily] = useState<number | undefined>();
-  const [isConfirmModalVisible, setIsConfirmModalVisible] = useState(false);
-  // const [form] = Form.useForm();
 
   useEffect(() => {
     loadFamilies();
@@ -109,118 +95,80 @@ const UploadPage: React.FC = () => {
         return false;
       }
 
-      setFileList([file]);
+      // 创建文件列表项，确保包含originFileObj
+      const fileItem = {
+        uid: file.uid || Date.now().toString(),
+        name: file.name,
+        status: 'done' as const,
+        originFileObj: file,
+        size: file.size,
+        type: file.type,
+      };
+
+      setFileList([fileItem]);
       return false; // 阻止自动上传
     },
     onRemove: () => {
       setFileList([]);
-      setPreviewData(null);
     },
   };
 
-  // 预览文件
-  const handlePreview = async () => {
+  // 直接上传文件
+  const handleUpload = async () => {
+    if (!selectedFamily) {
+      message.warning('请选择家庭');
+      return;
+    }
     if (fileList.length === 0) {
       message.warning('请先选择文件');
       return;
     }
 
-    try {
-      setUploading(true);
-      setUploadProgress(0);
-      
-      const file = fileList[0];
-      const response = await UploadService.previewFile(
-        file as any,
-        (progress) => setUploadProgress(progress)
-      );
-      
-      setPreviewData(response.data);
-      setIsConfirmModalVisible(true);
-      message.success('文件解析成功');
-    } catch (error: any) {
-      message.error(error.response?.data?.detail || '文件解析失败');
-    } finally {
-      setUploading(false);
-      setUploadProgress(0);
-    }
-  };
-
-  // 确认上传
-  const handleConfirmUpload = async () => {
-    if (!previewData || !selectedFamily) {
-      message.warning('请选择家庭');
+    // 获取文件对象，优先使用originFileObj
+    const file = fileList[0].originFileObj;
+    if (!file) {
+      message.warning('文件无效，请重新选择');
       return;
     }
 
+    console.log('上传文件信息:', {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      originFileObj: fileList[0].originFileObj,
+      fileListItem: fileList[0]
+    });
+
     try {
       setUploading(true);
-      
-      await UploadService.confirmUpload({
-        upload_id: previewData.upload_id,
-        family_id: selectedFamily,
-      });
+      setUploadProgress(0);
 
-      message.success('上传成功');
-      setFileList([]);
-      setPreviewData(null);
-      setIsConfirmModalVisible(false);
+      // 使用UploadService.uploadFile方法
+      const response = await UploadService.uploadFile(file, selectedFamily);
       
-      // 刷新账单列表
+      console.log('上传响应:', response);
+      
+      // 检查响应结构并安全访问数据
+      const uploadData = response.data || response;
+      const successCount = uploadData.success_count || 0;
+      
+      message.success(`上传成功！成功处理 ${successCount} 条记录`);
+      setFileList([]);
+      setUploadProgress(100);
       fetchBills();
+      
     } catch (error: any) {
-      message.error(error.response?.data?.detail || '上传失败');
+      console.error('上传错误:', error);
+      message.error(error.response?.data?.detail || error.message || '上传失败');
     } finally {
       setUploading(false);
+      setTimeout(() => setUploadProgress(0), 1000);
     }
   };
 
-  // 预览表格列定义
-  const previewColumns: ColumnsType<Bill> = [
-    {
-      title: '交易日期',
-      dataIndex: 'transaction_date',
-      key: 'transaction_date',
-      width: 120,
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD'),
-    },
-    {
-      title: '交易描述',
-      dataIndex: 'transaction_desc',
-      key: 'transaction_desc',
-      ellipsis: true,
-    },
-    {
-      title: '金额',
-      dataIndex: 'amount',
-      key: 'amount',
-      width: 120,
-      render: (amount: number, record: Bill) => (
-        <span style={{
-          color: record.transaction_type === 'income' ? '#3f8600' : '#cf1322',
-          fontWeight: 'bold',
-        }}>
-          {record.transaction_type === 'income' ? '+' : '-'}
-          {amount.toFixed(2)}
-        </span>
-      ),
-    },
-    {
-      title: '类型',
-      dataIndex: 'transaction_type',
-      key: 'transaction_type',
-      width: 80,
-      render: (type: string) => (
-        <Tag color={type === 'income' ? 'green' : 'red'}>
-          {type === 'income' ? '收入' : '支出'}
-        </Tag>
-      ),
-    },
-  ];
-
   return (
     <div>
-      <Title level={2}>文件上传</Title>
+      <Title level={2}>账单上传</Title>
       
       <Paragraph type="secondary">
         支持上传支付宝、京东、招商银行的账单文件，系统会自动解析并导入账单数据。
@@ -280,94 +228,42 @@ const UploadPage: React.FC = () => {
         {uploading && (
           <div style={{ marginBottom: 16 }}>
             <Progress percent={uploadProgress} status="active" />
-            <Text type="secondary">正在解析文件...</Text>
+            <Text type="secondary">正在上传和解析文件...</Text>
           </div>
         )}
 
         <Space>
           <Button
             type="primary"
-            icon={<FileTextOutlined />}
-            onClick={handlePreview}
-            disabled={fileList.length === 0 || uploading}
+            icon={<UploadOutlined />}
+            onClick={handleUpload}
+            disabled={fileList.length === 0 || uploading || !selectedFamily}
             loading={uploading}
           >
-            预览文件内容
+            上传文件
           </Button>
           
           {fileList.length > 0 && (
             <Button
               onClick={() => {
                 setFileList([]);
-                setPreviewData(null);
               }}
             >
               清空文件
             </Button>
           )}
         </Space>
-      </Card>
 
-      {/* 预览和确认模态框 */}
-      <Modal
-        title="预览文件内容"
-        open={isConfirmModalVisible}
-        onCancel={() => setIsConfirmModalVisible(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setIsConfirmModalVisible(false)}>
-            取消
-          </Button>,
-          <Button
-            key="confirm"
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            onClick={handleConfirmUpload}
-            loading={uploading}
-            disabled={!selectedFamily}
-          >
-            确认上传
-          </Button>,
-        ]}
-        width={800}
-        style={{ top: 20 }}
-      >
-        {previewData && (
-          <div>
-            <Alert
-              message={`解析成功！共找到 ${previewData.total_records} 条记录`}
-              type="success"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-
-            <div style={{ marginBottom: 16 }}>
-              <Text strong>文件名：</Text> {previewData.filename}
-            </div>
-
-            <Divider>数据预览（前5条）</Divider>
-
-            <Table
-              columns={previewColumns}
-              dataSource={previewData.preview}
-              rowKey="id"
-              pagination={false}
-              size="small"
-              scroll={{ x: 600 }}
-            />
-
-            <div style={{ marginTop: 16, padding: 12, background: '#f6f8fa', borderRadius: 6 }}>
-              <Space direction="vertical" size="small">
-                <Text type="secondary">
-                  <ExclamationCircleOutlined /> 注意事项：
-                </Text>
-                <Text type="secondary">• 确认上传后，数据将被永久保存到选择的家庭账本中</Text>
-                <Text type="secondary">• 重复上传相同文件可能导致数据重复</Text>
-                <Text type="secondary">• 上传后可在账单管理页面查看和编辑数据</Text>
-              </Space>
-            </div>
-          </div>
+        {fileList.length > 0 && (
+          <Alert
+            message="文件已选择"
+            description={`已选择文件：${fileList[0].name}，点击"上传文件"按钮开始上传。`}
+            type="info"
+            showIcon
+            style={{ marginTop: 16 }}
+          />
         )}
-      </Modal>
+      </Card>
     </div>
   );
 };

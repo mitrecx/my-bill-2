@@ -75,11 +75,19 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
     
     # 设置环境变量
     cat > .env << 'ENVEOF'
-DATABASE_URL=postgresql://bills_user:bills_password@localhost:5432/family_bills
-SECRET_KEY=family-bills-production-secret-key-2024
+ENVIRONMENT=production
+DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
+SECRET_KEY=family-bills-production-secret-key-2024-very-long-and-secure
 DEBUG=false
 HOST=0.0.0.0
 PORT=8000
+CORS_ORIGINS=http://jo.mitrecx.top:3000,https://jo.mitrecx.top:3000,http://jo.mitrecx.top,https://jo.mitrecx.top
+LOG_LEVEL=INFO
+LOG_FILE=logs/production.log
+UPLOAD_DIR=uploads
+MAX_FILE_SIZE=10485760
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+ALGORITHM=HS256
 ENVEOF
     
     # 创建必要目录
@@ -115,8 +123,18 @@ ENVEOF
     
     # 停止旧的服务（如果在运行）
     echo "停止旧服务..."
-    pkill -f "family-bills-backend" || true
-    sleep 2
+    # 更精确地停止服务
+    pkill -f "python3 run.py" || true
+    pkill -f "uvicorn.*main:app" || true
+    # 等待进程完全停止
+    sleep 3
+    
+    # 检查端口是否被占用，如果是则强制释放
+    if lsof -ti:8000 > /dev/null 2>&1; then
+        echo "端口8000仍被占用，强制释放..."
+        lsof -ti:8000 | xargs kill -9 || true
+        sleep 2
+    fi
     
     # 启动新服务
     echo "启动新服务..."
@@ -126,9 +144,9 @@ ENVEOF
     sleep 5
     
     # 检查服务状态
-    if curl -f http://localhost:8000/health > /dev/null 2>&1; then
+    if curl -f http://localhost:8000/api/v1/health > /dev/null 2>&1; then
         echo "✅ 服务启动成功！"
-        echo "健康检查: http://jo.mitrecx.top:8000/health"
+        echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health"
         echo "API文档: http://jo.mitrecx.top:8000/docs"
     else
         echo "❌ 服务启动失败，请检查日志"
@@ -145,5 +163,5 @@ rm -f family-bills-backend.tar.gz
 
 echo "✅ 部署完成！"
 echo "服务地址: http://jo.mitrecx.top:8000"
-echo "健康检查: http://jo.mitrecx.top:8000/health"
+echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health"
 echo "API文档: http://jo.mitrecx.top:8000/docs"

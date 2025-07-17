@@ -96,7 +96,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '获取账单失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取账单失败';
       set({
         bills: [],
         error: errorMessage,
@@ -116,7 +119,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
         isLoading: false,
       });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '获取账单详情失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取账单详情失败';
       set({
         error: errorMessage,
         isLoading: false,
@@ -135,7 +141,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '创建账单失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '创建账单失败';
       set({
         error: errorMessage,
         isLoading: false,
@@ -159,7 +168,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       // 重新获取账单列表
       await get().fetchBills();
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '更新账单失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '更新账单失败';
       set({
         error: errorMessage,
         isLoading: false,
@@ -179,7 +191,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '删除账单失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '删除账单失败';
       set({
         error: errorMessage,
         isLoading: false,
@@ -193,7 +208,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       const response = await BillService.getCategories();
       set({ categories: response.data });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '获取分类失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取分类失败';
       set({ error: errorMessage, categories: [] });
     }
   },
@@ -209,7 +227,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       
       set({ isLoading: false });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '创建分类失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '创建分类失败';
       set({
         error: errorMessage,
         isLoading: false,
@@ -223,7 +244,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       const response = await BillService.getBillStats(params);
       set({ stats: response.data });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '获取统计数据失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取统计数据失败';
       set({ error: errorMessage });
     }
   },
@@ -233,7 +257,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       const response = await BillService.getCategoryStats(params);
       set({ categoryStats: response.data });
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || '获取分类统计失败';
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取分类统计失败';
       set({ error: errorMessage });
     }
   },

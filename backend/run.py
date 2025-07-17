@@ -32,20 +32,19 @@ def check_environment():
     """检查运行环境"""
     logger.info("检查运行环境...")
     
-    # 检查必要的环境变量
-    required_vars = [
-        "DATABASE_URL",
-        "SECRET_KEY"
-    ]
-    
-    missing_vars = []
-    for var in required_vars:
-        if not os.getenv(var):
-            missing_vars.append(var)
-    
-    if missing_vars:
-        logger.error(f"缺少必要的环境变量: {missing_vars}")
-        logger.info("请设置以下环境变量:")
+    # 检查settings是否正确加载
+    try:
+        # 尝试访问必要的配置
+        database_url = settings.DATABASE_URL
+        secret_key = settings.SECRET_KEY
+        
+        if not database_url or not secret_key:
+            logger.error("配置文件中缺少必要的配置项")
+            return False
+            
+    except Exception as e:
+        logger.error(f"配置加载失败: {e}")
+        logger.info("请检查配置文件或环境变量:")
         logger.info("DATABASE_URL=postgresql://username:password@localhost:5432/bills_db")
         logger.info("SECRET_KEY=your-secret-key-here")
         return False
@@ -70,15 +69,16 @@ def main():
     if not check_environment():
         sys.exit(1)
     
-    # 启动配置
-    host = os.getenv("HOST", "0.0.0.0")
-    port = int(os.getenv("PORT", "8000"))
-    reload = settings.debug
+    # 使用settings配置
+    host = settings.HOST
+    port = settings.PORT
+    reload = settings.DEBUG
     
     logger.info(f"服务配置:")
     logger.info(f"  - 主机: {host}")
     logger.info(f"  - 端口: {port}")
     logger.info(f"  - 调试模式: {reload}")
+    logger.info(f"  - 环境: {settings.ENVIRONMENT}")
     logger.info(f"  - 数据库: {settings.DATABASE_URL.split('@')[-1] if '@' in settings.DATABASE_URL else 'PostgreSQL'}")
     
     # 启动服务器
@@ -100,9 +100,5 @@ def main():
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-    )
+    # 调用main函数以保持一致性
+    main()

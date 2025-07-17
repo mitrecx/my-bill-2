@@ -14,15 +14,13 @@ import type {
   Family,
   FamilyMember,
   UploadRecord,
-  FileUploadResponse,
-  FileUploadConfirm,
+  UploadResponse,
   ApiResponse, // 新增ApiResponse类型导入
 } from '../types';
 
 // 认证服务
 export const AuthService = {
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse['data']>> {
-    // 使用JSON格式，匹配main_production.py的UserLogin模型
     const response = await ApiClient.post<AuthResponse['data']>(API_ENDPOINTS.AUTH.LOGIN, credentials, {
       headers: {
         'Content-Type': 'application/json',
@@ -145,13 +143,17 @@ export const BillService = {
 
 // 文件上传服务
 export const UploadService = {
-  async previewFile(file: File, onProgress?: (progress: number) => void): Promise<ApiResponse<FileUploadResponse>> {
-    const response = await ApiClient.upload<FileUploadResponse>(API_ENDPOINTS.UPLOAD.PREVIEW, file, onProgress);
-    return response;
-  },
-
-  async confirmUpload(data: FileUploadConfirm): Promise<ApiResponse<UploadRecord>> {
-    const response = await ApiClient.post<UploadRecord>(API_ENDPOINTS.UPLOAD.CONFIRM, data);
+  uploadFile: async (file: File, familyId: number): Promise<ApiResponse<UploadResponse>> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('family_id', familyId.toString());
+    formData.append('auto_categorize', 'true');
+    
+    const response = await ApiClient.post<UploadResponse>('/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
     return response;
   },
 

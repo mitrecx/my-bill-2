@@ -47,7 +47,7 @@ sudo -u postgres psql
 
 ```env
 # 数据库配置
-DATABASE_URL=postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db
+DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
 
 # JWT配置
 SECRET_KEY=your-secret-key-here-change-in-production
@@ -111,7 +111,7 @@ python -c "from config.database import engine; print('数据库连接成功!' if
 ### 检查表是否创建
 ```bash
 # 连接远程数据库
-psql -h jo.mitrecx.top -U josie -d bills_db -c "\dt"
+psql -h localhost -U josie -d bills_db -c "\dt"
 # 输入密码: bills_password_2024
 ```
 

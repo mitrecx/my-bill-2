@@ -57,13 +57,27 @@ my-bills-2/
 │   ├── models/              # 数据模型
 │   ├── api/                 # API路由
 │   ├── core/                # 核心功能
+│   ├── parsers/             # 账单解析器
+│   ├── schemas/             # 数据模式
 │   ├── utils/               # 工具函数
-│   ├── main_production.py   # 生产环境入口
+│   ├── examples/            # 示例代码
+│   ├── main.py              # 应用入口
 │   └── requirements.txt     # Python依赖
+├── tests/                   # 测试文件
+│   ├── conftest.py          # 测试配置
+│   ├── test_*.py            # 各种测试
+│   └── ...
+├── scripts/                 # 工具脚本
+│   ├── reset_password.py    # 密码重置工具
+│   ├── check_db_records.py  # 数据库检查
+│   └── ...
 ├── database/                # 数据库相关
-│   └── schema.sql          # 数据库结构
+│   └── init.sql             # 数据库结构
 ├── bills/                   # 示例账单文件
-└── README.md               # 项目文档
+├── .env.example             # 环境变量示例
+├── pytest.ini              # 测试配置
+├── Makefile                 # 项目管理命令
+└── README.md                # 项目文档
 ```
 
 ## 🚀 快速开始
@@ -73,6 +87,36 @@ my-bills-2/
 - Node.js 18+
 - Python 3.9+
 - PostgreSQL 12+
+
+### 方式一：使用 Makefile（推荐）
+
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd my-bills-2
+
+# 2. 复制环境变量配置文件
+cp .env.example .env
+# 编辑 .env 文件，填入实际的数据库连接信息
+
+# 3. 安装所有依赖
+make install
+
+# 4. 初始化数据库
+make db-init
+
+# 5. 启动开发服务器
+make dev-backend    # 启动后端 (http://127.0.0.1:8000)
+make dev-frontend   # 启动前端 (http://localhost:5173)
+
+# 其他常用命令
+make test          # 运行测试
+make lint          # 代码检查
+make format        # 代码格式化
+make help          # 查看所有可用命令
+```
+
+### 方式二：手动安装
 
 ### 1. 克隆项目
 
@@ -127,7 +171,7 @@ psql -U postgres -d bills_db -f init.sql
 在 `backend` 目录下创建 `.env` 文件：
 
 ```bash
-DATABASE_URL=postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db
+DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -153,7 +197,7 @@ pip3 install -r requirements.txt
 export DATABASE_URL="postgresql://josie:bills_password_2024@localhost/bills_db"
 
 # 启动后端服务
-python3 main_production.py
+python3 main.py
 ```
 
 ### 4. 前端部署
@@ -184,7 +228,7 @@ class Settings:
     secret_key: str = "your-secret-key"
     
     # 数据库配置
-    database_url: str = "postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db"
+    database_url: str = "postgresql://josie:bills_password_2024@localhost:5432/bills_db"
     
     # CORS配置
     allowed_origins: List[str] = [
@@ -311,7 +355,7 @@ After=network.target
 Type=simple
 User=josie
 WorkingDirectory=/home/josie/apps/family-bills-backend
-ExecStart=/usr/bin/python3 main_production.py
+ExecStart=/usr/bin/python3 main.py
 Restart=always
 
 [Install]
@@ -361,7 +405,7 @@ EOF
    sudo systemctl status postgresql
    
    # 检查数据库连接
-   psql -h jo.mitrecx.top -U josie -d bills_db -c "SELECT 1"
+   psql -h localhost -U josie -d bills_db -c "SELECT 1"
    ```
 
 2. **CORS跨域错误**

@@ -48,19 +48,26 @@ const Layout: React.FC = () => {
   // 菜单项
   const menuItems: MenuProps['items'] = [
     {
+      key: 'bills-group',
+      icon: <FileTextOutlined />,
+      label: '账单管理',
+      children: [
+        {
+          key: '/bills',
+          icon: <FileTextOutlined />,
+          label: '账单总览',
+        },
+        {
+          key: '/upload',
+          icon: <UploadOutlined />,
+          label: '导入账单',
+        },
+      ],
+    },
+    {
       key: '/dashboard',
       icon: <DashboardOutlined />,
       label: '仪表板',
-    },
-    {
-      key: '/bills',
-      icon: <FileTextOutlined />,
-      label: '账单管理',
-    },
-    {
-      key: '/upload',
-      icon: <UploadOutlined />,
-      label: '文件上传',
     },
     {
       key: '/stats',

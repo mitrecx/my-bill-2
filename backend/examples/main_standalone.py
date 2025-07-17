@@ -71,7 +71,7 @@ try:
     from sqlalchemy import create_engine, text
     
     # 测试数据库连接
-    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://josie:bills_password_2024@jo.mitrecx.top:5432/bills_db")
+    DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://josie:bills_password_2024@localhost:5432/bills_db")
     engine = create_engine(DATABASE_URL)
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))

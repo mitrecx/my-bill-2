@@ -114,7 +114,7 @@ export interface BillQueryParams {
   family_id?: number;
   user_id?: number;
   category_id?: number;
-  transaction_type?: 'income' | 'expense';
+  transaction_type?: 'income' | 'expense' | 'transfer';
   source_type?: 'alipay' | 'jd' | 'cmb';
   start_date?: string;
   end_date?: string;
@@ -141,14 +141,15 @@ export interface CategoryStats {
 }
 
 // 文件上传相关
-export interface FileUploadResponse {
+export interface UploadResponse {
+  upload_id: number;
   filename: string;
-  preview: Bill[];
+  source_type: string;
   total_records: number;
-  upload_id: string;
-}
-
-export interface FileUploadConfirm {
-  upload_id: string;
-  family_id: number;
+  success_count: number;
+  failed_count: number;
+  status: string;
+  created_bills: number[];
+  errors: string[];
+  warnings: string[];
 }

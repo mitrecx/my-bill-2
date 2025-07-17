@@ -13,13 +13,14 @@ from schemas.family import (
     FamilyResponse,
     FamilyWithMembersResponse,
     FamilyMemberResponse,
+    ApiResponse,  # 新增导入
 )
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/families", tags=["families"])
 
 
-@router.get("/", response_model=List[FamilyResponse])
+@router.get("/", response_model=ApiResponse)
 async def list_families(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """获取当前用户所属家庭列表"""
     try:
@@ -29,7 +30,7 @@ async def list_families(current_user: User = Depends(get_current_user), db: Sess
             .filter(FamilyMember.user_id == current_user.id)
             .all()
         )
-        return families
+        return {"data": families, "success": True, "message": "获取成功"}
     except Exception as e:
         logger.error(f"获取家庭列表失败: {e}")
         raise HTTPException(status_code=500, detail="获取家庭列表失败")
