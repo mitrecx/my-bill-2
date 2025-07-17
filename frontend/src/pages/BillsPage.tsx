@@ -15,11 +15,9 @@ import {
   Popconfirm,
 } from 'antd';
 import {
-  SearchOutlined,
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  ReloadOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
 // import { useAuthStore } from '../stores/auth';
@@ -47,6 +45,7 @@ const BillsPage: React.FC = () => {
   } = useBillsStore();
 
   const [searchText, setSearchText] = useState('');
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [form] = Form.useForm();
@@ -90,15 +89,27 @@ const BillsPage: React.FC = () => {
     }
   };
 
-  // 重置筛选
+  // 重置筛选 - 清空所有搜索条件
   const handleReset = () => {
     setSearchText('');
+    setDateRange(null);
     setQueryParams({
       page: 1,
       size: 20,
       sort_by: 'transaction_date',
       sort_order: 'desc',
+      search: undefined,
+      transaction_type: undefined,
+      source_type: undefined,
+      category_id: undefined,
+      start_date: undefined,
+      end_date: undefined,
     });
+    fetchBills();
+  };
+
+  // 查询按钮 - 触发搜索
+  const handleQuery = () => {
     fetchBills();
   };
 
@@ -227,13 +238,12 @@ const BillsPage: React.FC = () => {
       {/* 筛选区域 */}
       <Card style={{ marginBottom: 16 }}>
         <Space wrap>
-          <Input.Search
+          <Input
             placeholder="搜索交易描述"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            onSearch={handleSearch}
+            onPressEnter={handleSearch}
             style={{ width: 200 }}
-            enterButton={<SearchOutlined />}
           />
           
           <Select
@@ -276,26 +286,31 @@ const BillsPage: React.FC = () => {
 
           <RangePicker
             placeholder={['开始日期', '结束日期']}
+            value={dateRange}
             onChange={(dates) => {
+              setDateRange(dates);
               if (dates && dates[0] && dates[1]) {
-                handleFilter('start_date', dates[0].format('YYYY-MM-DD'));
-                handleFilter('end_date', dates[1].format('YYYY-MM-DD'));
+                setQueryParams({
+                  start_date: dates[0].format('YYYY-MM-DD'),
+                  end_date: dates[1].format('YYYY-MM-DD'),
+                  page: 1,
+                });
               } else {
-                handleFilter('start_date', undefined);
-                handleFilter('end_date', undefined);
+                setQueryParams({
+                  start_date: undefined,
+                  end_date: undefined,
+                  page: 1,
+                });
               }
             }}
           />
 
-          <Button onClick={handleReset}>
-            重置
+          <Button type="primary" onClick={handleQuery}>
+            查询
           </Button>
 
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={() => fetchBills()}
-          >
-            刷新
+          <Button onClick={handleReset}>
+            重置
           </Button>
         </Space>
       </Card>
