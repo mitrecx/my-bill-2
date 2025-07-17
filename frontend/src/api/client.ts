@@ -45,6 +45,24 @@ const createApiClient = (): AxiosInstance => {
         }
       }
       
+      // 处理网络错误和服务器错误，提供友好的错误信息
+      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
+        // 网络超时或连接失败
+        error.friendlyMessage = '网络连接失败，请检查网络连接后重试';
+      } else if (error.response?.status === 503 && error.response?.data?.error_code === 'DATABASE_CONNECTION_ERROR') {
+        // 数据库连接错误
+        error.friendlyMessage = error.response.data.message || '数据库服务暂时不可用，请稍后重试';
+      } else if (error.response?.status >= 500) {
+        // 服务器内部错误
+        error.friendlyMessage = error.response?.data?.message || '服务器内部错误，请稍后重试';
+      } else if (error.response?.status >= 400) {
+        // 客户端错误
+        error.friendlyMessage = error.response?.data?.message || '请求失败，请检查输入信息';
+      } else if (!error.response) {
+        // 无响应（可能是网络问题）
+        error.friendlyMessage = '无法连接到服务器，请检查网络连接';
+      }
+      
       return Promise.reject(error);
     }
   );
@@ -154,4 +172,4 @@ export const UserManager = {
     TokenManager.removeToken();
     this.removeUser();
   },
-}; 
+};

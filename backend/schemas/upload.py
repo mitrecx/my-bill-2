@@ -8,7 +8,9 @@ class UploadResponse(BaseModel):
     filename: str
     source_type: str
     total_records: int
-    success_count: int
+    success_count: int  # 总成功数（新增+更新）
+    created_count: int = 0  # 新增记录数
+    updated_count: int = 0  # 更新记录数
     failed_count: int
     status: str
     created_bills: List[int] = []

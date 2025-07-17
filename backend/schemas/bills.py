@@ -129,7 +129,8 @@ class BillResponse(BaseModel):
         # 映射中文交易类型到英文
         transaction_type_map = {
             "收入": "income",
-            "支出": "expense"
+            "支出": "expense",
+            "不计收支": "transfer"  # 添加不计收支类型
         }
         transaction_type = transaction_type_map.get(bill.transaction_type, bill.transaction_type)
         

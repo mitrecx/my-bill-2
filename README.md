@@ -58,7 +58,7 @@ my-bills-2/
 │   ├── api/                 # API路由
 │   ├── core/                # 核心功能
 │   ├── utils/               # 工具函数
-│   ├── main_production.py   # 生产环境入口
+│   ├── main.py               # 应用入口
 │   └── requirements.txt     # Python依赖
 ├── database/                # 数据库相关
 │   └── schema.sql          # 数据库结构
@@ -153,7 +153,7 @@ pip3 install -r requirements.txt
 export DATABASE_URL="postgresql://josie:bills_password_2024@localhost/bills_db"
 
 # 启动后端服务
-python3 main_production.py
+python3 main.py
 ```
 
 ### 4. 前端部署
@@ -311,7 +311,7 @@ After=network.target
 Type=simple
 User=josie
 WorkingDirectory=/home/josie/apps/family-bills-backend
-ExecStart=/usr/bin/python3 main_production.py
+ExecStart=/usr/bin/python3 main.py
 Restart=always
 
 [Install]

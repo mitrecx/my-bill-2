@@ -21,7 +21,6 @@ import type {
 // 认证服务
 export const AuthService = {
   async login(credentials: LoginRequest): Promise<ApiResponse<AuthResponse['data']>> {
-    // 使用JSON格式，匹配main_production.py的UserLogin模型
     const response = await ApiClient.post<AuthResponse['data']>(API_ENDPOINTS.AUTH.LOGIN, credentials, {
       headers: {
         'Content-Type': 'application/json',

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # 文件上传配置
     UPLOAD_DIR: str = Field(default="uploads", env="UPLOAD_DIR")
     MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
+    ALLOWED_EXTENSIONS: str = Field(default=".csv,.xlsx,.xls", env="ALLOWED_EXTENSIONS")
     
     # 日志配置
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
@@ -74,6 +75,16 @@ class Settings(BaseSettings):
     def cors_origins(self) -> List[str]:
         """获取CORS origins列表"""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+    
+    @property
+    def allowed_extensions(self) -> List[str]:
+        """获取允许的文件扩展名列表"""
+        return [ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()]
+    
+    @property
+    def max_file_size(self) -> int:
+        """获取最大文件大小"""
+        return self.MAX_FILE_SIZE
     
     @property
     def is_production(self) -> bool:

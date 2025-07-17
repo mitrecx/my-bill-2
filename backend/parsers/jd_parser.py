@@ -221,13 +221,38 @@ class JDParser(BaseParser):
         # 处理金额，京东可能有特殊标记（如已退款）
         amount_str = str(record.get("amount", ""))
         if amount_str:
-            # 移除京东特有的标记
-            amount_str = amount_str.replace("(已全额退款)", "").replace("(已退款", "").strip()
-            # 提取退款金额
-            if "(已退款" in str(record.get("amount", "")):
-                # 标记为退款交易
+            original_amount = amount_str
+            
+            # 处理包含退款信息的金额格式，如：577.61(已退款273.48)
+            if "(已退款" in amount_str:
+                # 提取主金额（括号前的部分）
+                main_amount = amount_str.split("(")[0].strip()
+                
+                # 提取退款金额
+                import re
+                refund_match = re.search(r'\(已退款([\d.]+)\)', amount_str)
+                refund_amount = refund_match.group(1) if refund_match else "0"
+                
+                # 计算实际支付金额（主金额 - 退款金额）
+                try:
+                    main_val = float(main_amount)
+                    refund_val = float(refund_amount)
+                    actual_amount = main_val - refund_val
+                    amount_str = str(actual_amount)
+                    
+                    # 添加退款信息到备注
+                    processed["remark"] = f"原金额: {main_amount}, 退款: {refund_amount}, 实际支付: {actual_amount}. {processed.get('remark', '')}"
+                    
+                except (ValueError, TypeError):
+                    # 如果计算失败，使用主金额
+                    amount_str = main_amount
+                    processed["remark"] = f"退款交易: {original_amount}. {processed.get('remark', '')}"
+                    
+            elif "(已全额退款)" in amount_str:
+                # 全额退款的情况
+                amount_str = amount_str.replace("(已全额退款)", "").strip()
                 processed["transaction_type"] = "不计收支"
-                processed["remark"] = f"退款交易: {processed.get('remark', '')}"
+                processed["remark"] = f"全额退款交易. {processed.get('remark', '')}"
             
             processed["amount"] = amount_str
         
@@ -249,8 +274,8 @@ class JDParser(BaseParser):
         
         # 处理备注，合并多个备注字段
         remark_parts = []
-        if record.get("remark"):
-            remark_parts.append(str(record["remark"]))
+        if processed.get("remark"):  # 使用已处理的备注
+            remark_parts.append(str(processed["remark"]))
         if record.get("transaction_status"):
             remark_parts.append(f"状态: {record['transaction_status']}")
         if record.get("category"):

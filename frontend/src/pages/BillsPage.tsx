@@ -105,11 +105,11 @@ const BillsPage: React.FC = () => {
   // 表格列定义
   const columns: ColumnsType<Bill> = [
     {
-      title: '交易日期',
+      title: '交易时间',
       dataIndex: 'transaction_date',
       key: 'transaction_date',
-      width: 120,
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD'),
+      width: 160,
+      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
       sorter: true,
     },
     {
@@ -125,10 +125,12 @@ const BillsPage: React.FC = () => {
       width: 120,
       render: (amount: number, record: Bill) => (
         <span style={{
-          color: record.transaction_type === 'income' ? '#3f8600' : '#cf1322',
+          color: record.transaction_type === 'income' ? '#3f8600' : 
+                record.transaction_type === 'expense' ? '#cf1322' : '#666',
           fontWeight: 'bold',
         }}>
-          {record.transaction_type === 'income' ? '+' : '-'}
+          {record.transaction_type === 'income' ? '+' : 
+           record.transaction_type === 'expense' ? '-' : ''}
           {amount.toFixed(2)}
         </span>
       ),
@@ -140,8 +142,8 @@ const BillsPage: React.FC = () => {
       key: 'transaction_type',
       width: 80,
       render: (type: string) => (
-        <Tag color={type === 'income' ? 'green' : 'red'}>
-          {type === 'income' ? '收入' : '支出'}
+        <Tag color={type === 'income' ? 'green' : type === 'expense' ? 'red' : 'blue'}>
+          {type === 'income' ? '收入' : type === 'expense' ? '支出' : '不计收支'}
         </Tag>
       ),
     },
@@ -243,6 +245,7 @@ const BillsPage: React.FC = () => {
           >
             <Option value="income">收入</Option>
             <Option value="expense">支出</Option>
+            <Option value="transfer">不计收支</Option>
           </Select>
 
           <Select

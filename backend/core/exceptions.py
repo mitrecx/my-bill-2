@@ -84,6 +84,17 @@ class BusinessException(AppException):
         )
 
 
+class DatabaseConnectionException(AppException):
+    """数据库连接异常"""
+    
+    def __init__(self, message: str = "数据库连接失败，请稍后重试"):
+        super().__init__(
+            message=message,
+            status_code=503,
+            error_code="DATABASE_CONNECTION_ERROR"
+        )
+
+
 def setup_exception_handlers(app: FastAPI):
     """设置全局异常处理器"""
     
@@ -190,6 +201,40 @@ def setup_exception_handlers(app: FastAPI):
     async def general_exception_handler(request: Request, exc: Exception):
         """处理未捕获的异常"""
         error_id = id(exc)  # 生成错误ID用于追踪
+        
+        # 检查是否为数据库连接错误
+        exc_str = str(exc).lower()
+        if any(keyword in exc_str for keyword in [
+            'connection refused', 
+            'connection to server', 
+            'could not connect to server',
+            'database connection',
+            'psycopg2.operationalerror',
+            'connection timeout'
+        ]):
+            logger.error(
+                "数据库连接异常",
+                error_id=error_id,
+                exception_type=type(exc).__name__,
+                exception_message=str(exc),
+                path=request.url.path,
+                method=request.method
+            )
+            
+            response_data = ApiResponse(
+                success=False,
+                message="数据库服务暂时不可用，请稍后重试",
+                error_code="DATABASE_CONNECTION_ERROR",
+                details={
+                    "error_id": error_id,
+                    "suggestion": "请检查数据库服务是否正常运行"
+                }
+            )
+            
+            return JSONResponse(
+                status_code=503,
+                content=response_data.model_dump(mode='json')
+            )
         
         logger.error(
             "未处理异常",

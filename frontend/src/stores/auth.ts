@@ -50,7 +50,12 @@ export const useAuthStore = create<AuthState & AuthActions>()(
           });
           console.log('[login] after loadUser', get().user, get().isAuthenticated);
         } catch (error: any) {
-          const errorMessage = error.response?.data?.detail || error.message || '登录失败，请重试';
+          // 优先使用友好的错误信息，然后是API返回的错误信息，最后是默认信息
+          const errorMessage = error.friendlyMessage || 
+                              error.response?.data?.message || 
+                              error.response?.data?.detail || 
+                              error.message || 
+                              '登录失败，请重试';
           set({
             error: errorMessage,
             isLoading: false,
@@ -76,7 +81,11 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             isLoading: false,
           });
         } catch (error: any) {
-          const errorMessage = error.response?.data?.detail || '注册失败，请重试';
+          // 优先使用友好的错误信息，然后是API返回的错误信息，最后是默认信息
+          const errorMessage = error.friendlyMessage || 
+                              error.response?.data?.message || 
+                              error.response?.data?.detail || 
+                              '注册失败，请重试';
           set({
             error: errorMessage,
             isLoading: false,

@@ -114,7 +114,7 @@ export interface BillQueryParams {
   family_id?: number;
   user_id?: number;
   category_id?: number;
-  transaction_type?: 'income' | 'expense';
+  transaction_type?: 'income' | 'expense' | 'transfer';
   source_type?: 'alipay' | 'jd' | 'cmb';
   start_date?: string;
   end_date?: string;

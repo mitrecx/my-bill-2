@@ -86,7 +86,14 @@ async def get_bills(
             query = query.filter(Bill.category_id == category_id)
         
         if transaction_type:
-            query = query.filter(Bill.transaction_type == transaction_type)
+            # 将英文交易类型转换为中文进行数据库查询
+            transaction_type_map = {
+                "income": "收入",
+                "expense": "支出",
+                "transfer": "不计收支"  # 添加不计收支类型
+            }
+            db_transaction_type = transaction_type_map.get(transaction_type, transaction_type)
+            query = query.filter(Bill.transaction_type == db_transaction_type)
         
         if source_type:
             query = query.filter(Bill.source_type == source_type)
