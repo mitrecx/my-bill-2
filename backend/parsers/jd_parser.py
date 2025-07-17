@@ -272,14 +272,16 @@ class JDParser(BaseParser):
         elif record.get("merchant_order_id"):
             processed["order_id"] = record["merchant_order_id"]
         
-        # 处理备注，合并多个备注字段
+        # 确保分类字段正确保存
+        if record.get("category"):
+            processed["category"] = record["category"]
+        
+        # 处理备注，合并多个备注字段（但不包括分类信息）
         remark_parts = []
         if processed.get("remark"):  # 使用已处理的备注
             remark_parts.append(str(processed["remark"]))
         if record.get("transaction_status"):
             remark_parts.append(f"状态: {record['transaction_status']}")
-        if record.get("category"):
-            remark_parts.append(f"分类: {record['category']}")
             
         if remark_parts:
             processed["remark"] = " | ".join(remark_parts)

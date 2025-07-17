@@ -426,34 +426,3 @@ tail -f /home/josie/apps/family-bills-backend/app.log
 # 系统服务日志
 sudo journalctl -u bills-backend -f
 ```
-
-## 🤝 贡献指南
-
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
-## 📝 更新日志
-
-### v1.0.0 (2025-07-10)
-- ✅ 完成基础用户认证系统
-- ✅ 实现多用户家庭协作功能
-- ✅ 支持支付宝、京东、招商银行账单解析
-- ✅ 完成数据可视化和统计分析
-- ✅ 完成生产环境部署配置
-
-## 📄 许可证
-
-本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 📞 联系信息
-
-- 项目维护者: [Your Name]
-- 邮箱: [your.email@example.com]
-- 项目地址: [https://github.com/username/my-bills-2]
-
----
-
-**🎉 感谢使用家庭账单管理系统！如有问题请提交 Issue 或 Pull Request。**

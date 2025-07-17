@@ -42,15 +42,14 @@ async def get_or_create_category(
 ) -> BillCategory:
     """获取或创建账单分类"""
     category = db.query(BillCategory).filter(
-        BillCategory.name == name,
+        BillCategory.category_name == name,
         BillCategory.family_id == family_id
     ).first()
     
     if not category:
         category = BillCategory(
-            name=name,
+            category_name=name,
             family_id=family_id,
-            description=description or f"自动创建的{name}分类",
             icon=icon or "category",
             color=color or "#666666"
         )
