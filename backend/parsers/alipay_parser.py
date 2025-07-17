@@ -16,8 +16,8 @@ class AlipayParser(BaseParser):
         # 支付宝CSV字段映射
         self.field_mapping = {
             "记录时间": "transaction_time",
-            "交易类型": "transaction_type", 
-            "收支": "income_expense",
+            "分类": "category",
+            "收支类型": "income_expense",
             "金额": "amount",
             "备注": "transaction_desc",
             "账户": "account",
@@ -100,7 +100,7 @@ class AlipayParser(BaseParser):
         """找到数据开始的行号"""
         for i, line in enumerate(lines):
             # 查找包含字段名的行
-            if "记录时间" in line and "交易类型" in line and "金额" in line:
+            if "记录时间" in line and "分类" in line and "金额" in line:
                 return i
         return -1
     
@@ -118,12 +118,30 @@ class AlipayParser(BaseParser):
                 
         return mapped
     
+    def _clean_nan_values(self, obj):
+        """递归清理对象中的NaN值"""
+        if isinstance(obj, dict):
+            cleaned = {}
+            for key, value in obj.items():
+                cleaned[key] = self._clean_nan_values(value)
+            return cleaned
+        elif isinstance(obj, list):
+            return [self._clean_nan_values(item) for item in obj]
+        elif pd.isna(obj):
+            return None
+        elif isinstance(obj, float) and (obj != obj):  # 另一种检查NaN的方法
+            return None
+        else:
+            return obj
+    
     def _process_alipay_fields(self, record: Dict[str, Any]) -> Dict[str, Any]:
         """处理支付宝特有字段"""
-        processed = record.copy()
+        # 首先清理原始记录中的NaN值
+        cleaned_record = self._clean_nan_values(record)
+        processed = cleaned_record.copy()
         
         # 处理收支情况
-        income_expense = record.get("income_expense", "")
+        income_expense = cleaned_record.get("income_expense", "")
         if income_expense:
             if "收入" in income_expense:
                 processed["transaction_type"] = "收入"
@@ -132,21 +150,26 @@ class AlipayParser(BaseParser):
             elif "不计收支" in income_expense:
                 processed["transaction_type"] = "不计收支"
         
+        # 使用分类字段作为交易类型的补充
+        category = cleaned_record.get("category", "")
+        if category and not processed.get("transaction_type"):
+            processed["transaction_type"] = category
+        
         # 处理交易描述，合并多个描述字段
         desc_parts = []
-        if record.get("transaction_desc"):
-            desc_parts.append(str(record["transaction_desc"]))
-        if record.get("source"):
-            desc_parts.append(f"来源: {record['source']}")
-        if record.get("tags"):
-            desc_parts.append(f"标签: {record['tags']}")
+        if cleaned_record.get("transaction_desc"):
+            desc_parts.append(str(cleaned_record["transaction_desc"]))
+        if cleaned_record.get("source"):
+            desc_parts.append(f"来源: {cleaned_record['source']}")
+        if cleaned_record.get("tags"):
+            desc_parts.append(f"标签: {cleaned_record['tags']}")
             
         if desc_parts:
             processed["transaction_desc"] = " | ".join(desc_parts)
         
         # 提取商户名称（从备注中提取）
-        if record.get("transaction_desc"):
-            desc = str(record["transaction_desc"])
+        if cleaned_record.get("transaction_desc"):
+            desc = str(cleaned_record["transaction_desc"])
             # 尝试从描述中提取商户名称
             if "-" in desc:
                 parts = desc.split("-", 1)
@@ -158,8 +181,26 @@ class AlipayParser(BaseParser):
                     processed["merchant_name"] = parts[0].strip()
         
         # 处理支付方式
-        account = record.get("account", "")
+        account = cleaned_record.get("account", "")
         if account:
             processed["payment_method"] = account
         
-        return processed 
+        # 设置raw_data字段为清理后的原始记录，避免嵌套
+        processed["raw_data"] = cleaned_record
+        
+        return processed
+    
+    def _detect_encoding(self, file_path: str) -> str:
+        """检测文件编码，支付宝文件通常是GBK编码"""
+        encodings = ['gbk', 'gb2312', 'gb18030', 'utf-8', 'utf-8-sig']
+        
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    f.read(1024)  # 读取前1024字符测试
+                return encoding
+            except UnicodeDecodeError:
+                continue
+        
+        logger.warning(f"无法检测文件编码，使用默认编码: gbk")
+        return 'gbk'

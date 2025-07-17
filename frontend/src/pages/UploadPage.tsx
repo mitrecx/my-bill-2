@@ -159,7 +159,14 @@ const UploadPage: React.FC = () => {
       
     } catch (error: any) {
       console.error('上传错误:', error);
-      message.error(error.response?.data?.detail || error.message || '上传失败');
+      
+      // 特殊处理支付宝重复上传错误
+      const errorDetail = error.response?.data?.detail || error.message || '上传失败';
+      if (errorDetail.includes('支付宝文件已经上传过') || errorDetail.includes('请勿重复上传')) {
+        message.error('此账单已经上传，支付宝账单不支持重复上传！');
+      } else {
+        message.error(errorDetail);
+      }
     } finally {
       setUploading(false);
       setTimeout(() => setUploadProgress(0), 1000);

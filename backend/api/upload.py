@@ -64,6 +64,10 @@ def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -
     """
     查找已存在的京东账单记录
     
+    对于京东账单，使用更精确的匹配策略：
+    1. 优先使用 order_id + transaction_time + amount 的组合
+    2. 如果没有order_id，则使用 transaction_time + amount + transaction_desc
+    
     返回：
     - 如果找到重复记录，返回该记录
     - 如果没有找到，返回 None
@@ -71,30 +75,72 @@ def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -
     try:
         raw_data = record.get("raw_data", {})
         order_id = raw_data.get("order_id")
+        transaction_time = record.get("transaction_time")
+        amount = record.get("amount")
+        transaction_desc = record.get("transaction_desc", "")
         
-        logger.debug(f"查找京东账单: family_id={family_id}, order_id={order_id}")
+        logger.debug(f"查找京东账单: family_id={family_id}, order_id={order_id}, time={transaction_time}, amount={amount}")
         
-        if not order_id:
-            logger.warning("京东账单缺少交易订单号")
-            return None
-        
-        # 使用交易订单号进行精确匹配
-        existing_bill = db.query(Bill).filter(
-            Bill.family_id == family_id,
-            Bill.source_type == "jd",
-            Bill.raw_data.op('->>')('order_id') == order_id
-        ).first()
-        
-        if existing_bill:
-            logger.info(f"找到已存在的京东账单（订单号匹配）: {order_id}")
-        else:
-            logger.debug(f"未找到重复的京东账单: {order_id}")
+        # 策略1: 如果有order_id，使用order_id + transaction_time + amount进行精确匹配
+        if order_id and transaction_time and amount is not None:
+            existing_bill = db.query(Bill).filter(
+                Bill.family_id == family_id,
+                Bill.source_type == "jd",
+                Bill.raw_data.op('->>')('order_id') == order_id,
+                Bill.transaction_time == transaction_time,
+                Bill.amount == amount
+            ).first()
             
-        return existing_bill
+            if existing_bill:
+                logger.info(f"找到已存在的京东账单（订单号+时间+金额匹配）: {order_id}")
+                return existing_bill
+        
+        # 策略2: 如果没有order_id或策略1没找到，使用时间+金额+描述进行匹配
+        if transaction_time and amount is not None and transaction_desc:
+            # 时间容差：允许1分钟内的时间差异
+            time_start = transaction_time - timedelta(minutes=1)
+            time_end = transaction_time + timedelta(minutes=1)
+            
+            existing_bill = db.query(Bill).filter(
+                Bill.family_id == family_id,
+                Bill.source_type == "jd",
+                Bill.transaction_time >= time_start,
+                Bill.transaction_time <= time_end,
+                Bill.amount == amount,
+                Bill.transaction_desc == transaction_desc
+            ).first()
+            
+            if existing_bill:
+                logger.info(f"找到已存在的京东账单（时间+金额+描述匹配）: {transaction_desc[:50]}...")
+                return existing_bill
+        
+        logger.debug(f"未找到重复的京东账单")
+        return None
         
     except Exception as e:
         logger.error(f"查找京东账单时出错: {e}")
         return None
+
+
+def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> bool:
+    """
+    检查支付宝文件是否已经上传过
+    """
+    try:
+        logger.info(f"检查支付宝文件重复: filename={filename}, family_id={family_id}")
+        existing_bill = db.query(Bill).filter(
+            Bill.family_id == family_id,
+            Bill.source_type == "alipay",
+            Bill.source_filename == filename
+        ).first()
+        
+        result = existing_bill is not None
+        logger.info(f"支付宝文件重复检查结果: {result}, existing_bill_id={existing_bill.id if existing_bill else None}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"检查支付宝文件重复失败: {e}")
+        return False
 
 
 def check_duplicate_bill_other_sources(record: Dict[str, Any], family_id: int, source_type: str, db: Session) -> bool:
@@ -102,6 +148,10 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_id: int, s
     检查非京东账单记录是否重复
     """
     try:
+        # 支付宝账单不进行记录级别的去重，因为相同记录可能是两笔独立交易
+        if source_type == "alipay":
+            return False
+        
         # 提取订单号（如果有的话）
         order_id = None
         raw_data = record.get("raw_data", {})
@@ -219,6 +269,14 @@ async def upload_file(
                 detail="无法识别文件类型，请指定source_type参数"
             )
         
+        # 支付宝文件重复检查
+        if source_type == "alipay":
+            if check_duplicate_alipay_file(file.filename, family_id, db):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="此账单已经上传, 支付宝账单不支持重复上传!"
+                )
+        
         # 获取解析器
         parser = get_parser(source_type)
         if not parser:
@@ -244,6 +302,9 @@ async def upload_file(
             updated_count = 0  # 新增：更新记录数
             created_bills = []
             
+            # 用于批次内去重的集合
+            batch_records = set()
+            
             # 处理成功解析的记录
             for i, record in enumerate(parse_result.success_records):
                 try:
@@ -256,6 +317,20 @@ async def upload_file(
                         failed_count += 1
                         continue
                     
+                    # 批次内去重检查（支付宝账单不进行批次内去重）
+                    if source_type != "alipay":
+                        record_key = (
+                            record["transaction_time"].isoformat() if hasattr(record["transaction_time"], 'isoformat') else str(record["transaction_time"]),
+                            str(record["amount"]),
+                            record.get("transaction_desc", "")
+                        )
+                        
+                        if record_key in batch_records:
+                            logger.info(f"跳过批次内重复记录 (记录 {i+1}): {record_key}")
+                            continue
+                        
+                        batch_records.add(record_key)
+                    
                     # 京东账单：查找已存在的记录并更新
                     if source_type == "jd":
                         existing_bill = find_existing_jd_bill(record, family_id, db)
@@ -267,6 +342,11 @@ async def upload_file(
                             existing_bill.transaction_type = record["transaction_type"]
                             existing_bill.transaction_desc = record.get("transaction_desc")
                             existing_bill.raw_data = record.get("raw_data", {})
+                            existing_bill.source_filename = file.filename  # 更新文件名
+                            existing_bill.order_id = record.get("order_id")  # 更新订单号
+                            existing_bill.counter_party = record.get("counter_party")  # 更新对手方
+                            existing_bill.remark = record.get("remark")  # 更新备注
+                            existing_bill.balance = record.get("balance")  # 更新余额
                             existing_bill.updated_at = datetime.now()
                             
                             # 自动分类
@@ -308,19 +388,41 @@ async def upload_file(
                         transaction_desc=record.get("transaction_desc"),
                         source_type=source_type,
                         category_id=category.id if category else None,
-                        raw_data=record.get("raw_data", {})
+                        raw_data=record.get("raw_data", {}),
+                        source_filename=file.filename,  # 记录所有账单的文件名
+                        order_id=record.get("order_id"),  # 添加订单号字段
+                        counter_party=record.get("counter_party"),  # 添加对手方字段
+                        remark=record.get("remark"),  # 添加备注字段
+                        balance=record.get("balance")  # 添加余额字段
                     )
                     
-                    db.add(bill)
-                    created_bills.append(bill)
-                    success_count += 1
+                    try:
+                        db.add(bill)
+                        db.flush()  # 先flush检查是否有错误
+                        created_bills.append(bill)
+                        success_count += 1
+                    except Exception as db_error:
+                        logger.error(f"数据库插入失败 (记录 {i+1}): {db_error}")
+                        logger.error(f"问题记录内容: {record}")
+                        db.rollback()  # 回滚这个记录
+                        failed_count += 1
+                        continue
                     
                 except Exception as e:
                     logger.error(f"创建账单记录失败 (记录 {i+1}): {e}")
                     logger.error(f"问题记录内容: {record}")
                     failed_count += 1
             
-            db.commit()
+            # 最终提交所有成功的记录
+            try:
+                db.commit()
+            except Exception as commit_error:
+                logger.error(f"最终提交失败: {commit_error}")
+                db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="数据库提交失败"
+                )
             
             logger.info(f"文件上传完成: {file.filename}, 新增: {success_count}, 更新: {updated_count}, 失败: {failed_count}")
             
@@ -334,6 +436,19 @@ async def upload_file(
             if updated_count > 0:
                 warnings.append(f"更新已存在记录数: {updated_count}")
             
+            # 构建错误信息列表
+            error_messages = []
+            # 添加解析失败的记录错误信息
+            for failed_record in parse_result.failed_records:
+                if isinstance(failed_record, dict) and 'parse_error' in failed_record:
+                    error_messages.append(failed_record['parse_error'])
+                else:
+                    error_messages.append(str(failed_record))
+            
+            # 添加保存失败的记录数
+            if failed_count > 0:
+                error_messages.append(f"保存失败记录数: {failed_count}")
+            
             return UploadResponse(
                 upload_id=0,  # 临时ID
                 filename=file.filename,
@@ -345,7 +460,7 @@ async def upload_file(
                 failed_count=total_failed,
                 status=upload_status,
                 created_bills=[bill.id for bill in created_bills],
-                errors=parse_result.failed_records + [f"保存失败记录数: {failed_count}"] if failed_count > 0 else parse_result.failed_records,
+                errors=error_messages,
                 warnings=warnings
             )
             
