@@ -9,8 +9,8 @@ import os
 
 # 配置
 BASE_URL = "http://localhost:8000"
-USERNAME = "test"
-PASSWORD = "123456"
+USERNAME = "admin"
+PASSWORD = "admin123"
 JD_FILE_PATH = "/Users/chenxing/projects/my-bills-2/bills/京东交易流水(申请时间2025年07月05日10时04分27秒)_739.csv"
 
 def login():
@@ -132,6 +132,56 @@ def get_bill_count(token):
         print(f"获取账单失败: {response.status_code}")
         return 0
 
+def verify_order_id_fields(token, family_id):
+    """验证order_id字段是否正确保存"""
+    print("\n5. 验证order_id字段...")
+    
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+    
+    # 获取京东账单记录
+    response = requests.get(f"{BASE_URL}/api/v1/bills/?family_id={family_id}&source_type=jd", headers=headers)
+    
+    if response.status_code == 200:
+        result = response.json()
+        bills = result.get("bills", [])
+        
+        if not bills:
+            print("❌ 没有找到京东账单记录")
+            return False
+        
+        print(f"找到 {len(bills)} 条京东账单记录")
+        
+        # 检查前几条记录的order_id字段
+        order_id_count = 0
+        for i, bill in enumerate(bills[:5]):
+            order_id = bill.get("order_id")
+            raw_order_id = bill.get("raw_data", {}).get("order_id") if bill.get("raw_data") else None
+            
+            print(f"记录 {i+1}:")
+            print(f"  - order_id: {order_id}")
+            print(f"  - raw_data.order_id: {raw_order_id}")
+            
+            if order_id:
+                order_id_count += 1
+        
+        print(f"\n前5条记录中有 {order_id_count} 条有order_id字段")
+        
+        # 统计所有记录的order_id字段
+        total_with_order_id = sum(1 for bill in bills if bill.get("order_id"))
+        print(f"总共 {len(bills)} 条记录中有 {total_with_order_id} 条有order_id字段")
+        
+        if total_with_order_id > 0:
+            print("✅ order_id字段修复成功！")
+            return True
+        else:
+            print("❌ order_id字段仍然为空")
+            return False
+    else:
+        print(f"获取账单失败: {response.status_code}")
+        return False
+
 def main():
     print("=== 测试京东账单的插入和更新功能 ===")
     
@@ -199,6 +249,9 @@ def main():
             print("⚠️  没有找到更新记录的统计信息")
     else:
         print(f"\n❌ 测试失败！第二次上传仍然新增了 {count_after_second - count_after_first} 条记录")
+    
+    # 验证order_id字段
+    verify_order_id_fields(token, family_id)
 
 if __name__ == "__main__":
     main()
