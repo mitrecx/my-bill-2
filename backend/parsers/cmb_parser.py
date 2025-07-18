@@ -64,6 +64,50 @@ class CMBParser(BaseParser):
         """解析招商银行文本内容"""
         return self._parse_text(content)
     
+    def _is_transaction_line(self, line: str) -> bool:
+        """判断是否为交易记录行"""
+        line = line.strip()
+        
+        # 排除非交易记录行
+        exclude_patterns = [
+            r'申请时间：',  # 申请时间行
+            r'验证码：',    # 验证码行
+            r'记账日期.*货币.*交易金额',  # 表头行
+            r'Transaction.*Date.*Currency',  # 英文表头行
+            r'^\s*$',      # 空行
+            r'第\s*\d+\s*页',  # 页码行
+            r'招商银行',    # 银行名称行
+            r'客户姓名：',  # 客户信息行
+            r'账户号码：',  # 账户信息行
+            r'查询时间：',  # 查询时间行
+            r'打印时间：',  # 打印时间行
+        ]
+        
+        for pattern in exclude_patterns:
+            if re.search(pattern, line):
+                return False
+        
+        # 检查是否包含交易记录的基本特征
+        # 1. 包含日期
+        if not re.search(r'\d{4}-\d{2}-\d{2}', line):
+            return False
+        
+        # 2. 包含货币代码或金额
+        if not (re.search(r'\bCNY\b|\bUSD\b|\bEUR\b|\bHKD\b', line) or 
+                re.search(r'-?\d+[,.]?\d*\.?\d+', line)):
+            return False
+        
+        # 3. 行的结构应该类似：日期 货币 金额 余额 描述 对手方
+        parts = line.split()
+        if len(parts) < 4:  # 至少应该有日期、货币、金额、余额
+            return False
+        
+        # 4. 第一个部分应该是日期
+        if not re.match(r'\d{4}-\d{2}-\d{2}', parts[0]):
+            return False
+        
+        return True
+    
     def _parse_tables(self, tables: List[List[List[str]]]) -> ParseResult:
         """解析PDF表格数据"""
         result = ParseResult()
@@ -162,23 +206,25 @@ class CMBParser(BaseParser):
             
             for line in lines:
                 if re.search(date_pattern, line):
-                    try:
-                        # 尝试解析行数据
-                        raw_record = self._parse_text_line(line)
-                        if raw_record:
-                            # 处理银行特有字段
-                            processed_record = self._process_cmb_fields(raw_record)
-                            
-                            # 标准化记录
-                            standardized = self.standardize_record(processed_record)
-                            if standardized:
-                                result.add_success(standardized)
-                            else:
-                                result.add_failed(raw_record, "记录标准化失败")
+                    # 过滤掉非交易记录行
+                    if self._is_transaction_line(line):
+                        try:
+                            # 尝试解析行数据
+                            raw_record = self._parse_text_line(line)
+                            if raw_record:
+                                # 处理银行特有字段
+                                processed_record = self._process_cmb_fields(raw_record)
                                 
-                    except Exception as e:
-                        logger.warning(f"处理文本行时出错: {e}")
-                        result.add_failed({"line": line}, str(e))
+                                # 标准化记录
+                                standardized = self.standardize_record(processed_record)
+                                if standardized:
+                                    result.add_success(standardized)
+                                else:
+                                    result.add_failed(raw_record, "记录标准化失败")
+                                    
+                        except Exception as e:
+                            logger.warning(f"处理文本行时出错: {e}")
+                            result.add_failed({"line": line}, str(e))
                         
         except Exception as e:
             logger.error(f"解析文本时出错: {e}")
@@ -288,4 +334,4 @@ class CMBParser(BaseParser):
         else:
             processed["payment_method"] = "银行卡"
         
-        return processed 
+        return processed

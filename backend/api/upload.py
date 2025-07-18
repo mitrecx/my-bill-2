@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional, Dict, Any
 import logging
 import os
@@ -277,6 +278,20 @@ async def upload_file(
                     detail="此账单已经上传, 支付宝账单不支持重复上传!"
                 )
         
+        # 招商银行文件重复检查
+        if source_type == "cmb":
+            existing_cmb_bill = db.query(Bill).filter(
+                Bill.family_id == family_id,
+                Bill.source_type == "cmb",
+                Bill.source_filename == file.filename
+            ).first()
+            
+            if existing_cmb_bill:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="此招商银行账单文件已经上传过，不支持重复上传!"
+                )
+        
         # 获取解析器
         parser = get_parser(source_type)
         if not parser:
@@ -317,12 +332,13 @@ async def upload_file(
                         failed_count += 1
                         continue
                     
-                    # 批次内去重检查（支付宝账单不进行批次内去重）
-                    if source_type != "alipay":
+                    # 批次内去重检查（支付宝和招商银行账单不进行批次内去重）
+                    if source_type not in ["alipay", "cmb"]:
                         record_key = (
                             record["transaction_time"].isoformat() if hasattr(record["transaction_time"], 'isoformat') else str(record["transaction_time"]),
                             str(record["amount"]),
-                            record.get("transaction_desc", "")
+                            record.get("transaction_desc", ""),
+                            record.get("counter_party", "")  # 加入对手方信息
                         )
                         
                         if record_key in batch_records:
@@ -364,7 +380,7 @@ async def upload_file(
                             continue
                     
                     # 其他来源：检查重复
-                    else:
+                    if source_type not in ["cmb"]:  # 招商银行已在文件级别检测重复
                         if check_duplicate_bill_other_sources(record, family_id, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue

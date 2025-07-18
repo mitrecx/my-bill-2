@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     # 文件上传配置
     UPLOAD_DIR: str = Field(default="uploads", env="UPLOAD_DIR")
     MAX_FILE_SIZE: int = Field(default=10 * 1024 * 1024, env="MAX_FILE_SIZE")  # 10MB
-    ALLOWED_EXTENSIONS: str = Field(default=".csv,.xlsx,.xls", env="ALLOWED_EXTENSIONS")
+    ALLOWED_EXTENSIONS: str = Field(default=".csv,.xlsx,.xls,.pdf", env="ALLOWED_EXTENSIONS")
     
     # 日志配置
     LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
