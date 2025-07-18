@@ -33,4 +33,9 @@ bills/*.pdf
 
 # 日志
 *.log
-nohup.out 
+nohup.out
+
+# SSL证书文件
+ssl-certs/*.key
+ssl-certs/*.pem
+ssl-certs/*.crt
