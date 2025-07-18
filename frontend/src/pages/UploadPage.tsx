@@ -160,13 +160,15 @@ const UploadPage: React.FC = () => {
     } catch (error: any) {
       console.error('上传错误:', error);
       
-      // 特殊处理支付宝重复上传错误
-      const errorDetail = error.response?.data?.detail || error.message || '上传失败';
-      if (errorDetail.includes('支付宝文件已经上传过') || errorDetail.includes('请勿重复上传')) {
-        message.error('此账单已经上传，支付宝账单不支持重复上传！');
-      } else {
-        message.error(errorDetail);
-      }
+      // 获取后端返回的错误信息
+      // 后端使用ApiResponse格式，错误信息在message字段中
+      const errorMessage = error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.message || 
+                          '上传失败';
+      
+      // 直接显示后端返回的错误信息，因为后端已经返回了友好的中文错误提示
+      message.error(errorMessage);
     } finally {
       setUploading(false);
       setTimeout(() => setUploadProgress(0), 1000);
