@@ -17,8 +17,6 @@ class Family(Base):
     # 关系
     members = relationship("FamilyMember", back_populates="family", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
-    categories = relationship("BillCategory", back_populates="family")
-    bills = relationship("Bill", back_populates="family")
 
 
 class FamilyMember(Base):

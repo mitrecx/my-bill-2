@@ -17,6 +17,12 @@ import type {
   UploadResponse,
   ApiResponse, // 新增ApiResponse类型导入
 } from '../types';
+import type {
+  Message,
+  MessageListResponse,
+  MessageUpdate,
+  MessageActionCreate,
+} from '../types/message';
 
 // 认证服务
 export const AuthService = {
@@ -61,36 +67,43 @@ export const UserService = {
 // 家庭服务
 export const FamilyService = {
   async getFamilies(): Promise<ApiResponse<Family[]>> {
-    const response = await ApiClient.get<Family[]>(API_ENDPOINTS.FAMILIES.BASE);
+    const response = await ApiClient.get<Family[]>('/families/');
     return response;
   },
 
-  async createFamily(familyData: { family_name: string; description?: string }): Promise<ApiResponse<Family>> {
-    const response = await ApiClient.post<Family>(API_ENDPOINTS.FAMILIES.BASE, familyData);
-    return response;
+  async createFamily(familyData: { family_name: string; description?: string; invite_usernames?: string[] }): Promise<Family> {
+    const response = await ApiClient.post<Family>('/families/', familyData);
+    return response.data;
   },
 
-  async updateFamily(familyId: number, familyData: Partial<Family>): Promise<ApiResponse<Family>> {
-    const response = await ApiClient.put<Family>(`${API_ENDPOINTS.FAMILIES.BASE}/${familyId}`, familyData);
-    return response;
+  async updateFamily(familyId: number, familyData: { family_name?: string; description?: string }): Promise<Family> {
+    const response = await ApiClient.put<Family>(`/families/${familyId}`, familyData);
+    return response.data;
   },
 
   async deleteFamily(familyId: number): Promise<void> {
-    await ApiClient.delete(`${API_ENDPOINTS.FAMILIES.BASE}/${familyId}`);
+    await ApiClient.delete(`/families/${familyId}`);
   },
 
-  async getFamilyMembers(familyId: number): Promise<ApiResponse<FamilyMember[]>> {
-    const response = await ApiClient.get<FamilyMember[]>(API_ENDPOINTS.FAMILIES.MEMBERS(familyId));
-    return response;
+  async getFamilyMembers(familyId: number): Promise<{ members: FamilyMember[] }> {
+    const response = await ApiClient.get<{ members: FamilyMember[] }>(`/families/${familyId}/members`);
+    return response.data;
   },
 
-  async joinFamily(familyId: number): Promise<ApiResponse<FamilyMember>> {
-    const response = await ApiClient.post<FamilyMember>(API_ENDPOINTS.FAMILIES.JOIN(familyId));
-    return response;
+  async joinFamily(familyId: number): Promise<FamilyMember> {
+    const response = await ApiClient.post<FamilyMember>(`/families/${familyId}/join`);
+    return response.data;
   },
 
   async leaveFamily(familyId: number): Promise<void> {
-    await ApiClient.delete(API_ENDPOINTS.FAMILIES.LEAVE(familyId));
+    await ApiClient.delete(`/families/${familyId}/leave`);
+  },
+
+  async searchUsers(query: string): Promise<{ id: number; username: string; full_name?: string; email: string }[]> {
+    const response = await ApiClient.get<{ id: number; username: string; full_name?: string; email: string }[]>('/families/search-users', {
+      params: { q: query }
+    });
+    return response.data;
   },
 };
 
@@ -166,3 +179,38 @@ export const UploadService = {
     await ApiClient.delete(`${API_ENDPOINTS.UPLOAD.BASE}/${id}`);
   },
 };
+
+// 消息服务
+export const messageApi = {
+  async getMessages(page = 1, size = 20, isRead?: boolean): Promise<ApiResponse<MessageListResponse>> {
+    const params: any = { page, size };
+    if (isRead !== undefined) {
+      params.is_read = isRead;
+    }
+    const response = await ApiClient.get<MessageListResponse>('/messages/', { params });
+    return response;
+  },
+
+  async getUnreadCount(): Promise<ApiResponse<number>> {
+    const response = await ApiClient.get<number>('/messages/unread-count');
+    return response;
+  },
+
+  async updateMessage(messageId: number, update: MessageUpdate): Promise<ApiResponse<Message>> {
+    const response = await ApiClient.patch<Message>(`/messages/${messageId}`, update);
+    return response;
+  },
+
+  async createMessageAction(messageId: number, action: MessageActionCreate): Promise<ApiResponse<any>> {
+    const response = await ApiClient.post<any>(`/messages/${messageId}/actions`, action);
+    return response;
+  },
+
+  async deleteMessage(messageId: number): Promise<ApiResponse<boolean>> {
+    const response = await ApiClient.delete<boolean>(`/messages/${messageId}`);
+    return response;
+  },
+};
+
+// 别名导出
+export const familyApi = FamilyService;

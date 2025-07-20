@@ -1,13 +1,15 @@
 from pydantic import BaseModel, Field
-from typing import Any, Optional, Dict, List, Union
+from typing import Any, Optional, Dict, List, Union, Generic, TypeVar
 from datetime import datetime
 
+T = TypeVar('T')
 
-class ApiResponse(BaseModel):
+
+class ApiResponse(BaseModel, Generic[T]):
     """统一API响应格式"""
     success: bool = Field(..., description="请求是否成功")
     message: str = Field(..., description="响应消息")
-    data: Optional[Any] = Field(None, description="响应数据")
+    data: Optional[T] = Field(None, description="响应数据")
     error_code: Optional[str] = Field(None, description="错误代码")
     details: Optional[Dict[str, Any]] = Field(None, description="详细信息")
     timestamp: datetime = Field(default_factory=datetime.now, description="响应时间")

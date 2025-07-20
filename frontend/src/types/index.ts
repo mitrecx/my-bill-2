@@ -153,3 +153,7 @@ export interface UploadResponse {
   errors: string[];
   warnings: string[];
 }
+
+// 导出其他模块的类型
+export * from './family';
+export * from './message';

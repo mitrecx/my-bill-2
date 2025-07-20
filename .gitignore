@@ -7,7 +7,6 @@ __pycache__/
 
 # 后端
 backend/.env
-backend/bills.db
 backend/logs/
 backend/nohup.out
 backend/__pycache__/
@@ -39,3 +38,5 @@ nohup.out
 ssl-certs/*.key
 ssl-certs/*.pem
 ssl-certs/*.crt
+
+调试须知.md

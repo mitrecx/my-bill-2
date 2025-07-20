@@ -41,9 +41,11 @@ const UploadPage: React.FC = () => {
     try {
       const familiesData = await FamilyService.getFamilies();
       console.log('[UploadPage] familiesData', familiesData);
-      setFamilies(Array.isArray(familiesData.data) ? familiesData.data : []);
-      if (Array.isArray(familiesData.data) && familiesData.data.length > 0) {
-        setSelectedFamily(familiesData.data[0].id);
+      // FamilyService.getFamilies() 现在返回 ApiResponse<Family[]> 格式
+      const familiesList = familiesData.data || [];
+      setFamilies(Array.isArray(familiesList) ? familiesList : []);
+      if (Array.isArray(familiesList) && familiesList.length > 0) {
+        setSelectedFamily(familiesList[0].id);
       }
     } catch (error) {
       message.error('加载家庭列表失败');

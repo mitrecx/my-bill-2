@@ -20,6 +20,8 @@ import {
   LogoutOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  MessageOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
 import type { MenuProps } from 'antd';
@@ -48,6 +50,11 @@ const Layout: React.FC = () => {
   // 菜单项
   const menuItems: MenuProps['items'] = [
     {
+      key: '/dashboard',
+      icon: <DashboardOutlined />,
+      label: '仪表板',
+    },
+    {
       key: 'bills-group',
       icon: <FileTextOutlined />,
       label: '账单管理',
@@ -65,14 +72,19 @@ const Layout: React.FC = () => {
       ],
     },
     {
-      key: '/dashboard',
-      icon: <DashboardOutlined />,
-      label: '仪表板',
-    },
-    {
       key: '/stats',
       icon: <BarChartOutlined />,
       label: '统计分析',
+    },
+    {
+      key: '/messages',
+      icon: <MessageOutlined />,
+      label: '消息中心',
+    },
+    {
+      key: '/family',
+      icon: <TeamOutlined />,
+      label: '家庭管理',
     },
     {
       key: '/settings',
@@ -183,4 +195,4 @@ const Layout: React.FC = () => {
   );
 };
 
-export default Layout; 
+export default Layout;

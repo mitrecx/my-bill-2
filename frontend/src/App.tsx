@@ -11,6 +11,8 @@ import BillsPage from './pages/BillsPage';
 import UploadPage from './pages/UploadPage';
 import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
+import MessagesPage from './pages/MessagesPage';
+import FamilyManagePage from './pages/FamilyManagePage';
 import './App.css';
 
 // 受保护的路由组件
@@ -104,6 +106,8 @@ const App: React.FC = () => {
               <Route path="bills" element={<BillsPage />} />
               <Route path="upload" element={<UploadPage />} />
               <Route path="stats" element={<StatsPage />} />
+              <Route path="messages" element={<MessagesPage />} />
+              <Route path="family" element={<FamilyManagePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
 

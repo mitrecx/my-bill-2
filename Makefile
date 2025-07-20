@@ -49,7 +49,10 @@ dev:
 
 dev-backend:
 	@echo "启动后端开发服务器..."
-	cd backend && python main.py
+	@echo "日志输出到 test.log 文件"
+	cd backend && nohup python main.py > ../test.log 2>&1 &
+	@echo "后端服务已在后台启动，PID: $$!"
+	@echo "查看日志: tail -f test.log"
 
 dev-frontend:
 	@echo "启动前端开发服务器..."

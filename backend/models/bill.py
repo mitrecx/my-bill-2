@@ -9,7 +9,6 @@ class BillCategory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     category_name = Column(String, nullable=False)
-    family_id = Column(Integer, ForeignKey("families.id"))
     parent_id = Column(Integer, nullable=True)
     color = Column(String, nullable=True)
     icon = Column(String, nullable=True)
@@ -17,7 +16,6 @@ class BillCategory(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     # 关系
-    family = relationship("Family", back_populates="categories")
     bills = relationship("Bill", back_populates="category")
 
 
@@ -25,7 +23,6 @@ class Bill(Base):
     __tablename__ = "bills"
 
     id = Column(Integer, primary_key=True, index=True)
-    family_id = Column(Integer, ForeignKey("families.id"))
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("bill_categories.id"), nullable=True)
 
@@ -45,6 +42,5 @@ class Bill(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # 关系
-    family = relationship("Family", back_populates="bills")
     user = relationship("User", back_populates="bills")
     category = relationship("BillCategory", back_populates="bills")

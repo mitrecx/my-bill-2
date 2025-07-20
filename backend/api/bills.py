@@ -27,19 +27,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bills", tags=["bills"])
 
 
-async def get_user_families(user: User, db: Session) -> List[int]:
-    """获取用户所属的家庭ID列表"""
-    family_members = db.query(FamilyMember).filter(
+async def get_user_family_members(user: User, db: Session) -> List[int]:
+    """获取用户家庭中所有成员的用户ID列表（包括自己）"""
+    # 获取用户所属的家庭
+    family_member = db.query(FamilyMember).filter(
         FamilyMember.user_id == user.id
+    ).first()
+    
+    if not family_member:
+        # 如果用户不在任何家庭中，只返回自己的ID
+        return [user.id]
+    
+    # 获取家庭中所有成员的用户ID
+    family_members = db.query(FamilyMember).filter(
+        FamilyMember.family_id == family_member.family_id
     ).all()
-    return [fm.family_id for fm in family_members]
+    
+    return [fm.user_id for fm in family_members]
 
 
 @router.get("/", response_model=ApiResponse[BillListResponse])
 async def get_bills(
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页大小"),
-    family_id: Optional[int] = Query(None, description="家庭ID筛选"),
     category_id: Optional[int] = Query(None, description="分类ID筛选"),
     transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
     source_type: Optional[str] = Query(None, description="来源类型筛选"),
@@ -56,32 +66,16 @@ async def get_bills(
 ):
     """获取账单列表"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
-        if not user_family_ids:
-            return ApiResponse(
-                data=BillListResponse(
-                    items=[],
-                    total=0,
-                    page=page,
-                    size=size,
-                    pages=0
-                ),
-                success=True,
-                message="暂无账单数据"
-            )
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         # 构建查询
         query = db.query(Bill).options(
             joinedload(Bill.category),
-            joinedload(Bill.family),
             joinedload(Bill.user)
-        ).filter(Bill.family_id.in_(user_family_ids))
+        ).filter(Bill.user_id.in_(family_user_ids))
         
         # 应用筛选条件
-        if family_id and family_id in user_family_ids:
-            query = query.filter(Bill.family_id == family_id)
-        
         if category_id:
             query = query.filter(Bill.category_id == category_id)
         
@@ -160,7 +154,6 @@ async def get_bills(
 
 @router.get("/stats", response_model=BillStatsResponse)
 async def get_bill_stats(
-    family_id: Optional[int] = Query(None, description="家庭ID筛选"),
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
     current_user: User = Depends(get_current_user),
@@ -168,28 +161,13 @@ async def get_bill_stats(
 ):
     """获取账单统计信息"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
-        if not user_family_ids:
-            return BillStatsResponse(
-                total_income=0.0,
-                total_expense=0.0,
-                total_count=0,
-                income_count=0,
-                expense_count=0,
-                avg_amount=0.0,
-                by_category={},
-                by_source={},
-                by_month={}
-            )
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         # 构建基础查询
-        query = db.query(Bill).filter(Bill.family_id.in_(user_family_ids))
+        query = db.query(Bill).filter(Bill.user_id.in_(family_user_ids))
         
         # 应用筛选条件
-        if family_id and family_id in user_family_ids:
-            query = query.filter(Bill.family_id == family_id)
-        
         if start_date:
             query = query.filter(Bill.transaction_time >= start_date)
         
@@ -214,10 +192,8 @@ async def get_bill_stats(
             func.sum(Bill.amount).label("total_amount"),
             func.count(Bill.id).label("count")
         ).join(Bill, Bill.category_id == BillCategory.id)\
-         .filter(Bill.family_id.in_(user_family_ids))
+         .filter(Bill.user_id.in_(family_user_ids))
         
-        if family_id and family_id in user_family_ids:
-            category_stats = category_stats.filter(Bill.family_id == family_id)
         if start_date:
             category_stats = category_stats.filter(Bill.transaction_time >= start_date)
         if end_date:
@@ -240,10 +216,8 @@ async def get_bill_stats(
             Bill.transaction_type,
             func.sum(Bill.amount).label("total_amount"),
             func.count(Bill.id).label("count")
-        ).filter(Bill.family_id.in_(user_family_ids))
+        ).filter(Bill.user_id.in_(family_user_ids))
         
-        if family_id and family_id in user_family_ids:
-            source_stats = source_stats.filter(Bill.family_id == family_id)
         if start_date:
             source_stats = source_stats.filter(Bill.transaction_time >= start_date)
         if end_date:
@@ -266,10 +240,8 @@ async def get_bill_stats(
             Bill.transaction_type,
             func.sum(Bill.amount).label("total_amount"),
             func.count(Bill.id).label("count")
-        ).filter(Bill.family_id.in_(user_family_ids))
+        ).filter(Bill.user_id.in_(family_user_ids))
         
-        if family_id and family_id in user_family_ids:
-            month_stats = month_stats.filter(Bill.family_id == family_id)
         if start_date:
             month_stats = month_stats.filter(Bill.transaction_time >= start_date)
         if end_date:
@@ -313,30 +285,23 @@ async def get_bill_stats(
 
 @router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])
 async def get_categories(
-    family_id: Optional[int] = Query(None, description="家庭ID筛选"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取账单分类列表"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
-        query = db.query(BillCategory).filter(
-            BillCategory.family_id.in_(user_family_ids)
-        )
-        
-        if family_id and family_id in user_family_ids:
-            query = query.filter(BillCategory.family_id == family_id)
-        
-        categories = query.order_by(BillCategory.created_at.desc()).all()
+        # 查询所有分类（当前BillCategory模型没有user_id字段，都是系统分类）
+        categories = db.query(BillCategory).order_by(BillCategory.category_name).all()
         
         # 为每个分类添加账单数量统计
         category_responses = []
         for category in categories:
             bills_count = db.query(Bill).filter(
                 Bill.category_id == category.id,
-                Bill.family_id.in_(user_family_ids)
+                Bill.user_id.in_(family_user_ids)
             ).count()
             
             # 设置bills_count属性
@@ -366,20 +331,9 @@ async def create_category(
 ):
     """创建账单分类"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
-        
-        # 验证家庭ID是否属于用户
-        if category_data.family_id not in user_family_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权在该家庭创建分类"
-            )
-        
         # 检查分类名称是否已存在
         existing_category = db.query(BillCategory).filter(
-            BillCategory.category_name == category_data.name,
-            BillCategory.family_id == category_data.family_id
+            BillCategory.category_name == category_data.name
         ).first()
         
         if existing_category:
@@ -388,10 +342,9 @@ async def create_category(
                 detail="该分类名称已存在"
             )
         
-        # 创建新分类
+        # 创建新分类（当前BillCategory模型没有user_id字段）
         new_category = BillCategory(
             category_name=category_data.name,
-            family_id=category_data.family_id,
             color=category_data.color,
             icon=category_data.icon
         )
@@ -429,16 +382,15 @@ async def get_bill(
 ):
     """获取单个账单详情"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         bill = db.query(Bill).options(
             joinedload(Bill.category),
-            joinedload(Bill.family),
             joinedload(Bill.user)
         ).filter(
             Bill.id == bill_id,
-            Bill.family_id.in_(user_family_ids)
+            Bill.user_id.in_(family_user_ids)
         ).first()
         
         if not bill:
@@ -468,12 +420,12 @@ async def update_bill(
 ):
     """更新账单信息"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.family_id.in_(user_family_ids)
+            Bill.user_id.in_(family_user_ids)
         ).first()
         
         if not bill:
@@ -513,12 +465,12 @@ async def delete_bill(
 ):
     """删除账单"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.family_id.in_(user_family_ids)
+            Bill.user_id.in_(family_user_ids)
         ).first()
         
         if not bill:

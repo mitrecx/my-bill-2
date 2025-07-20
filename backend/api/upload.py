@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from typing import List, Optional, Dict, Any
 import logging
 import os
@@ -25,32 +25,41 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
 
 
-async def get_user_families(user: User, db: Session) -> List[int]:
-    """获取用户所属的家庭ID列表"""
-    family_members = db.query(FamilyMember).filter(
+async def get_user_family_members(user: User, db: Session) -> List[int]:
+    """获取用户家庭中所有成员的用户ID列表"""
+    # 获取用户所属的家庭
+    family_member = db.query(FamilyMember).filter(
         FamilyMember.user_id == user.id
+    ).first()
+    
+    if not family_member:
+        return [user.id]  # 如果用户不属于任何家庭，只返回自己的ID
+    
+    # 获取该家庭的所有成员
+    family_members = db.query(FamilyMember).filter(
+        FamilyMember.family_id == family_member.family_id
     ).all()
-    return [fm.family_id for fm in family_members]
+    
+    return [fm.user_id for fm in family_members]
 
 
 async def get_or_create_category(
     name: str, 
-    family_id: int, 
+    user_id: int, 
     db: Session,
     description: str = None,
     icon: str = None,
     color: str = None
 ) -> BillCategory:
     """获取或创建账单分类"""
+    # 查找已存在的分类
     category = db.query(BillCategory).filter(
-        BillCategory.category_name == name,
-        BillCategory.family_id == family_id
+        BillCategory.category_name == name
     ).first()
     
     if not category:
         category = BillCategory(
             category_name=name,
-            family_id=family_id,
             icon=icon or "category",
             color=color or "#666666"
         )
@@ -61,7 +70,7 @@ async def get_or_create_category(
     return category
 
 
-def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -> Optional[Bill]:
+def find_existing_jd_bill(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> Optional[Bill]:
     """
     查找已存在的京东账单记录
     
@@ -80,12 +89,12 @@ def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -
         amount = record.get("amount")
         transaction_desc = record.get("transaction_desc", "")
         
-        logger.debug(f"查找京东账单: family_id={family_id}, order_id={order_id}, time={transaction_time}, amount={amount}")
+        logger.debug(f"查找京东账单: family_user_ids={family_user_ids}, order_id={order_id}, time={transaction_time}, amount={amount}")
         
         # 策略1: 如果有order_id，使用order_id + transaction_time + amount进行精确匹配
         if order_id and transaction_time and amount is not None:
             existing_bill = db.query(Bill).filter(
-                Bill.family_id == family_id,
+                Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "jd",
                 Bill.raw_data.op('->>')('order_id') == order_id,
                 Bill.transaction_time == transaction_time,
@@ -103,7 +112,7 @@ def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -
             time_end = transaction_time + timedelta(minutes=1)
             
             existing_bill = db.query(Bill).filter(
-                Bill.family_id == family_id,
+                Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "jd",
                 Bill.transaction_time >= time_start,
                 Bill.transaction_time <= time_end,
@@ -123,14 +132,14 @@ def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -
         return None
 
 
-def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> bool:
+def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: Session) -> bool:
     """
     检查支付宝文件是否已经上传过
     """
     try:
-        logger.info(f"检查支付宝文件重复: filename={filename}, family_id={family_id}")
+        logger.info(f"检查支付宝文件重复: filename={filename}, family_user_ids={family_user_ids}")
         existing_bill = db.query(Bill).filter(
-            Bill.family_id == family_id,
+            Bill.user_id.in_(family_user_ids),
             Bill.source_type == "alipay",
             Bill.source_filename == filename
         ).first()
@@ -144,7 +153,7 @@ def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> b
         return False
 
 
-def check_duplicate_bill_other_sources(record: Dict[str, Any], family_id: int, source_type: str, db: Session) -> bool:
+def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: List[int], source_type: str, db: Session) -> bool:
     """
     检查非京东账单记录是否重复
     """
@@ -168,7 +177,7 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_id: int, s
             logger.debug(f"使用订单号进行去重检查: {order_id}")
             
             existing_bill = db.query(Bill).filter(
-                Bill.family_id == family_id,
+                Bill.user_id.in_(family_user_ids),
                 Bill.source_type == source_type,
                 Bill.raw_data.op('->>')('order_id') == order_id.strip()
             ).first()
@@ -190,7 +199,7 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_id: int, s
             time_end = transaction_time + timedelta(minutes=1)
             
             existing_bill = db.query(Bill).filter(
-                Bill.family_id == family_id,
+                Bill.user_id.in_(family_user_ids),
                 Bill.source_type == source_type,
                 Bill.transaction_time >= time_start,
                 Bill.transaction_time <= time_end,
@@ -229,7 +238,6 @@ async def get_parsers():
 @router.post("/", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
-    family_id: int = Form(...),
     source_type: Optional[str] = Form(None),
     auto_categorize: bool = Form(True),
     current_user: User = Depends(get_current_user),
@@ -237,13 +245,8 @@ async def upload_file(
 ):
     """上传并解析账单文件"""
     try:
-        # 验证用户是否属于指定家庭
-        user_family_ids = await get_user_families(current_user, db)
-        if family_id not in user_family_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="无权访问指定家庭"
-            )
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
         # 验证文件
         file_ext_valid, file_ext_msg = validate_file_extension(file.filename)
@@ -272,7 +275,7 @@ async def upload_file(
         
         # 支付宝文件重复检查
         if source_type == "alipay":
-            if check_duplicate_alipay_file(file.filename, family_id, db):
+            if check_duplicate_alipay_file(file.filename, family_user_ids, db):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="此账单已经上传, 支付宝账单不支持重复上传!"
@@ -281,7 +284,7 @@ async def upload_file(
         # 招商银行文件重复检查
         if source_type == "cmb":
             existing_cmb_bill = db.query(Bill).filter(
-                Bill.family_id == family_id,
+                Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "cmb",
                 Bill.source_filename == file.filename
             ).first()
@@ -349,7 +352,7 @@ async def upload_file(
                     
                     # 京东账单：查找已存在的记录并更新
                     if source_type == "jd":
-                        existing_bill = find_existing_jd_bill(record, family_id, db)
+                        existing_bill = find_existing_jd_bill(record, family_user_ids, db)
                         
                         if existing_bill:
                             # 更新已存在的记录
@@ -369,7 +372,7 @@ async def upload_file(
                             if auto_categorize and record.get("category"):
                                 category = await get_or_create_category(
                                     record["category"], 
-                                    family_id, 
+                                    current_user.id, 
                                     db
                                 )
                                 existing_bill.category_id = category.id
@@ -380,8 +383,8 @@ async def upload_file(
                             continue
                     
                     # 其他来源：检查重复
-                    if source_type not in ["cmb"]:  # 招商银行已在文件级别检测重复
-                        if check_duplicate_bill_other_sources(record, family_id, source_type, db):
+                    elif source_type not in ["cmb"]:  # 招商银行已在文件级别检测重复，京东账单不进行重复检查
+                        if check_duplicate_bill_other_sources(record, family_user_ids, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue
                     
@@ -390,14 +393,13 @@ async def upload_file(
                     if auto_categorize and record.get("category"):
                         category = await get_or_create_category(
                             record["category"], 
-                            family_id, 
+                            current_user.id, 
                             db
                         )
                     
                     # 创建新的账单记录
                     bill = Bill(
                         user_id=current_user.id,
-                        family_id=family_id,
                         amount=record["amount"],
                         transaction_time=record["transaction_time"],
                         transaction_type=record["transaction_type"],
@@ -494,18 +496,37 @@ async def upload_file(
         )
 
 
-@router.get("/history")
+@router.get("/history", response_model=List[UploadHistoryResponse])
 async def get_upload_history(
-    family_id: Optional[int] = None,
-    page: int = 1,
-    size: int = 20,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取上传历史记录"""
     try:
-        # 暂时返回空列表，因为UploadRecord模型不存在
-        return []
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+        
+        # 查询上传历史
+        bills = db.query(Bill).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.source_filename.isnot(None)
+        ).order_by(Bill.created_at.desc()).all()
+        
+        # 按文件名分组统计
+        file_stats = {}
+        for bill in bills:
+            filename = bill.source_filename
+            if filename not in file_stats:
+                file_stats[filename] = {
+                    "filename": filename,
+                    "source_type": bill.source_type,
+                    "upload_time": bill.created_at,
+                    "total_records": 0,
+                    "uploader": bill.user.username if bill.user else "未知用户"
+                }
+            file_stats[filename]["total_records"] += 1
+        
+        return list(file_stats.values())
         
     except Exception as e:
         logger.error(f"获取上传历史失败: {e}")
@@ -517,58 +538,39 @@ async def get_upload_history(
 
 @router.get("/stats", response_model=UploadStatsResponse)
 async def get_upload_stats(
-    family_id: Optional[int] = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取上传统计信息"""
     try:
-        # 获取用户所属家庭
-        user_family_ids = await get_user_families(current_user, db)
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
         
-        # 由于UploadRecord模型不存在，返回基本统计信息
-        bills_query = db.query(Bill).filter(
-            Bill.family_id.in_(user_family_ids)
-        )
+        # 统计总记录数
+        total_bills = db.query(Bill).filter(
+            Bill.user_id.in_(family_user_ids)
+        ).count()
         
-        if family_id and family_id in user_family_ids:
-            bills_query = bills_query.filter(Bill.family_id == family_id)
+        # 统计各来源类型的记录数
+        source_stats = db.query(
+            Bill.source_type,
+            func.count(Bill.id).label('count')
+        ).filter(
+            Bill.user_id.in_(family_user_ids)
+        ).group_by(Bill.source_type).all()
         
-        bills = bills_query.all()
-        
-        # 统计信息
-        total_uploads = 0
-        total_records = len(bills)
-        total_success = len(bills)
-        total_failed = 0
-        
-        # 按状态统计
-        by_status = {"completed": 1} if bills else {}
-        
-        # 按来源类型统计
-        by_source = {}
-        for bill in bills:
-            source = bill.source_type
-            if source not in by_source:
-                by_source[source] = {
-                    "count": 0,
-                    "records": 0,
-                    "success": 0,
-                    "failed": 0
-                }
-            by_source[source]["count"] += 1
-            by_source[source]["records"] += 1
-            by_source[source]["success"] += 1
-            by_source[source]["failed"] += 0
+        # 统计上传文件数
+        uploaded_files = db.query(
+            func.count(func.distinct(Bill.source_filename))
+        ).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.source_filename.isnot(None)
+        ).scalar()
         
         return UploadStatsResponse(
-            total_uploads=total_uploads,
-            total_records=total_records,
-            total_success=total_success,
-            total_failed=total_failed,
-            success_rate=total_success / total_records if total_records > 0 else 0,
-            by_status=by_status,
-            by_source=by_source
+            total_bills=total_bills,
+            uploaded_files=uploaded_files or 0,
+            source_stats={stat.source_type: stat.count for stat in source_stats}
         )
         
     except Exception as e:

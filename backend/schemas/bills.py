@@ -27,7 +27,6 @@ class BillCreate(BillBase):
     """创建账单请求模型"""
     transaction_time: datetime = Field(..., description="交易时间")
     source_type: str = Field(..., description="来源类型")
-    family_id: int = Field(..., description="家庭ID")
     raw_data: Optional[Dict[str, Any]] = Field(None, description="原始数据")
 
 
@@ -142,7 +141,7 @@ class BillResponse(BaseModel):
             transaction_desc=bill.transaction_desc,
             source_type=bill.source_type,
             category=CategoryResponse.from_category(bill.category) if bill.category else None,
-            family=FamilySimpleResponse.from_family(bill.family) if bill.family else None,
+            family=None,  # 暂时设为None，后续可以通过用户的家庭关系获取
             user=UserSimpleResponse.from_user(bill.user) if bill.user else None,
             raw_data=bill.raw_data,
             created_at=bill.created_at,
@@ -174,7 +173,6 @@ class BillStatsResponse(BaseModel):
 
 class BillFilter(BaseModel):
     """账单筛选模型"""
-    family_id: Optional[int] = None
     category_id: Optional[int] = None
     transaction_type: Optional[str] = None
     source_type: Optional[str] = None
@@ -192,7 +190,6 @@ class BillCategoryCreate(BaseModel):
     description: Optional[str] = Field(None, max_length=500, description="分类描述")
     icon: Optional[str] = Field(None, max_length=50, description="图标")
     color: Optional[str] = Field(None, max_length=20, description="颜色")
-    family_id: int = Field(..., description="家庭ID")
 
 
 class BillCategoryUpdate(BaseModel):
@@ -210,7 +207,6 @@ class BillCategoryResponse(BaseModel):
     description: Optional[str]
     icon: Optional[str]
     color: Optional[str]
-    family_id: int
     bills_count: Optional[int] = 0
     created_at: datetime
 
@@ -228,7 +224,6 @@ class BillCategoryResponse(BaseModel):
             description=getattr(category, 'description', None),
             icon=category.icon,
             color=category.color,
-            family_id=category.family_id,
             bills_count=getattr(category, 'bills_count', 0),
             created_at=category.created_at
         )

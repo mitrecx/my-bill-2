@@ -1,6 +1,6 @@
 # PostgreSQL 数据库设置指南
 
-本项目已从SQLite迁移到PostgreSQL数据库。请按照以下步骤设置PostgreSQL数据库。
+本项目使用PostgreSQL数据库。请按照以下步骤设置PostgreSQL数据库。
 
 ## 1. 安装PostgreSQL
 
@@ -160,15 +160,6 @@ python setup_postgres.py
 ```sql
 ALTER USER postgres CREATEDB;
 ```
-
-## 数据迁移
-
-如果你之前使用SQLite并有数据需要迁移，请：
-
-1. 备份SQLite数据
-2. 设置PostgreSQL数据库
-3. 使用数据导出/导入工具迁移数据
-4. 或者重新注册用户和上传账单文件
 
 ## 生产环境建议
 

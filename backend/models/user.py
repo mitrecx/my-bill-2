@@ -20,6 +20,9 @@ class User(Base):
     created_families = relationship("Family", back_populates="creator")
     family_memberships = relationship("FamilyMember", back_populates="user")
     bills = relationship("Bill", back_populates="user")
+    sent_messages = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender")
+    received_messages = relationship("Message", foreign_keys="Message.receiver_id", back_populates="receiver")
+    message_actions = relationship("MessageAction", back_populates="user")
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', email='{self.email}')>"

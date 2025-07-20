@@ -41,7 +41,6 @@ class UploadStatsResponse(BaseModel):
 class UploadRecord(BaseModel):
     """上传记录响应（匹配前端UploadRecord类型）"""
     id: int
-    family_id: int
     user_id: int
     filename: str
     file_size: int
