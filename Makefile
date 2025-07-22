@@ -1,7 +1,7 @@
 # 家庭账单管理系统 - Makefile
 # 简化常用开发和部署操作
 
-.PHONY: help install dev test clean build deploy
+.PHONY: help install install-backend dev dev-backend dev-frontend test clean build deploy
 
 # 默认目标
 help:
@@ -40,6 +40,11 @@ install:
 	@echo "安装前端依赖..."
 	cd frontend && npm install
 
+# 仅安装后端依赖
+install-backend:
+	@echo "安装后端依赖..."
+	cd backend && pip install -r requirements.txt
+
 # 开发服务器
 dev:
 	@echo "启动开发环境..."
@@ -47,12 +52,9 @@ dev:
 	@echo "前端: http://localhost:5173"
 	@echo "按 Ctrl+C 停止服务"
 
-dev-backend:
-	@echo "启动后端开发服务器..."
-	@echo "日志输出到 test.log 文件"
-	cd backend && nohup python main.py > ../test.log 2>&1 &
-	@echo "后端服务已在后台启动，PID: $$!"
-	@echo "查看日志: tail -f test.log"
+dev-backend: install-backend
+	@echo "启动后端开发服务器 (按 Ctrl+C 停止)..."
+	cd backend && python main.py
 
 dev-frontend:
 	@echo "启动前端开发服务器..."

@@ -82,6 +82,11 @@ const Layout: React.FC = () => {
       label: '消息中心',
     },
     {
+      key: '/users',
+      icon: <UserOutlined />,
+      label: '用户管理',
+    },
+    {
       key: '/family',
       icon: <TeamOutlined />,
       label: '家庭管理',

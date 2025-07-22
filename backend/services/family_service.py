@@ -137,9 +137,13 @@ class FamilyService:
         return True
 
     def search_users(self, query: str, exclude_user_id: Optional[int] = None) -> List[User]:
-        """搜索用户（按用户名模糊查询）"""
+        """搜索用户（按用户名和全名模糊查询）"""
+        # 支持用户名和全名的模糊查询
         search_query = self.db.query(User).filter(
-            User.username.ilike(f"%{query}%")
+            or_(
+                User.username.ilike(f"%{query}%"),
+                User.full_name.ilike(f"%{query}%")
+            )
         )
         
         if exclude_user_id:
@@ -149,7 +153,17 @@ class FamilyService:
         users_in_families = self.db.query(FamilyMember.user_id).subquery()
         search_query = search_query.filter(~User.id.in_(users_in_families))
         
-        return search_query.limit(10).all()
+        # 按用户名排序，优先显示用户名匹配的结果
+        from sqlalchemy import case
+        search_query = search_query.order_by(
+            case(
+                (User.username.ilike(f"%{query}%"), 1),
+                else_=2
+            ),
+            User.username
+        )
+        
+        return search_query.limit(20).all()
 
     def get_user_family(self, user_id: int) -> Optional[Family]:
         """获取用户所属的家庭"""
@@ -165,3 +179,17 @@ class FamilyService:
         ).first()
         
         return member and member.role == "admin"
+
+    def get_user_families(self, user_id: int) -> List[Family]:
+        """获取用户所属的所有家庭"""
+        # 查询该用户作为成员的所有家庭记录
+        family_members = self.db.query(FamilyMember).filter(FamilyMember.user_id == user_id).all()
+        if not family_members:
+            return []
+        
+        # 提取所有家庭ID
+        family_ids = [fm.family_id for fm in family_members]
+        
+        # 查询所有相关的家庭实体
+        families = self.db.query(Family).filter(Family.id.in_(family_ids)).all()
+        return families

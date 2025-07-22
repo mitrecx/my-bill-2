@@ -82,7 +82,7 @@ class MessageService:
         message_data = MessageCreate(
             sender_id=inviter_id,
             receiver_id=invitee_id,
-            message_type="family_invite",
+            message_type="FAMILY_INVITE",
             title="家庭邀请",
             content=f"{inviter_name} 邀请你加入 {family_name} 家庭",
             data=invite_data.model_dump()
@@ -101,7 +101,7 @@ class MessageService:
         message_data = MessageCreate(
             sender_id=None,  # 系统消息
             receiver_id=receiver_id,
-            message_type="system",
+            message_type="SYSTEM",
             title=title,
             content=content,
             data=data

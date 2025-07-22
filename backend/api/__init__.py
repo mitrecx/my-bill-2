@@ -13,7 +13,7 @@ api_router.include_router(families_router)
 api_router.include_router(bills_router)
 api_router.include_router(upload_router)
 api_router.include_router(health_router)
-api_router.include_router(messages_router, prefix="/messages", tags=["messages"])
-api_router.include_router(users_router, prefix="/users", tags=["users"])
+api_router.include_router(messages_router)
+api_router.include_router(users_router)
 
 __all__ = ["api_router"]

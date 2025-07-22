@@ -7,6 +7,8 @@ export interface User {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  family_name?: string;
+  family_role?: string;
 }
 
 export interface LoginRequest {
@@ -108,7 +110,7 @@ export interface PaginatedResponse<T> {
 }
 
 // 查询参数类型
-export interface BillQueryParams {
+export interface BillListQueryParams {
   page?: number;
   size?: number;
   family_id?: number;

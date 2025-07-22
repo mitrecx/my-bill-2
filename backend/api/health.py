@@ -132,6 +132,41 @@ async def health_check(db: Session = Depends(get_db)):
         )
 
 
+@router.post("/users-db", response_model=ApiResponse)
+async def check_users_connectivity(db: Session = Depends(get_db)):
+    """检查用户数据库连接"""
+    try:
+        # 检查数据库连接
+        db_status = HealthChecker.check_database(db)
+        
+        if db_status["status"] == "healthy":
+            return ApiResponse(
+                success=True,
+                message="服务已就绪",
+                data={
+                    "status": "ready",
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
+        else:
+            return ApiResponse(
+                success=False,
+                message="服务未就绪",
+                data={
+                    "status": "not_ready",
+                    "reason": db_status["message"]
+                }
+            )
+            
+    except Exception as e:
+        logger.error("就绪检查失败", error=str(e))
+        return ApiResponse(
+            success=False,
+            message="就绪检查失败",
+            error_code="READINESS_CHECK_ERROR"
+        )
+
+
 @router.get("/live", response_model=ApiResponse)
 async def liveness_check():
     """存活检查 - 用于K8s liveness probe"""

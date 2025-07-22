@@ -46,7 +46,7 @@ async def get_user_family_members(user: User, db: Session) -> List[int]:
     return [fm.user_id for fm in family_members]
 
 
-@router.get("/", response_model=ApiResponse[BillListResponse])
+@router.get("", response_model=ApiResponse[BillListResponse])
 async def get_bills(
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页大小"),
@@ -374,7 +374,7 @@ async def create_category(
         )
 
 
-@router.get("/{bill_id}", response_model=BillResponse)
+@router.get("/{bill_id}", response_model=ApiResponse[BillResponse])
 async def get_bill(
     bill_id: int,
     current_user: User = Depends(get_current_user),
@@ -399,7 +399,11 @@ async def get_bill(
                 detail="账单不存在或无权访问"
             )
         
-        return BillResponse.from_orm(bill)
+        return ApiResponse(
+            data=BillResponse.from_orm(bill),
+            success=True,
+            message="获取账单详情成功"
+        )
         
     except HTTPException:
         raise
@@ -457,7 +461,7 @@ async def update_bill(
         )
 
 
-@router.delete("/{bill_id}")
+@router.delete("/{bill_id}", response_model=ApiResponse[Dict[str, str]])
 async def delete_bill(
     bill_id: int,
     current_user: User = Depends(get_current_user),
@@ -482,7 +486,11 @@ async def delete_bill(
         db.delete(bill)
         db.commit()
         
-        return {"message": "账单删除成功"}
+        return ApiResponse(
+            success=True,
+            message="账单删除成功",
+            data={}
+        )
         
     except HTTPException:
         raise

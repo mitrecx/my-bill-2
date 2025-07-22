@@ -98,9 +98,9 @@ const MessagesPage: React.FC = () => {
 
   const getMessageTypeTag = (type: string) => {
     switch (type) {
-      case 'system':
+      case 'SYSTEM':
         return <Tag color="blue">系统消息</Tag>;
-      case 'family_invite':
+      case 'FAMILY_INVITE':
         return <Tag color="green">家庭邀请</Tag>;
       default:
         return <Tag>{type}</Tag>;
@@ -108,7 +108,7 @@ const MessagesPage: React.FC = () => {
   };
 
   const renderMessageActions = (msg: Message) => {
-    if (msg.message_type === 'family_invite' && msg.data?.family_id) {
+    if (msg.message_type === 'FAMILY_INVITE' && msg.data?.family_id) {
       return (
         <Space>
           <Button

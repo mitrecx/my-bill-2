@@ -30,19 +30,14 @@ class FamilyMemberBase(BaseModel):
 class FamilyMemberCreate(FamilyMemberBase):
     user_id: int
 
-class FamilyMemberResponse(FamilyMemberBase):
+class FamilyMemberResponse(BaseModel):
     id: int
-    family_id: int
     user_id: int
-    joined_at: datetime
+    role: str
+    username: str  # 从 user 对象中获取
 
     class Config:
         from_attributes = True
 
 class FamilyWithMembersResponse(FamilyResponse):
     members: List[FamilyMemberResponse] 
-
-class ApiResponse(BaseModel):
-    data: Optional[List[FamilyResponse]] = None
-    success: bool = True
-    message: str = "获取成功" 

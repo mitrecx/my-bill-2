@@ -33,7 +33,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
     set({ loading: true, error: null });
     try {
       const response = await familyApi.getFamilies();
-      const families = response.families || [];
+      const families = response.data || [];
       set({ 
         families,
         currentFamily: families.length > 0 ? families[0] : null,
@@ -50,7 +50,8 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
   createFamily: async (data: FamilyCreate) => {
     set({ loading: true, error: null });
     try {
-      const newFamily = await familyApi.createFamily(data);
+      const response = await familyApi.createFamily(data);
+      const newFamily = response.data;
       const { families } = get();
       set({ 
         families: [...families, newFamily],
@@ -69,7 +70,8 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
   updateFamily: async (id: number, data: FamilyUpdate) => {
     set({ loading: true, error: null });
     try {
-      const updatedFamily = await familyApi.updateFamily(id, data);
+      const response = await familyApi.updateFamily(id, data);
+      const updatedFamily = response.data;
       const { families, currentFamily } = get();
       const updatedFamilies = families.map(family => 
         family.id === id ? updatedFamily : family
@@ -116,7 +118,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
     try {
       const response = await familyApi.getFamilyMembers(familyId);
       set({ 
-        members: response.members || [],
+        members: response.data || [],
         loading: false 
       });
     } catch (error) {
@@ -152,7 +154,8 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
 
   searchUsers: async (query: string): Promise<UserSearchResult[]> => {
     try {
-      return await familyApi.searchUsers(query);
+      const response = await familyApi.searchUsers(query);
+      return response.data || [];
     } catch (error) {
       console.error('搜索用户失败:', error);
       return [];

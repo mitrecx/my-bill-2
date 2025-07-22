@@ -7,7 +7,7 @@ import type {
   User,
   Bill,
   BillCategory,
-  BillQueryParams,
+  BillListQueryParams,
   PaginatedResponse,
   BillStats,
   CategoryStats,
@@ -62,12 +62,33 @@ export const UserService = {
     const response = await ApiClient.put<User>(API_ENDPOINTS.USERS.PROFILE, userData);
     return response;
   },
+
+  // ================= 管理员相关 =================
+  async listUsers(params?: { page?: number; size?: number; search?: string }): Promise<ApiResponse<PaginatedResponse<User>>> {
+    const response = await ApiClient.get<PaginatedResponse<User>>(API_ENDPOINTS.USERS.BASE, { params });
+    return response;
+  },
+
+  async createUser(userData: { username: string; password: string; full_name?: string; email?: string }): Promise<ApiResponse<User>> {
+    const response = await ApiClient.post<User>(API_ENDPOINTS.USERS.BASE, userData);
+    return response;
+  },
+
+  async updateUser(id: number, userData: { password?: string; full_name?: string; email?: string, is_active?: boolean }): Promise<ApiResponse<User>> {
+    const response = await ApiClient.put<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`, userData);
+    return response;
+  },
+
+  async deleteUser(id: number): Promise<ApiResponse<string>> {
+    const response = await ApiClient.delete<string>(`${API_ENDPOINTS.USERS.BASE}/${id}`);
+    return response;
+  },
 };
 
 // 家庭服务
 export const FamilyService = {
   async getFamilies(): Promise<ApiResponse<Family[]>> {
-    const response = await ApiClient.get<Family[]>('/families/');
+    const response = await ApiClient.get<Family[]>('/families');
     return response;
   },
 
@@ -109,13 +130,13 @@ export const FamilyService = {
 
 // 账单服务
 export const BillService = {
-  async getBills(params?: BillQueryParams): Promise<ApiResponse<PaginatedResponse<Bill>>> {
+  async getBills(params?: BillListQueryParams): Promise<ApiResponse<PaginatedResponse<Bill>>> {
     const response = await ApiClient.get<PaginatedResponse<Bill>>(API_ENDPOINTS.BILLS.BASE, { params });
     return response;
   },
 
   async getBill(id: number): Promise<ApiResponse<Bill>> {
-    const response = await ApiClient.get<Bill>(API_ENDPOINTS.BILLS.BY_ID(id));
+    const response = await ApiClient.get<Bill>(`${API_ENDPOINTS.BILLS.BASE}/${id}`);
     return response;
   },
 
@@ -125,12 +146,12 @@ export const BillService = {
   },
 
   async updateBill(id: number, billData: Partial<Bill>): Promise<ApiResponse<Bill>> {
-    const response = await ApiClient.put<Bill>(API_ENDPOINTS.BILLS.BY_ID(id), billData);
+    const response = await ApiClient.put<Bill>(`${API_ENDPOINTS.BILLS.BASE}/${id}`, billData);
     return response;
   },
 
   async deleteBill(id: number): Promise<void> {
-    await ApiClient.delete(API_ENDPOINTS.BILLS.BY_ID(id));
+    await ApiClient.delete(`${API_ENDPOINTS.BILLS.BASE}/${id}`);
   },
 
   async getBillStats(params?: { family_id?: number; start_date?: string; end_date?: string }): Promise<ApiResponse<BillStats>> {

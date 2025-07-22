@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Button,
@@ -34,6 +34,23 @@ interface UserSearchOption {
   label: string;
   id: number;
 }
+
+// 防抖函数
+const useDebounce = (callback: Function, delay: number) => {
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+
+  const debouncedCallback = useCallback((...args: any[]) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    const newTimer = setTimeout(() => {
+      callback(...args);
+    }, delay);
+    setDebounceTimer(newTimer);
+  }, [callback, delay, debounceTimer]);
+
+  return debouncedCallback;
+};
 
 const FamilyManagePage: React.FC = () => {
   const {
@@ -117,26 +134,36 @@ const FamilyManagePage: React.FC = () => {
   };
 
   const handleUserSearch = async (searchText: string) => {
-    if (!searchText || searchText.length < 2) {
+    if (!searchText || searchText.trim().length < 1) {
+      setUserSearchOptions([]);
+      return;
+    }
+
+    // 如果搜索文本太短，显示提示但不搜索
+    if (searchText.trim().length < 2) {
       setUserSearchOptions([]);
       return;
     }
 
     setSearchLoading(true);
     try {
-      const users = await searchUsers(searchText);
+      const users = await searchUsers(searchText.trim());
       const options = users.map(user => ({
         value: user.username,
-        label: `${user.username} ${user.full_name ? `(${user.full_name})` : ''}`,
+        label: `${user.username}${user.full_name ? ` (${user.full_name})` : ''}`,
         id: user.id,
       }));
       setUserSearchOptions(options);
     } catch (error) {
       console.error('搜索用户失败:', error);
+      setUserSearchOptions([]);
     } finally {
       setSearchLoading(false);
     }
   };
+
+  // 使用防抖的搜索函数
+  const debouncedUserSearch = useDebounce(handleUserSearch, 300);
 
   const openEditModal = (family: Family) => {
     setEditingFamily(family);
@@ -312,16 +339,18 @@ const FamilyManagePage: React.FC = () => {
           <Form.Item
             name="invite_usernames"
             label="邀请成员"
-            help="搜索并选择要邀请的用户"
+            help="输入至少2个字符开始搜索用户名或姓名"
           >
             <Select
               mode="multiple"
-              placeholder="搜索用户名邀请成员"
+              placeholder="搜索用户名或姓名邀请成员"
               showSearch
               filterOption={false}
-              onSearch={handleUserSearch}
+              onSearch={debouncedUserSearch}
               loading={searchLoading}
               notFoundContent={searchLoading ? '搜索中...' : '未找到用户'}
+              allowClear
+              showArrow={false}
             >
               {userSearchOptions.map(option => (
                 <Option key={option.value} value={option.value}>

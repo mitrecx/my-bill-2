@@ -63,6 +63,19 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
+
+async def is_admin(current_user: User = Depends(get_current_user)):
+    """
+    依赖项，用于检查用户是否为管理员。
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="没有足够的权限执行此操作",
+        )
+    return current_user
+
+
 @router.post("/register", response_model=AuthResponse)
 async def register(user_in: UserCreate, db: Session = Depends(get_db)):
     """用户注册"""

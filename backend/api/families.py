@@ -1,226 +1,102 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from typing import List
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 import logging
 
 from config.database import get_db
-from models.family import Family, FamilyMember
 from models.user import User
+from models.family import Family, FamilyMember
+from schemas.family import FamilyResponse, FamilyCreate, FamilyUpdate, FamilyMemberResponse
+from schemas.common import ApiResponse
+from schemas.user import UserResponse
 from api.auth import get_current_user
-from services.family_service import FamilyService
-from schemas.family import (
-    FamilyCreate,
-    FamilyUpdate,
-    FamilyResponse,
-    FamilyWithMembersResponse,
-    FamilyMemberResponse,
-    ApiResponse,  # 新增导入
-)
-from schemas.common import ApiResponse as CommonApiResponse
-from pydantic import BaseModel
+from services.family_service import FamilyService  # 导入服务
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/families", tags=["families"])
+logger = logging.getLogger(__name__)
 
 
-class FamilyCreateWithInvites(FamilyCreate):
-    invite_usernames: Optional[List[str]] = []
-
-
-class UserSearchResponse(BaseModel):
-    id: int
-    username: str
-    full_name: Optional[str]
-    
-    class Config:
-        from_attributes = True
-
-
-@router.get("/search-users", response_model=CommonApiResponse[List[UserSearchResponse]])
-async def search_users(
-    q: str = Query(..., min_length=1, description="搜索关键词"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """搜索用户（用于邀请）"""
-    family_service = FamilyService(db)
-    users = family_service.search_users(q, exclude_user_id=current_user.id)
-    
-    return CommonApiResponse(
-        data=[UserSearchResponse.model_validate(user) for user in users]
-    )
-
-
-@router.get("/", response_model=ApiResponse)
-async def list_families(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    """获取当前用户所属家庭列表"""
-    try:
-        families = (
-            db.query(Family)
-            .join(FamilyMember, Family.id == FamilyMember.family_id)
-            .filter(FamilyMember.user_id == current_user.id)
-            .all()
-        )
-        return {"data": families, "success": True, "message": "获取成功"}
-    except Exception as e:
-        logger.error(f"获取家庭列表失败: {e}")
-        raise HTTPException(status_code=500, detail="获取家庭列表失败")
-
-
-@router.post("/", response_model=FamilyResponse)
+@router.post("/", response_model=ApiResponse[FamilyResponse])
 async def create_family(
-    family_in: FamilyCreateWithInvites,
+    family_in: FamilyCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """创建家庭，并将当前用户设为管理员，可选择邀请成员"""
+    """创建家庭"""
     try:
         family_service = FamilyService(db)
-        
-        # 检查用户是否已在其他家庭中
-        existing_family = family_service.get_user_family(current_user.id)
-        if existing_family:
-            raise HTTPException(status_code=400, detail="你已经在其他家庭中")
-        
-        # 创建家庭并发送邀请
-        family_data = FamilyCreate(
-            family_name=family_in.family_name,
-            description=family_in.description
+        # 假设服务方法需要创建者ID
+        new_family = family_service.create_family(
+            family_data=family_in, creator_id=current_user.id
         )
-        
-        family = family_service.create_family_with_invites(
-            family_data=family_data,
-            creator_id=current_user.id,
-            invite_usernames=family_in.invite_usernames
-        )
-
-        return family
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return ApiResponse(data=new_family, message="家庭创建成功")
     except Exception as e:
-        db.rollback()
         logger.error(f"创建家庭失败: {e}")
-        raise HTTPException(status_code=500, detail="创建家庭失败")
+        raise HTTPException(status_code=400, detail=str(e))
 
-
-@router.put("/{family_id}", response_model=FamilyResponse)
+@router.put("/{family_id}", response_model=ApiResponse[FamilyResponse])
 async def update_family(
     family_id: int,
     family_in: FamilyUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """更新家庭信息（仅管理员）"""
-    fam: Family = db.query(Family).filter(Family.id == family_id).first()
-    if not fam:
-        raise HTTPException(status_code=404, detail="家庭不存在")
-
-    # 检查权限
-    member: FamilyMember = (
-        db.query(FamilyMember)
-        .filter(FamilyMember.family_id == family_id, FamilyMember.user_id == current_user.id)
-        .first()
+    """更新家庭信息"""
+    family_service = FamilyService(db)
+    updated_family = family_service.update_family(
+        family_id=family_id, family_data=family_in, user_id=current_user.id
     )
-    if not member or member.role != "admin":
-        raise HTTPException(status_code=403, detail="无权限")
-
-    if family_in.family_name is not None:
-        fam.family_name = family_in.family_name
-    if family_in.description is not None:
-        fam.description = family_in.description
-
-    db.commit()
-    db.refresh(fam)
-    return fam
+    if not updated_family:
+        raise HTTPException(status_code=404, detail="家庭不存在或无权限")
+    return ApiResponse(data=updated_family, message="家庭信息更新成功")
 
 
-@router.delete("/{family_id}")
+@router.delete("/{family_id}", response_model=ApiResponse[str])
 async def delete_family(
     family_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """删除家庭（仅管理员）"""
-    fam: Family = db.query(Family).filter(Family.id == family_id).first()
-    if not fam:
-        raise HTTPException(status_code=404, detail="家庭不存在")
-
-    member: FamilyMember = (
-        db.query(FamilyMember)
-        .filter(FamilyMember.family_id == family_id, FamilyMember.user_id == current_user.id)
-        .first()
-    )
-    if not member or member.role != "admin":
-        raise HTTPException(status_code=403, detail="无权限")
-
-    db.delete(fam)
-    db.commit()
-    return {"detail": "家庭已删除"}
+    """删除家庭"""
+    family_service = FamilyService(db)
+    if not family_service.delete_family(family_id=family_id, user_id=current_user.id):
+        raise HTTPException(status_code=404, detail="家庭不存在或无权限")
+    return ApiResponse(data="家庭已删除", message="家庭删除成功")
 
 
-@router.get("/{family_id}/members", response_model=List[FamilyMemberResponse])
+@router.get("/{family_id}/members", response_model=ApiResponse[List[FamilyMemberResponse]])
 async def list_family_members(
     family_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    fam = db.query(Family).filter(Family.id == family_id).first()
-    if not fam:
-        raise HTTPException(status_code=404, detail="家庭不存在")
-
-    member = (
-        db.query(FamilyMember)
-        .filter(FamilyMember.family_id == family_id, FamilyMember.user_id == current_user.id)
-        .first()
+    """获取家庭成员列表"""
+    family_service = FamilyService(db)
+    members = family_service.get_family_members(
+        family_id=family_id, user_id=current_user.id
     )
-    if not member:
-        raise HTTPException(status_code=403, detail="无权限")
+    if members is None:
+        raise HTTPException(status_code=404, detail="家庭不存在或无权限")
+    
+    # 手动构建响应以匹配 `FamilyMemberResponse`
+    member_responses = [
+        FamilyMemberResponse(
+            id=member.id,
+            user_id=member.user_id,
+            role=member.role,
+            username=member.user.username if member.user else "未知用户"
+        )
+        for member in members
+    ]
+    return ApiResponse(data=member_responses, message="获取家庭成员成功")
 
-    members = db.query(FamilyMember).filter(FamilyMember.family_id == family_id).all()
-    return members
 
-
-@router.delete("/{family_id}/leave", response_model=CommonApiResponse[str])
-async def leave_family(
-    family_id: int,
+@router.get("", response_model=ApiResponse[List[FamilyResponse]])
+async def get_user_families(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """退出家庭"""
-    try:
-        family_service = FamilyService(db)
-        
-        # 检查用户是否在该家庭中
-        member = db.query(FamilyMember).filter(
-            FamilyMember.family_id == family_id,
-            FamilyMember.user_id == current_user.id
-        ).first()
-        
-        if not member:
-            raise HTTPException(status_code=404, detail="你不在该家庭中")
-        
-        # 检查是否为管理员
-        if member.role == "admin":
-            # 检查是否还有其他成员
-            other_members = db.query(FamilyMember).filter(
-                FamilyMember.family_id == family_id,
-                FamilyMember.user_id != current_user.id
-            ).count()
-            
-            if other_members > 0:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="作为管理员，你需要先转让管理权限或删除家庭"
-                )
-        
-        # 移除成员
-        family_service.remove_member_from_family(family_id, current_user.id)
-        
-        return CommonApiResponse(data="成功退出家庭")
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"退出家庭失败: {e}")
-        raise HTTPException(status_code=500, detail="退出家庭失败")
+    """获取当前用户所属的家庭列表"""
+    family_service = FamilyService(db)
+    families = family_service.get_user_families(user_id=current_user.id)
+    return ApiResponse(success=True, data=families, message="获取家庭列表成功")

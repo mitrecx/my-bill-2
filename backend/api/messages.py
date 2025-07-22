@@ -19,8 +19,9 @@ from schemas.common import ApiResponse
 router = APIRouter()
 
 
-@router.get("/", response_model=ApiResponse[MessageListResponse])
-async def get_messages(
+@router.get("/user/{user_id}", response_model=ApiResponse[MessageListResponse])
+async def get_messages_for_user(
+    user_id: int,
     page: int = Query(1, ge=1),
     size: int = Query(20, ge=1, le=100),
     is_read: Optional[bool] = Query(None),
@@ -30,7 +31,7 @@ async def get_messages(
     """获取用户消息列表"""
     message_service = MessageService(db)
     messages, total = message_service.get_user_messages(
-        user_id=current_user.id,
+        user_id=user_id,
         page=page,
         size=size,
         is_read=is_read
@@ -107,7 +108,7 @@ async def create_message_action(
     action = message_service.create_message_action(action_data, current_user.id)
     
     # 处理家庭邀请的接受/拒绝逻辑
-    if message.message_type == "family_invite" and action_data.action_type in ["accept", "reject"]:
+    if message.message_type == "FAMILY_INVITE" and action_data.action_type in ["accept", "reject"]:
         await _handle_family_invite_action(message, action_data.action_type, current_user, db)
     
     return ApiResponse(data=MessageActionResponse.model_validate(action))

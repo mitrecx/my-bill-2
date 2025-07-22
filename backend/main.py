@@ -96,7 +96,6 @@ async def root():
         }
     )
 
-
 if __name__ == "__main__":
     # 使用settings配置启动服务器
     uvicorn.run(
