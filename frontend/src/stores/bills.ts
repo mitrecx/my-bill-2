@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { 
   Bill, 
   BillCategory, 
-  BillQueryParams, 
+  BillListQueryParams, 
   // PaginatedResponse, 
   BillStats, 
   CategoryStats 
@@ -21,14 +21,14 @@ interface BillsState {
     size: number;
     pages: number;
   };
-  queryParams: BillQueryParams;
+  queryParams: BillListQueryParams;
   isLoading: boolean;
   error: string | null;
 }
 
 interface BillsActions {
   // 账单操作
-  fetchBills: (params?: BillQueryParams) => Promise<void>;
+  fetchBills: (params?: BillListQueryParams) => Promise<void>;
   fetchBill: (id: number) => Promise<void>;
   createBill: (billData: Partial<Bill>) => Promise<void>;
   updateBill: (id: number, billData: Partial<Bill>) => Promise<void>;
@@ -43,7 +43,7 @@ interface BillsActions {
   fetchCategoryStats: (params?: { family_id?: number; start_date?: string; end_date?: string }) => Promise<void>;
   
   // 查询参数管理
-  setQueryParams: (params: Partial<BillQueryParams>) => void;
+  setQueryParams: (params: Partial<BillListQueryParams>) => void;
   resetQueryParams: () => void;
   
   // 状态管理
@@ -52,10 +52,10 @@ interface BillsActions {
   resetState: () => void;
 }
 
-const initialQueryParams: BillQueryParams = {
+const initialQueryParams: BillListQueryParams = {
   page: 1,
   size: 20,
-  sort_by: 'transaction_date',
+  sort_by: 'transaction_time',
   sort_order: 'desc',
 };
 
@@ -77,7 +77,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   error: null,
 
   // 操作
-  fetchBills: async (params?: BillQueryParams) => {
+  fetchBills: async (params?: BillListQueryParams) => {
     try {
       set({ isLoading: true, error: null });
       
@@ -265,7 +265,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
     }
   },
 
-  setQueryParams: (params: Partial<BillQueryParams>) => {
+  setQueryParams: (params: Partial<BillListQueryParams>) => {
     const currentParams = get().queryParams;
     const newParams = { ...currentParams, ...params };
     set({ queryParams: newParams });

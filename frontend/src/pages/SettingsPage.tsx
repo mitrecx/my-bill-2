@@ -1,36 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Typography,
   Card,
-  Row,
-  Col,
   Form,
   Input,
   Button,
   Avatar,
+  Row,
+  Col,
+  Typography,
+  message,
   Space,
   Divider,
-  Table,
-  Tag,
-  Modal,
-  // Select,
-  message,
-  Popconfirm,
   Alert,
 } from 'antd';
 import {
   UserOutlined,
   EditOutlined,
-  PlusOutlined,
-  DeleteOutlined,
-  TeamOutlined,
-  SettingOutlined,
   SaveOutlined,
+  SettingOutlined,
+  KeyOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
-import { UserService, FamilyService } from '../api/services';
-import type { Family, FamilyMember } from '../types';
-import type { ColumnsType } from 'antd/es/table';
+import { UserService, SystemConfigService } from '../api/services';
+import type { SystemConfigResponse } from '../types';
 
 const { Title, Text } = Typography;
 // const { Option } = Select;
@@ -38,16 +30,12 @@ const { Title, Text } = Typography;
 const SettingsPage: React.FC = () => {
   const { user, loadUser } = useAuthStore();
   
-  const [activeTab, setActiveTab] = useState<'profile' | 'family' | 'system'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'system'>('profile');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm] = Form.useForm();
-  const [familyForm] = Form.useForm();
+  const [systemConfigForm] = Form.useForm();
   
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [selectedFamily, setSelectedFamily] = useState<Family | null>(null);
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
-  const [isFamilyModalVisible, setIsFamilyModalVisible] = useState(false);
-  const [isEditingFamily, setIsEditingFamily] = useState(false);
+  const [systemConfig, setSystemConfig] = useState<SystemConfigResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
 
@@ -69,7 +57,7 @@ const SettingsPage: React.FC = () => {
     };
 
     initializeData();
-    loadFamilies();
+    loadSystemConfig();
   }, [user, loadUser, userDataLoaded]);
 
   // 当用户数据更新时，设置表单值
@@ -83,28 +71,15 @@ const SettingsPage: React.FC = () => {
     }
   }, [user, profileForm, userDataLoaded]);
 
-  const loadFamilies = async () => {
-    console.log('[SettingsPage] 调试: 开始加载家庭数据...');
+  const loadSystemConfig = async () => {
     try {
-      const familiesData = await FamilyService.getFamilies();
-      console.log('[SettingsPage] 调试: familiesData', familiesData);
-      // familiesData 是ApiResponse<Family[]>，应取data字段
-      setFamilies(Array.isArray(familiesData.data) ? familiesData.data : []);
-      console.log('[SettingsPage] 调试: setFamilies', familiesData.data);
+      const config = await SystemConfigService.getDefaultPassword();
+      setSystemConfig(config.data);
+      systemConfigForm.setFieldsValue({
+        default_password: config.data.default_password,
+      });
     } catch (error) {
-      message.error('加载家庭列表失败');
-      setFamilies([]);
-      console.error('[SettingsPage] 调试: 加载家庭列表失败', error);
-    }
-    console.log('[SettingsPage] 调试: 加载家庭数据结束');
-  };
-
-  const loadFamilyMembers = async (familyId: number) => {
-    try {
-      const members = await FamilyService.getFamilyMembers(familyId);
-      setFamilyMembers(members.data);
-    } catch (error) {
-      message.error('加载家庭成员失败');
+      message.error('加载系统配置失败');
     }
   };
 
@@ -123,158 +98,21 @@ const SettingsPage: React.FC = () => {
     }
   };
 
-  // 创建或更新家庭
-  const handleSaveFamily = async (values: any) => {
+  // 更新系统配置
+  const handleUpdateSystemConfig = async (values: any) => {
     try {
       setLoading(true);
-      
-      if (isEditingFamily && selectedFamily) {
-        await FamilyService.updateFamily(selectedFamily.id, values);
-        message.success('家庭信息更新成功');
-      } else {
-        await FamilyService.createFamily(values);
-        message.success('家庭创建成功');
-      }
-      
-      await loadFamilies();
-      setIsFamilyModalVisible(false);
-      familyForm.resetFields();
+      await SystemConfigService.setDefaultPassword(values.default_password);
+      await loadSystemConfig();
+      message.success('系统配置更新成功');
     } catch (error: any) {
-      message.error(error.response?.data?.detail || '操作失败');
+      message.error(error.response?.data?.detail || '更新失败');
     } finally {
       setLoading(false);
     }
   };
 
-  // 删除家庭
-  const handleDeleteFamily = async (familyId: number) => {
-    try {
-      await FamilyService.deleteFamily(familyId);
-      await loadFamilies();
-      message.success('家庭删除成功');
-    } catch (error: any) {
-      message.error(error.response?.data?.detail || '删除失败');
-    }
-  };
 
-  // 查看家庭详情
-  const handleViewFamily = async (family: Family) => {
-    setSelectedFamily(family);
-    await loadFamilyMembers(family.id);
-  };
-
-  // 家庭表格列定义
-  const familyColumns: ColumnsType<Family> = [
-    {
-      title: '家庭名称',
-      dataIndex: 'family_name',
-      key: 'family_name',
-    },
-    {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-      render: (desc: string) => desc || '无描述',
-    },
-    {
-      title: '创建时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => new Date(date).toLocaleDateString(),
-    },
-    {
-      title: '操作',
-      key: 'action',
-      width: 200,
-      render: (_, record: Family) => (
-        <Space size="small">
-          <Button
-            type="text"
-            icon={<TeamOutlined />}
-            size="small"
-            onClick={() => handleViewFamily(record)}
-          >
-            成员
-          </Button>
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            size="small"
-            onClick={() => {
-              setSelectedFamily(record);
-              setIsEditingFamily(true);
-              setIsFamilyModalVisible(true);
-              familyForm.setFieldsValue({
-                family_name: record.family_name,
-                description: record.description,
-              });
-            }}
-          >
-            编辑
-          </Button>
-          <Popconfirm
-            title="确定删除这个家庭吗？"
-            onConfirm={() => handleDeleteFamily(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button
-              type="text"
-              icon={<DeleteOutlined />}
-              size="small"
-              danger
-            >
-              删除
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
-  // 家庭成员表格列定义
-  const memberColumns: ColumnsType<FamilyMember> = [
-    {
-      title: '用户名',
-      dataIndex: ['user', 'username'],
-      key: 'username',
-    },
-    {
-      title: '姓名',
-      dataIndex: ['user', 'full_name'],
-      key: 'full_name',
-    },
-    {
-      title: '邮箱',
-      dataIndex: ['user', 'email'],
-      key: 'email',
-    },
-    {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
-      render: (role: string) => {
-        const roleMap = {
-          owner: { text: '所有者', color: 'red' },
-          admin: { text: '管理员', color: 'orange' },
-          member: { text: '成员', color: 'blue' },
-        };
-        const roleInfo = roleMap[role as keyof typeof roleMap] || { text: role, color: 'default' };
-        return <Tag color={roleInfo.color}>{roleInfo.text}</Tag>;
-      },
-    },
-    {
-      title: '加入时间',
-      dataIndex: 'joined_at',
-      key: 'joined_at',
-      render: (date: string) => new Date(date).toLocaleDateString(),
-    },
-  ];
-
-  // 家庭数据变化时打印调试日志
-  useEffect(() => {
-    console.log('[SettingsPage] 调试: families 状态变化', families);
-  }, [families]);
 
   const tabContent = {
     profile: (
@@ -349,77 +187,46 @@ const SettingsPage: React.FC = () => {
       </Card>
     ),
 
-    family: (
-      <div>
-        <Card
-          title="家庭管理"
-          extra={
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => {
-                setSelectedFamily(null);
-                setIsEditingFamily(false);
-                setIsFamilyModalVisible(true);
-                familyForm.resetFields();
-              }}
-            >
-              创建家庭
-            </Button>
-          }
-        >
-          <Table
-            columns={familyColumns}
-            dataSource={families}
-            rowKey="id"
-            pagination={{ pageSize: 5 }}
-            loading={loading}
-          />
-        </Card>
 
-        {selectedFamily && familyMembers.length > 0 && (
-          <Card
-            title={`${selectedFamily.family_name} - 成员列表`}
-            style={{ marginTop: 16 }}
-          >
-            <Table
-              columns={memberColumns}
-              dataSource={familyMembers}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        )}
-      </div>
-    ),
 
     system: (
-      <Card title="系统设置">
-        <Alert
-          message="系统设置"
-          description="系统设置功能正在开发中，包括主题设置、通知设置、数据导出等功能。"
-          type="info"
-          showIcon
-        />
+      <Card title="参数管理" icon={<KeyOutlined />}>
+        <Form
+          form={systemConfigForm}
+          layout="vertical"
+          onFinish={handleUpdateSystemConfig}
+        >
+          <Form.Item
+            label="默认密码"
+            name="default_password"
+            rules={[
+              { required: true, message: '请输入默认密码' },
+              { min: 6, message: '密码至少6位' },
+            ]}
+          >
+            <Input.Password placeholder="请输入默认密码" />
+          </Form.Item>
+          
+          <Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              icon={<SaveOutlined />}
+              loading={loading}
+            >
+              保存配置
+            </Button>
+          </Form.Item>
+        </Form>
         
         <Divider />
         
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div>
-            <Title level={5}>应用信息</Title>
-            <Text type="secondary">版本：1.0.0</Text><br />
-            <Text type="secondary">构建时间：{new Date().toLocaleDateString()}</Text>
-          </div>
-          
-          <div>
-            <Title level={5}>数据管理</Title>
-            <Space>
-              <Button>导出数据</Button>
-              <Button danger>清空缓存</Button>
-            </Space>
-          </div>
-        </Space>
+        <Alert
+          message="配置说明"
+          description="新创建的用户将使用此默认密码。建议定期更新默认密码以确保安全。"
+          type="info"
+          showIcon
+        />
       </Card>
     ),
   };
@@ -438,19 +245,13 @@ const SettingsPage: React.FC = () => {
           >
             个人资料
           </Button>
-          <Button
-            type={activeTab === 'family' ? 'primary' : 'default'}
-            icon={<TeamOutlined />}
-            onClick={() => setActiveTab('family')}
-          >
-            家庭管理
-          </Button>
+
           <Button
             type={activeTab === 'system' ? 'primary' : 'default'}
             icon={<SettingOutlined />}
             onClick={() => setActiveTab('system')}
           >
-            系统设置
+            参数管理
           </Button>
         </Space>
       </div>
@@ -458,60 +259,7 @@ const SettingsPage: React.FC = () => {
       {/* 内容区域 */}
       {tabContent[activeTab]}
 
-      {/* 家庭编辑模态框 */}
-      <Modal
-        title={isEditingFamily ? '编辑家庭' : '创建家庭'}
-        open={isFamilyModalVisible}
-        onCancel={() => {
-          setIsFamilyModalVisible(false);
-          familyForm.resetFields();
-        }}
-        footer={null}
-      >
-        <Form
-          form={familyForm}
-          layout="vertical"
-          onFinish={handleSaveFamily}
-        >
-          <Form.Item
-            label="家庭名称"
-            name="family_name"
-            rules={[{ required: true, message: '请输入家庭名称' }]}
-          >
-            <Input placeholder="请输入家庭名称" />
-          </Form.Item>
-          
-          <Form.Item
-            label="描述"
-            name="description"
-          >
-            <Input.TextArea 
-              rows={3}
-              placeholder="请输入家庭描述（可选）"
-            />
-          </Form.Item>
-          
-          <Form.Item>
-            <Space>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={loading}
-              >
-                {isEditingFamily ? '更新' : '创建'}
-              </Button>
-              <Button
-                onClick={() => {
-                  setIsFamilyModalVisible(false);
-                  familyForm.resetFields();
-                }}
-              >
-                取消
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
+
     </div>
   );
 };

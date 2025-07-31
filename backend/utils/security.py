@@ -17,6 +17,10 @@ def get_password_hash(password: str) -> str:
     """获取密码哈希值"""
     return pwd_context.hash(password)
 
+# 为向后兼容提供 encrypt_password 别名
+
+encrypt_password = get_password_hash
+
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     """创建访问令牌"""

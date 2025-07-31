@@ -2,6 +2,7 @@ from .user import User
 from .family import Family, FamilyMember
 from .bill import Bill, BillCategory
 from .message import Message, MessageAction
+from .system_config import SystemConfig
 
 __all__ = [
     "User",
@@ -11,4 +12,5 @@ __all__ = [
     "BillCategory",
     "Message",
     "MessageAction",
+    "SystemConfig",
 ]

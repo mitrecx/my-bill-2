@@ -49,7 +49,6 @@ CREATE TABLE bill_categories (
 -- 账单记录表（核心表，支持多用户）
 CREATE TABLE bills (
     id SERIAL PRIMARY KEY,
-    family_id INTEGER REFERENCES families(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id), -- 谁上传的这条记录
     source_type VARCHAR(20) NOT NULL, -- 'alipay', 'jd', 'cmb'
     original_filename VARCHAR(255), -- 原始文件名

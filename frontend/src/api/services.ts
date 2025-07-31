@@ -16,6 +16,11 @@ import type {
   UploadRecord,
   UploadResponse,
   ApiResponse, // 新增ApiResponse类型导入
+  SystemConfig,
+  SystemConfigCreate,
+  SystemConfigUpdate,
+  DefaultPasswordConfig,
+  SystemConfigResponse,
 } from '../types';
 import type {
   Message,
@@ -64,7 +69,14 @@ export const UserService = {
   },
 
   // ================= 管理员相关 =================
-  async listUsers(params?: { page?: number; size?: number; search?: string }): Promise<ApiResponse<PaginatedResponse<User>>> {
+  async listUsers(params?: { 
+    page?: number; 
+    size?: number; 
+    search?: string;
+    username?: string;
+    full_name?: string;
+    role?: string;
+  }): Promise<ApiResponse<PaginatedResponse<User>>> {
     const response = await ApiClient.get<PaginatedResponse<User>>(API_ENDPOINTS.USERS.BASE, { params });
     return response;
   },
@@ -177,16 +189,16 @@ export const BillService = {
 
 // 文件上传服务
 export const UploadService = {
-  uploadFile: async (file: File, familyId: number): Promise<ApiResponse<UploadResponse>> => {
+  uploadFile: async (file: File): Promise<ApiResponse<UploadResponse>> => {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('family_id', familyId.toString());
     formData.append('auto_categorize', 'true');
     
     const response = await ApiClient.post<UploadResponse>('/upload/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 120000,
     });
     return response;
   },
@@ -229,6 +241,57 @@ export const messageApi = {
 
   async deleteMessage(messageId: number): Promise<ApiResponse<boolean>> {
     const response = await ApiClient.delete<boolean>(`/messages/${messageId}`);
+    return response;
+  },
+};
+
+// 系统配置服务
+export const SystemConfigService = {
+  // 获取所有系统配置
+  async getConfigs(): Promise<ApiResponse<SystemConfigResponse[]>> {
+    const response = await ApiClient.get<SystemConfigResponse[]>(API_ENDPOINTS.SYSTEM_CONFIG.BASE);
+    return response;
+  },
+
+  // 获取单个配置
+  async getConfig(key: string): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.get<SystemConfigResponse>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`);
+    return response;
+  },
+
+  // 创建配置
+  async createConfig(configData: SystemConfigCreate): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.post<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.BASE, configData);
+    return response;
+  },
+
+  // 更新配置
+  async updateConfig(key: string, configData: SystemConfigUpdate): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.put<SystemConfigResponse>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`, configData);
+    return response;
+  },
+
+  // 删除配置
+  async deleteConfig(key: string): Promise<ApiResponse<boolean>> {
+    const response = await ApiClient.delete<boolean>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`);
+    return response;
+  },
+
+  // 获取默认密码
+  async getDefaultPassword(): Promise<ApiResponse<DefaultPasswordConfig>> {
+    const response = await ApiClient.get<DefaultPasswordConfig>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD);
+    return response;
+  },
+
+  // 设置默认密码
+  async setDefaultPassword(passwordData: DefaultPasswordConfig): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.put<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD, passwordData);
+    return response;
+  },
+
+  // 初始化默认配置
+  async initializeConfigs(): Promise<ApiResponse<boolean>> {
+    const response = await ApiClient.post<boolean>(API_ENDPOINTS.SYSTEM_CONFIG.INITIALIZE);
     return response;
   },
 };

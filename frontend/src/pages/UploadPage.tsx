@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Typography,
   Upload,
@@ -6,8 +6,7 @@ import {
   Card,
   Space,
   Alert,
-  Select,
-  Form,
+
   message,
   Progress,
 } from 'antd';
@@ -16,13 +15,11 @@ import {
   UploadOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
-import { UploadService, FamilyService } from '../api/services';
-import type { Family } from '../types';
+import { UploadService } from '../api/services';
 import type { UploadFile, UploadProps } from 'antd/es/upload';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
-const { Option } = Select;
 
 const UploadPage: React.FC = () => {
   const { fetchBills } = useBillsStore();
@@ -30,28 +27,8 @@ const UploadPage: React.FC = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [families, setFamilies] = useState<Family[]>([]);
-  const [selectedFamily, setSelectedFamily] = useState<number | undefined>();
 
-  useEffect(() => {
-    loadFamilies();
-  }, []);
 
-  const loadFamilies = async () => {
-    try {
-      const familiesData = await FamilyService.getFamilies();
-      console.log('[UploadPage] familiesData', familiesData);
-      // FamilyService.getFamilies() 现在返回 ApiResponse<Family[]> 格式
-      const familiesList = familiesData.data || [];
-      setFamilies(Array.isArray(familiesList) ? familiesList : []);
-      if (Array.isArray(familiesList) && familiesList.length > 0) {
-        setSelectedFamily(familiesList[0].id);
-      }
-    } catch (error) {
-      message.error('加载家庭列表失败');
-      setFamilies([]);
-    }
-  };
 
   // 支持的文件类型和说明
   const supportedFiles = [
@@ -117,11 +94,7 @@ const UploadPage: React.FC = () => {
 
   // 直接上传文件
   const handleUpload = async () => {
-    if (!selectedFamily) {
-      message.warning('请选择家庭');
-      return;
-    }
-    if (fileList.length === 0) {
+        if (fileList.length === 0) {
       message.warning('请先选择文件');
       return;
     }
@@ -146,7 +119,7 @@ const UploadPage: React.FC = () => {
       setUploadProgress(0);
 
       // 使用UploadService.uploadFile方法
-      const response = await UploadService.uploadFile(file, selectedFamily);
+      const response = await UploadService.uploadFile(file);
       
       console.log('上传响应:', response);
       
@@ -204,25 +177,6 @@ const UploadPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 家庭选择 */}
-      <Card title="选择家庭" style={{ marginBottom: 24 }}>
-        <Form layout="inline">
-          <Form.Item label="上传到">
-            <Select
-              value={selectedFamily}
-              onChange={setSelectedFamily}
-              style={{ width: 200 }}
-              placeholder="选择家庭"
-            >
-              {Array.isArray(families) && families.map(family => (
-                <Option key={family.id} value={family.id}>
-                  {family.family_name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Card>
 
       {/* 文件上传区域 */}
       <Card title="上传文件">
@@ -248,7 +202,7 @@ const UploadPage: React.FC = () => {
             type="primary"
             icon={<UploadOutlined />}
             onClick={handleUpload}
-            disabled={fileList.length === 0 || uploading || !selectedFamily}
+            disabled={fileList.length === 0 || uploading}
             loading={uploading}
           >
             上传文件

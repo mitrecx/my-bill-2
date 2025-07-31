@@ -19,7 +19,7 @@ class BillBase(BaseModel):
     merchant_name: Optional[str] = Field(None, max_length=200, description="商户名称")
     description: Optional[str] = Field(None, max_length=500, description="描述")
     notes: Optional[str] = Field(None, max_length=1000, description="备注")
-    payment_method: Optional[str] = Field(None, max_length=100, description="支付方式")
+
     category_id: Optional[int] = Field(None, description="分类ID")
 
 
@@ -34,11 +34,9 @@ class BillUpdate(BaseModel):
     """更新账单请求模型"""
     amount: Optional[float] = Field(None, ge=0, description="金额")
     transaction_type: Optional[str] = Field(None, description="交易类型")
-    merchant_name: Optional[str] = Field(None, max_length=200, description="商户名称")
-    description: Optional[str] = Field(None, max_length=500, description="描述")
-    notes: Optional[str] = Field(None, max_length=1000, description="备注")
-    payment_method: Optional[str] = Field(None, max_length=100, description="支付方式")
+    transaction_desc: Optional[str] = Field(None, max_length=500, description="交易描述")
     category_id: Optional[int] = Field(None, description="分类ID")
+    remark: Optional[str] = Field(None, max_length=1000, description="备注")
 
 
 class CategoryResponse(BaseModel):

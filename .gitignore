@@ -40,3 +40,6 @@ ssl-certs/*.pem
 ssl-certs/*.crt
 
 调试须知.md
+
+.vercel/
+.vscode/

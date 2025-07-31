@@ -5,6 +5,7 @@ export interface User {
   email: string;
   full_name: string;
   is_active: boolean;
+  is_admin: boolean;
   created_at: string;
   updated_at: string;
   family_name?: string;
@@ -56,7 +57,6 @@ export interface FamilyMember {
 // 账单相关类型
 export interface Bill {
   id: number;
-  family_id: number;
   user_id: number;
   category_id?: number;
   transaction_date: string;
@@ -159,3 +159,4 @@ export interface UploadResponse {
 // 导出其他模块的类型
 export * from './family';
 export * from './message';
+export * from './system-config';

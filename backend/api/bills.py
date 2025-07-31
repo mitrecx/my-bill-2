@@ -374,6 +374,52 @@ async def create_category(
         )
 
 
+@router.post("", response_model=ApiResponse[BillResponse])
+async def create_bill(
+    bill_data: BillCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建新账单"""
+    try:
+        # 将英文交易类型转换为中文
+        transaction_type_map = {
+            "income": "收入",
+            "expense": "支出", 
+            "transfer": "不计收支"
+        }
+        
+        # 创建账单记录
+        bill = Bill(
+            user_id=current_user.id,
+            amount=bill_data.amount,
+            transaction_time=bill_data.transaction_time,
+            transaction_type=transaction_type_map.get(bill_data.transaction_type, bill_data.transaction_type),
+            transaction_desc=bill_data.transaction_desc,
+            source_type=bill_data.source_type,
+            category_id=bill_data.category_id,
+            raw_data=bill_data.raw_data or {}
+        )
+        
+        db.add(bill)
+        db.commit()
+        db.refresh(bill)
+        
+        return ApiResponse(
+            data=BillResponse.from_bill(bill),
+            success=True,
+            message="账单创建成功"
+        )
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"创建账单失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="创建账单失败"
+        )
+
+
 @router.get("/{bill_id}", response_model=ApiResponse[BillResponse])
 async def get_bill(
     bill_id: int,
@@ -440,15 +486,25 @@ async def update_bill(
         
         # 更新字段
         update_data = bill_update.dict(exclude_unset=True)
+        # 更新字段
         for field, value in update_data.items():
-            setattr(bill, field, value)
+            if field == 'transaction_type':
+                # 将英文交易类型转换为中文
+                transaction_type_map = {
+                    "income": "收入",
+                    "expense": "支出", 
+                    "transfer": "不计收支"
+                }
+                setattr(bill, field, transaction_type_map.get(value, value))
+            else:
+                setattr(bill, field, value)
         
         bill.updated_at = datetime.utcnow()
         
         db.commit()
         db.refresh(bill)
         
-        return BillResponse.from_orm(bill)
+        return BillResponse.from_bill(bill)
         
     except HTTPException:
         raise

@@ -13,6 +13,7 @@ import {
   Form,
   message,
   Popconfirm,
+  InputNumber,
 } from 'antd';
 import {
   PlusOutlined,
@@ -21,7 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
 // import { useAuthStore } from '../stores/auth';
-import type { Bill, BillQueryParams } from '../types';
+import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
@@ -41,6 +42,8 @@ const BillsPage: React.FC = () => {
     fetchBills,
     fetchCategories,
     deleteBill,
+    createBill,
+    updateBill,
     setQueryParams,
   } = useBillsStore();
 
@@ -65,7 +68,7 @@ const BillsPage: React.FC = () => {
   };
 
   // 处理筛选
-  const handleFilter = (key: keyof BillQueryParams, value: any) => {
+  const handleFilter = (key: keyof BillListQueryParams, value: any) => {
     setQueryParams({
       [key]: value,
       page: 1,
@@ -86,6 +89,38 @@ const BillsPage: React.FC = () => {
       message.success('删除成功');
     } catch (error) {
       message.error('删除失败');
+    }
+  };
+
+  // 处理表单提交
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      
+      if (editingBill) {
+        // 更新账单
+        await updateBill(editingBill.id, values);
+        message.success('更新成功');
+      } else {
+        // 创建账单 - 添加必要字段
+        const createData = {
+          ...values,
+          transaction_time: values.transaction_time || new Date(),
+          source_type: values.source_type || 'manual',
+        };
+        await createBill(createData);
+        message.success('创建成功');
+      }
+      
+      setIsModalVisible(false);
+      form.resetFields();
+      fetchBills(); // 刷新列表
+    } catch (error: any) {
+      if (error.errorFields) {
+        // 表单验证错误
+        return;
+      }
+      message.error(error.message || '操作失败');
     }
   };
 
@@ -352,12 +387,101 @@ const BillsPage: React.FC = () => {
           setIsModalVisible(false);
           form.resetFields();
         }}
-        footer={null}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setIsModalVisible(false);
+            form.resetFields();
+          }}>
+            取消
+          </Button>,
+          <Button key="submit" type="primary" onClick={handleSubmit} loading={isLoading}>
+            {editingBill ? '更新' : '创建'}
+          </Button>,
+        ]}
         width={600}
       >
-        <div style={{ padding: '20px 0' }}>
-          账单编辑功能开发中...
-        </div>
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={handleSubmit}
+          initialValues={editingBill ? {
+            amount: editingBill.amount,
+            transaction_type: editingBill.transaction_type,
+            transaction_desc: editingBill.transaction_desc,
+            category_id: editingBill.category_id,
+            remark: editingBill.raw_data?.remark || '',
+          } : {
+            transaction_time: new Date(),
+            source_type: 'manual',
+          }}
+        >
+          {!editingBill && (
+            <Form.Item
+              label="交易时间"
+              name="transaction_time"
+              rules={[{ required: true, message: '请选择交易时间' }]}
+            >
+              <DatePicker
+                showTime
+                style={{ width: '100%' }}
+                placeholder="请选择交易时间"
+              />
+            </Form.Item>
+          )}
+
+          <Form.Item
+            label="金额"
+            name="amount"
+            rules={[{ required: true, message: '请输入金额' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              placeholder="请输入金额"
+              precision={2}
+              min={0}
+            />
+          </Form.Item>
+
+          <Form.Item
+            label="交易类型"
+            name="transaction_type"
+            rules={[{ required: true, message: '请选择交易类型' }]}
+          >
+            <Select placeholder="请选择交易类型">
+              <Option value="income">收入</Option>
+              <Option value="expense">支出</Option>
+              <Option value="transfer">不计收支</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="交易描述"
+            name="transaction_desc"
+            rules={[{ required: true, message: '请输入交易描述' }]}
+          >
+            <Input placeholder="请输入交易描述" />
+          </Form.Item>
+
+          <Form.Item
+            label="分类"
+            name="category_id"
+          >
+            <Select placeholder="请选择分类" allowClear>
+              {categories.map(category => (
+                <Option key={category.id} value={category.id}>
+                  {category.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            label="备注"
+            name="remark"
+          >
+            <Input.TextArea placeholder="请输入备注" rows={3} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );

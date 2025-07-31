@@ -65,4 +65,11 @@ export const API_ENDPOINTS = {
     CONFIRM: '/upload/confirm',
     HISTORY: '/upload/history',
   },
+  
+  // 系统配置相关
+  SYSTEM_CONFIG: {
+    BASE: '/system-config',
+    DEFAULT_PASSWORD: '/system-config/default-password',
+    INITIALIZE: '/system-config/initialize',
+  },
 }

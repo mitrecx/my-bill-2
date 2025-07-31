@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     full_name: Optional[str]
     email: Optional[str]
     is_active: bool
+    is_admin: bool
     created_at: datetime
     family_name: Optional[str] = None
     family_role: Optional[str] = None
@@ -53,4 +54,4 @@ class UserListResponse(BaseModel):
     total: int
     page: int
     size: int
-    pages: int 
+    pages: int

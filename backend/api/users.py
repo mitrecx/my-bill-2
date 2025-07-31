@@ -20,6 +20,9 @@ async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     size: int = Query(10, ge=1, le=100, description="Page size"),
     search: Optional[str] = Query(None, description="搜索关键词"),
+    username: Optional[str] = Query(None, description="用户名搜索"),
+    full_name: Optional[str] = Query(None, description="姓名搜索"),
+    role: Optional[str] = Query(None, description="角色搜索 (admin/user)"),
     current_user: User = Depends(is_admin),
     db: Session = Depends(get_db)
 ):
@@ -28,12 +31,27 @@ async def list_users(
     """
     try:
         base_query = db.query(User)
+        
+        # 兼容旧的search参数
         if search:
             search_filter = or_(
                 User.username.ilike(f"%{search}%"),
                 User.full_name.ilike(f"%{search}%")
             )
             base_query = base_query.filter(search_filter)
+        
+        # 新的分别搜索参数
+        if username:
+            base_query = base_query.filter(User.username.ilike(f"%{username}%"))
+        
+        if full_name:
+            base_query = base_query.filter(User.full_name.ilike(f"%{full_name}%"))
+        
+        if role:
+            if role.lower() == 'admin':
+                base_query = base_query.filter(User.is_admin == True)
+            elif role.lower() == 'user':
+                base_query = base_query.filter(User.is_admin == False)
 
         total = base_query.count()
 
@@ -52,6 +70,7 @@ async def list_users(
                 full_name=user.full_name,
                 email=user.email,
                 is_active=user.is_active,
+                is_admin=user.is_admin,
                 created_at=user.created_at,
                 family_name=family_member.family.family_name if family_member and family_member.family else None,
                 family_role=family_member.role if family_member else None
@@ -102,6 +121,7 @@ async def create_user(
             full_name=new_user.full_name,
             email=new_user.email,
             is_active=new_user.is_active,
+            is_admin=new_user.is_admin,
             created_at=new_user.created_at,
             family_name=None,
             family_role=None
@@ -154,6 +174,7 @@ async def update_user(
             full_name=user.full_name,
             email=user.email,
             is_active=user.is_active,
+            is_admin=user.is_admin,
             created_at=user.created_at,
             family_name=family_member.family.family_name if family_member and family_member.family else None,
             family_role=family_member.role if family_member else None
