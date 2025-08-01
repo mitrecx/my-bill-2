@@ -285,23 +285,33 @@ async def get_bill_stats(
 
 @router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])
 async def get_categories(
+    category_type: Optional[str] = Query(None, description="分类类型筛选：income(收入) 或 expense(支出)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取账单分类列表"""
     try:
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 构建查询
+        query = db.query(BillCategory)
         
-        # 查询所有分类（当前BillCategory模型没有user_id字段，都是系统分类）
-        categories = db.query(BillCategory).order_by(BillCategory.category_name).all()
+        # 如果指定了分类类型，则进行筛选
+        if category_type:
+            if category_type not in ['income', 'expense']:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="分类类型必须是 'income' 或 'expense'"
+                )
+            query = query.filter(BillCategory.category_type == category_type)
         
-        # 为每个分类添加账单数量统计
+        # 按分类类型和名称排序
+        categories = query.order_by(BillCategory.category_type, BillCategory.category_name).all()
+        
+        # 为每个分类添加账单数量统计（只统计当前用户的账单）
         category_responses = []
         for category in categories:
             bills_count = db.query(Bill).filter(
                 Bill.category_id == category.id,
-                Bill.user_id.in_(family_user_ids)
+                Bill.user_id == current_user.id
             ).count()
             
             # 设置bills_count属性
@@ -315,6 +325,8 @@ async def get_categories(
             data=category_responses
         )
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取分类列表失败: {e}")
         raise HTTPException(

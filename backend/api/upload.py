@@ -50,24 +50,115 @@ async def get_or_create_category(
     description: str = None,
     icon: str = None,
     color: str = None
-) -> BillCategory:
-    """获取或创建账单分类"""
-    # 查找已存在的分类
+) -> Optional[BillCategory]:
+    """获取或映射账单分类（不创建新分类，只进行映射）"""
+    # 首先尝试精确匹配
     category = db.query(BillCategory).filter(
         BillCategory.category_name == name
     ).first()
     
-    if not category:
-        category = BillCategory(
-            category_name=name,
-            icon=icon or "category",
-            color=color or "#666666"
-        )
-        db.add(category)
-        db.commit()
-        db.refresh(category)
+    if category:
+        return category
     
-    return category
+    # 如果没有精确匹配，尝试智能映射
+    category = map_category_name(name, db)
+    
+    if category:
+        logger.info(f"分类映射: '{name}' -> '{category.category_name}'")
+        return category
+    
+    # 如果无法映射，返回None（不创建新分类）
+    logger.warning(f"无法映射分类: '{name}'，将使用默认分类")
+    return None
+
+def map_category_name(name: str, db: Session) -> Optional[BillCategory]:
+    """智能映射分类名称到预定义分类"""
+    # 分类映射规则 - 更新为新的20个分类
+    category_mapping = {
+        # 收入分类映射（8个）
+        "工资": "工资收入",
+        "薪资": "工资收入",
+        "奖金": "工资收入",
+        "绩效": "工资收入",
+        "股票": "投资收益",
+        "基金": "投资收益",
+        "理财": "投资收益",
+        "投资": "投资收益",
+        "兼职": "兼职收入",
+        "副业": "兼职收入",
+        "借款": "借款收入",
+        "借钱": "借款收入",
+        "退款": "退款收入",
+        "红包": "红包收入",
+        "礼金": "红包收入",
+        "压岁钱": "红包收入",
+        
+        # 支出分类映射（13个）
+        "餐饮": "食品餐饮",
+        "吃饭": "食品餐饮",
+        "外卖": "食品餐饮",
+        "零食": "食品餐饮",
+        "饮料": "食品餐饮",
+        "水果": "食品餐饮",
+        "蔬菜": "食品餐饮",
+        "肉类": "食品餐饮",
+        "衣服": "服饰鞋包",
+        "鞋子": "服饰鞋包",
+        "包包": "服饰鞋包",
+        "服装": "服饰鞋包",
+        "化妆品": "美妆个护",
+        "护肤品": "美妆个护",
+        "洗护": "美妆个护",
+        "日用品": "日用百货",
+        "生活用品": "日用百货",
+        "交通": "交通出行",
+        "公交": "交通出行",
+        "地铁": "交通出行",
+        "打车": "交通出行",
+        "加油": "交通出行",
+        "停车": "交通出行",
+        "房租": "住房物业",
+        "物业": "住房物业",
+        "水电": "住房物业",
+        "燃气": "住房物业",
+        "医疗": "医疗保健",
+        "医院": "医疗保健",
+        "药品": "医疗保健",
+        "教育": "教育培训",
+        "培训": "教育培训",
+        "学习": "教育培训",
+        "书籍": "教育培训",
+        "人情": "人情社交",
+        "请客": "人情社交",
+        "送礼": "人情社交",
+        "娱乐": "休闲玩乐",
+        "游戏": "休闲玩乐",
+        "电影": "休闲玩乐",
+        "旅游": "休闲玩乐",
+        "还款": "借还款",
+        "白条": "借还款",
+        "花呗": "借还款",
+        "信用卡": "借还款",
+    }
+    
+    # 尝试精确匹配
+    if name in category_mapping:
+        mapped_name = category_mapping[name]
+        return db.query(BillCategory).filter(
+            BillCategory.category_name == mapped_name
+        ).first()
+    
+    # 尝试包含匹配
+    for key, mapped_name in category_mapping.items():
+        if key in name or name in key:
+            return db.query(BillCategory).filter(
+                BillCategory.category_name == mapped_name
+            ).first()
+    
+    # 如果都无法匹配，返回"其他"分类
+    return db.query(BillCategory).filter(
+        BillCategory.category_name == "其他"
+    ).first()
 
 
 def find_existing_jd_bill(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> Optional[Bill]:
@@ -375,7 +466,12 @@ async def upload_file(
                                     current_user.id, 
                                     db
                                 )
-                                existing_bill.category_id = category.id
+                                if category:
+                                    existing_bill.category_id = category.id
+                                else:
+                                    # fallback: 强制归为"其他"分类
+                                    other_category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
+                                    existing_bill.category_id = other_category.id
                             
                             created_bills.append(existing_bill)
                             updated_count += 1  # 统计更新记录数
@@ -396,7 +492,9 @@ async def upload_file(
                             current_user.id, 
                             db
                         )
-                    
+                    # fallback: 无论如何都要有分类
+                    if not category:
+                        category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
                     # 创建新的账单记录
                     bill = Bill(
                         user_id=current_user.id,
@@ -405,7 +503,7 @@ async def upload_file(
                         transaction_type=record["transaction_type"],
                         transaction_desc=record.get("transaction_desc"),
                         source_type=source_type,
-                        category_id=category.id if category else None,
+                        category_id=category.id,
                         raw_data=record.get("raw_data", {}),
                         source_filename=file.filename,  # 记录所有账单的文件名
                         order_id=record.get("order_id"),  # 添加订单号字段

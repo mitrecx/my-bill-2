@@ -46,6 +46,7 @@ class CategoryResponse(BaseModel):
     description: Optional[str] = None
     icon: Optional[str] = None
     color: Optional[str] = None
+    category_type: str = Field(..., description="分类类型：income 或 expense")
 
     class Config:
         from_attributes = True
@@ -60,7 +61,8 @@ class CategoryResponse(BaseModel):
             name=category.category_name,
             description=getattr(category, 'description', None),
             icon=category.icon,
-            color=category.color
+            color=category.color,
+            category_type=category.category_type
         )
 
 
@@ -205,6 +207,7 @@ class BillCategoryResponse(BaseModel):
     description: Optional[str]
     icon: Optional[str]
     color: Optional[str]
+    category_type: str  # income 或 expense
     bills_count: Optional[int] = 0
     created_at: datetime
 
@@ -222,6 +225,7 @@ class BillCategoryResponse(BaseModel):
             description=getattr(category, 'description', None),
             icon=category.icon,
             color=category.color,
+            category_type=category.category_type,  # 添加分类类型
             bills_count=getattr(category, 'bills_count', 0),
             created_at=category.created_at
         )

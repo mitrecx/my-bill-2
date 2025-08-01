@@ -112,20 +112,30 @@ def run_init_sql():
             with engine.connect() as conn:
                 # 只执行插入默认分类的部分
                 insert_categories_sql = """
-                INSERT INTO bill_categories (family_id, category_name, color, icon) VALUES 
-                (NULL, '食品酒饮', '#FF6B6B', 'food'),
-                (NULL, '服饰内衣', '#4ECDC4', 'clothing'),
-                (NULL, '日用百货', '#45B7D1', 'daily'),
-                (NULL, '数码电器', '#96CEB4', 'digital'),
-                (NULL, '交通出行', '#FFEAA7', 'transport'),
-                (NULL, '医疗保健', '#DDA0DD', 'medical'),
-                (NULL, '教育培训', '#98D8C8', 'education'),
-                (NULL, '运动户外', '#F7DC6F', 'sports'),
-                (NULL, '住房物业', '#BB8FCE', 'housing'),
-                (NULL, '投资理财', '#85C1E9', 'investment'),
-                (NULL, '转账红包', '#F8C471', 'transfer'),
-                (NULL, '其他', '#D5DBDB', 'other')
-                ON CONFLICT (family_id, category_name) DO NOTHING;
+                INSERT INTO bill_categories (category_name, color, icon, category_type) VALUES 
+                -- 收入分类
+                ('工资收入', '#52C41A', 'salary', 'income'),
+                ('投资收益', '#1890FF', 'investment', 'income'),
+                ('兼职收入', '#722ED1', 'parttime', 'income'),
+                ('借款收入', '#FA8C16', 'loan', 'income'),
+                ('退款收入', '#13C2C2', 'refund', 'income'),
+                ('红包收入', '#F5222D', 'redpacket', 'income'),
+                ('其他收入', '#8C8C8C', 'other', 'income'),
+                -- 支出分类
+                ('食品餐饮', '#FF6B6B', 'food', 'expense'),
+                ('服饰鞋包', '#4ECDC4', 'clothing', 'expense'),
+                ('美妆个护', '#FF69B4', 'beauty', 'expense'),
+                ('日用百货', '#45B7D1', 'daily', 'expense'),
+                ('交通出行', '#FFEAA7', 'transport', 'expense'),
+                ('住房物业', '#BB8FCE', 'housing', 'expense'),
+                ('医疗保健', '#DDA0DD', 'medical', 'expense'),
+                ('教育培训', '#98D8C8', 'education', 'expense'),
+                ('投资理财', '#85C1E9', 'investment', 'expense'),
+                ('人情社交', '#FF8C42', 'social', 'expense'),
+                ('休闲玩乐', '#87CEEB', 'entertainment', 'expense'),
+                ('借还款', '#F8C471', 'loan', 'expense'),
+                ('其他', '#D5DBDB', 'other', 'expense')
+                ON CONFLICT (category_name) DO NOTHING;
                 """
                 
                 try:

@@ -37,13 +37,13 @@ CREATE TABLE family_members (
 -- 账单分类表
 CREATE TABLE bill_categories (
     id SERIAL PRIMARY KEY,
-    family_id INTEGER REFERENCES families(id) ON DELETE CASCADE,
     category_name VARCHAR(100) NOT NULL,
     parent_id INTEGER REFERENCES bill_categories(id),
     color VARCHAR(7), -- 颜色代码
     icon VARCHAR(50),
+    category_type VARCHAR(10) DEFAULT 'expense' CHECK (category_type IN ('income', 'expense')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(family_id, category_name)
+    UNIQUE(category_name)
 );
 
 -- 账单记录表（核心表，支持多用户）
@@ -93,7 +93,7 @@ CREATE TABLE upload_records (
 );
 
 -- 创建索引优化查询性能
-CREATE INDEX idx_bills_family_user ON bills(family_id, user_id);
+CREATE INDEX idx_bills_user ON bills(user_id);
 CREATE INDEX idx_bills_transaction_time ON bills(transaction_time);
 CREATE INDEX idx_bills_source_type ON bills(source_type);
 CREATE INDEX idx_bills_amount ON bills(amount);
@@ -102,19 +102,29 @@ CREATE INDEX idx_family_members_family_user ON family_members(family_id, user_id
 CREATE INDEX idx_upload_records_family_user ON upload_records(family_id, user_id);
 
 -- 插入默认的账单分类
-INSERT INTO bill_categories (family_id, category_name, color, icon) VALUES 
-(NULL, '食品酒饮', '#FF6B6B', 'food'),
-(NULL, '服饰内衣', '#4ECDC4', 'clothing'),
-(NULL, '日用百货', '#45B7D1', 'daily'),
-(NULL, '数码电器', '#96CEB4', 'digital'),
-(NULL, '交通出行', '#FFEAA7', 'transport'),
-(NULL, '医疗保健', '#DDA0DD', 'medical'),
-(NULL, '教育培训', '#98D8C8', 'education'),
-(NULL, '运动户外', '#F7DC6F', 'sports'),
-(NULL, '住房物业', '#BB8FCE', 'housing'),
-(NULL, '投资理财', '#85C1E9', 'investment'),
-(NULL, '转账红包', '#F8C471', 'transfer'),
-(NULL, '其他', '#D5DBDB', 'other');
+INSERT INTO bill_categories (category_name, color, icon, category_type) VALUES 
+-- 收入分类
+('工资收入', '#52C41A', 'salary', 'income'),
+('投资收益', '#1890FF', 'investment', 'income'),
+('兼职收入', '#722ED1', 'parttime', 'income'),
+('借款收入', '#FA8C16', 'loan', 'income'),
+('退款收入', '#13C2C2', 'refund', 'income'),
+('红包收入', '#F5222D', 'redpacket', 'income'),
+('其他收入', '#8C8C8C', 'other', 'income'),
+-- 支出分类
+('食品餐饮', '#FF6B6B', 'food', 'expense'),
+('服饰鞋包', '#4ECDC4', 'clothing', 'expense'),
+('美妆个护', '#FF69B4', 'beauty', 'expense'),
+('日用百货', '#45B7D1', 'daily', 'expense'),
+('交通出行', '#FFEAA7', 'transport', 'expense'),
+('住房物业', '#BB8FCE', 'housing', 'expense'),
+('医疗保健', '#DDA0DD', 'medical', 'expense'),
+('教育培训', '#98D8C8', 'education', 'expense'),
+('投资理财', '#85C1E9', 'investment', 'expense'),
+('人情社交', '#FF8C42', 'social', 'expense'),
+('休闲玩乐', '#87CEEB', 'entertainment', 'expense'),
+('借还款', '#F8C471', 'loan', 'expense'),
+('其他', '#D5DBDB', 'other', 'expense');
 
 -- 创建更新时间触发器函数
 CREATE OR REPLACE FUNCTION update_updated_at_column()

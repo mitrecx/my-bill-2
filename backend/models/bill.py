@@ -12,6 +12,8 @@ class BillCategory(Base):
     parent_id = Column(Integer, nullable=True)
     color = Column(String, nullable=True)
     icon = Column(String, nullable=True)
+    category_type = Column(String, nullable=False, default="expense")  # income 或 expense
+    description = Column(String, nullable=True)  # 新增：分类描述
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

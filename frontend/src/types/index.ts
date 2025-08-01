@@ -76,6 +76,8 @@ export interface BillCategory {
   name: string;
   category_type: 'income' | 'expense';
   description?: string;
+  icon?: string;
+  color?: string;
   created_at: string;
   updated_at: string;
 }
