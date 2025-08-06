@@ -160,6 +160,71 @@ def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: S
         return False
 
 
+
+def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
+    """
+    处理CMB账单的按日期覆盖逻辑
+    删除数据库中与新文件记录日期相同的所有CMB账单记录
+    
+    Args:
+        filename: 当前上传的文件名
+        records: 当前文件解析出的账单记录
+        family_user_ids: 家庭成员用户ID列表
+        db: 数据库会话
+    
+    Returns:
+        被删除的重叠记录数量
+    """
+    try:
+        # 获取当前文件中的所有交易日期
+        if not records:
+            return 0
+            
+        transaction_dates = set()  # 使用set去重
+        for record in records:
+            transaction_time = record.get("transaction_time")
+            if transaction_time:
+                if isinstance(transaction_time, str):
+                    # 如果是字符串，尝试解析
+                    try:
+                        transaction_time = datetime.fromisoformat(transaction_time.replace('Z', '+00:00'))
+                    except:
+                        continue
+                transaction_dates.add(transaction_time.date())
+        
+        if not transaction_dates:
+            return 0
+            
+        logger.info(f"当前CMB文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
+        
+        deleted_count = 0
+        
+        # 对于每个交易日期，删除数据库中该日期的所有CMB记录
+        for date in transaction_dates:
+            bills_to_delete = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "cmb",
+                func.date(Bill.transaction_time) == date
+            ).all()
+            
+            if bills_to_delete:
+                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条CMB记录")
+                for bill in bills_to_delete:
+                    db.delete(bill)
+                    deleted_count += 1
+        
+        if deleted_count > 0:
+            db.commit()
+            logger.info(f"CMB账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"处理CMB账单按日期覆盖时出错: {e}")
+        db.rollback()
+        return 0
+
+
 def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: List[int], source_type: str, db: Session) -> bool:
     """
     检查非京东账单记录是否重复
@@ -300,6 +365,16 @@ async def upload_file(
             # 解析文件
             parse_result = parser.parse_file(temp_file_path)
             
+            # CMB账单：处理时间范围重叠覆盖逻辑
+            deleted_count = 0
+            if source_type == "cmb":
+                deleted_count = handle_cmb_bill_overlap(
+                    file.filename, 
+                    parse_result.success_records, 
+                    family_user_ids, 
+                    db
+                )
+            
             success_count = 0
             failed_count = 0
             updated_count = 0  # 新增：更新记录数
@@ -335,7 +410,6 @@ async def upload_file(
                             existing_bill.order_id = record.get("order_id")  # 更新订单号
                             existing_bill.counter_party = record.get("counter_party")  # 更新对手方
                             existing_bill.remark = record.get("remark")  # 更新备注
-                            existing_bill.balance = record.get("balance")  # 更新余额
                             existing_bill.updated_at = datetime.now()
                             
                             # 自动分类
@@ -382,7 +456,11 @@ async def upload_file(
                         transaction_type=record["transaction_type"],
                         transaction_desc=record.get("transaction_desc"),
                         source_type=source_type,
+                        source_filename=file.filename,
                         category_id=category.id if category else None,
+                        order_id=record.get("order_id"),
+                        counter_party=record.get("counter_party"),
+                        currency=record.get("currency"),
                         raw_data=record.get("raw_data", {})
                     )
                     
@@ -417,6 +495,8 @@ async def upload_file(
             warnings = parse_result.errors.copy() if hasattr(parse_result, 'errors') else []
             if updated_count > 0:
                 warnings.append(f"更新已存在记录数: {updated_count}")
+            if deleted_count > 0:
+                warnings.append(f"覆盖重叠时间范围内的旧记录数: {deleted_count}")
             
             # 构建错误信息列表
             error_messages = []

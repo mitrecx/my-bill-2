@@ -43,11 +43,21 @@ class CMBParser(BaseParser):
             # 处理每个交易记录
             for transaction in transactions:
                 try:
+                    # 保存原始的六个字段用于raw_data
+                    original_raw_data = {
+                        'date': transaction.get('date'),
+                        'currency': transaction.get('currency'),
+                        'amount': transaction.get('amount'),
+                        'balance': transaction.get('balance'),
+                        'description': transaction.get('description'),
+                        'counterpart': transaction.get('counterpart')
+                    }
+                    
                     # 处理银行特有字段
                     processed_record = self._process_cmb_fields(transaction)
                     
-                    # 标准化记录
-                    standardized = self.standardize_record(processed_record)
+                    # 标准化记录，并传入原始数据
+                    standardized = self.standardize_record(processed_record, original_raw_data)
                     if standardized:
                         result.add_success(standardized)
                     else:
@@ -74,11 +84,21 @@ class CMBParser(BaseParser):
             # 处理每个交易记录
             for transaction in transactions:
                 try:
+                    # 保存原始的六个字段用于raw_data
+                    original_raw_data = {
+                        'date': transaction.get('date'),
+                        'currency': transaction.get('currency'),
+                        'amount': transaction.get('amount'),
+                        'balance': transaction.get('balance'),
+                        'description': transaction.get('description'),
+                        'counterpart': transaction.get('counterpart')
+                    }
+                    
                     # 处理银行特有字段
                     processed_record = self._process_cmb_fields(transaction)
                     
-                    # 标准化记录
-                    standardized = self.standardize_record(processed_record)
+                    # 标准化记录，并传入原始数据
+                    standardized = self.standardize_record(processed_record, original_raw_data)
                     if standardized:
                         result.add_success(standardized)
                     else:
@@ -198,49 +218,10 @@ class CMBParser(BaseParser):
             else:
                 processed["transaction_type"] = "收入"
         
-        # 处理商户名称（从交易摘要中提取）
-        transaction_desc = processed.get("transaction_desc", "")
-        if transaction_desc:
-            # 常见的银行交易类型
-            if any(keyword in transaction_desc for keyword in ["转账", "汇款", "还款"]):
-                processed["merchant_name"] = "银行转账"
-            elif "快捷支付" in transaction_desc:
-                processed["merchant_name"] = "快捷支付"
-            elif "基金" in transaction_desc:
-                processed["merchant_name"] = "基金交易"
-            elif "银联" in transaction_desc:
-                processed["merchant_name"] = "银联支付"
-            elif "工资" in transaction_desc:
-                processed["merchant_name"] = "工资收入"
-            elif "奖金" in transaction_desc:
-                processed["merchant_name"] = "奖金收入"
-            elif "退款" in transaction_desc:
-                processed["merchant_name"] = "退款"
-            else:
-                processed["merchant_name"] = transaction_desc
+
+
         
-        # 处理支付方式
-        transaction_desc = processed.get("transaction_desc", "")
-        if "银联" in transaction_desc:
-            processed["payment_method"] = "银联"
-        elif "快捷支付" in transaction_desc:
-            processed["payment_method"] = "快捷支付"
-        elif "转账" in transaction_desc:
-            processed["payment_method"] = "银行转账"
-        elif "基金" in transaction_desc:
-            processed["payment_method"] = "基金"
-        else:
-            processed["payment_method"] = "银行卡"
-        
-        # 生成订单ID（使用日期+金额+描述的组合）
-        if not processed.get("order_id"):
-            date_str = processed.get("transaction_time", "")
-            amount_str = processed.get("amount", "")
-            desc_str = processed.get("transaction_desc", "")
-            if date_str and amount_str:
-                # 创建一个简单的订单ID
-                order_id = f"CMB_{date_str.replace('-', '')}_{amount_str}_{hash(desc_str) % 10000:04d}"
-                processed["order_id"] = order_id
+        # CMB账单不生成order_id，保持为None
         
         # 设置分类（基于交易描述）
         if not processed.get("category"):

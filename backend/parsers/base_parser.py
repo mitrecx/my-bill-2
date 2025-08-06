@@ -59,23 +59,21 @@ class BaseParser(ABC):
         """解析文件内容的抽象方法"""
         pass
     
-    def standardize_record(self, raw_record: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def standardize_record(self, raw_record: Dict[str, Any], custom_raw_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
         """标准化记录格式"""
         try:
             standardized = {
                 "source_type": self.source_type,
                 "transaction_time": self._parse_datetime(raw_record.get("transaction_time")),
-                "merchant_name": self._clean_string(raw_record.get("merchant_name")),
                 "transaction_desc": self._clean_string(raw_record.get("transaction_desc")),
                 "amount": self._parse_amount(raw_record.get("amount")),
                 "currency": raw_record.get("currency", "CNY"),
                 "transaction_type": self._clean_string(raw_record.get("transaction_type")),
-                "balance": self._parse_amount(raw_record.get("balance")),
                 "order_id": self._clean_string(raw_record.get("order_id")),
                 "counter_party": self._clean_string(raw_record.get("counter_party")),
                 "category": self._clean_string(raw_record.get("category")),  # 添加分类字段
                 "remark": self._clean_string(raw_record.get("remark")),
-                "raw_data": raw_record  # 保存原始数据
+                "raw_data": custom_raw_data if custom_raw_data is not None else raw_record  # 使用自定义原始数据或默认原始数据
             }
             
             # 移除空值
