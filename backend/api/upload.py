@@ -54,114 +54,26 @@ async def get_or_create_category(
     """获取或映射账单分类（不创建新分类，只进行映射）"""
     # 首先尝试精确匹配
     category = db.query(BillCategory).filter(
-        BillCategory.category_name == name
+        BillCategory.name == name,
+        BillCategory.family_id == family_id
     ).first()
     
-    if category:
-        return category
+    if not category:
+        category = BillCategory(
+            name=name,
+            family_id=family_id,
+            description=description or f"自动创建的{name}分类",
+            icon=icon or "category",
+            color=color or "#666666"
+        )
+        db.add(category)
+        db.commit()
+        db.refresh(category)
     
-    # 如果没有精确匹配，尝试智能映射
-    category = map_category_name(name, db)
-    
-    if category:
-        logger.info(f"分类映射: '{name}' -> '{category.category_name}'")
-        return category
-    
-    # 如果无法映射，返回None（不创建新分类）
-    logger.warning(f"无法映射分类: '{name}'，将使用默认分类")
-    return None
-
-def map_category_name(name: str, db: Session) -> Optional[BillCategory]:
-    """智能映射分类名称到预定义分类"""
-    # 分类映射规则 - 更新为新的20个分类
-    category_mapping = {
-        # 收入分类映射（8个）
-        "工资": "工资收入",
-        "薪资": "工资收入",
-        "奖金": "工资收入",
-        "绩效": "工资收入",
-        "股票": "投资收益",
-        "基金": "投资收益",
-        "理财": "投资收益",
-        "投资": "投资收益",
-        "兼职": "兼职收入",
-        "副业": "兼职收入",
-        "借款": "借款收入",
-        "借钱": "借款收入",
-        "退款": "退款收入",
-        "红包": "红包收入",
-        "礼金": "红包收入",
-        "压岁钱": "红包收入",
-        
-        # 支出分类映射（13个）
-        "餐饮": "食品餐饮",
-        "吃饭": "食品餐饮",
-        "外卖": "食品餐饮",
-        "零食": "食品餐饮",
-        "饮料": "食品餐饮",
-        "水果": "食品餐饮",
-        "蔬菜": "食品餐饮",
-        "肉类": "食品餐饮",
-        "衣服": "服饰鞋包",
-        "鞋子": "服饰鞋包",
-        "包包": "服饰鞋包",
-        "服装": "服饰鞋包",
-        "化妆品": "美妆个护",
-        "护肤品": "美妆个护",
-        "洗护": "美妆个护",
-        "日用品": "日用百货",
-        "生活用品": "日用百货",
-        "交通": "交通出行",
-        "公交": "交通出行",
-        "地铁": "交通出行",
-        "打车": "交通出行",
-        "加油": "交通出行",
-        "停车": "交通出行",
-        "房租": "住房物业",
-        "物业": "住房物业",
-        "水电": "住房物业",
-        "燃气": "住房物业",
-        "医疗": "医疗保健",
-        "医院": "医疗保健",
-        "药品": "医疗保健",
-        "教育": "教育培训",
-        "培训": "教育培训",
-        "学习": "教育培训",
-        "书籍": "教育培训",
-        "人情": "人情社交",
-        "请客": "人情社交",
-        "送礼": "人情社交",
-        "娱乐": "休闲玩乐",
-        "游戏": "休闲玩乐",
-        "电影": "休闲玩乐",
-        "旅游": "休闲玩乐",
-        "还款": "借还款",
-        "白条": "借还款",
-        "花呗": "借还款",
-        "信用卡": "借还款",
-    }
-    
-    # 尝试精确匹配
-    if name in category_mapping:
-        mapped_name = category_mapping[name]
-        return db.query(BillCategory).filter(
-            BillCategory.category_name == mapped_name
-        ).first()
-    
-    # 尝试包含匹配
-    for key, mapped_name in category_mapping.items():
-        if key in name or name in key:
-            return db.query(BillCategory).filter(
-                BillCategory.category_name == mapped_name
-            ).first()
-    
-    # 如果都无法匹配，返回"其他"分类
-    return db.query(BillCategory).filter(
-        BillCategory.category_name == "其他"
-    ).first()
+    return category
 
 
-def find_existing_jd_bill(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> Optional[Bill]:
+def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -> Optional[Bill]:
     """
     查找已存在的京东账单记录
     
@@ -180,40 +92,25 @@ def find_existing_jd_bill(record: Dict[str, Any], family_user_ids: List[int], db
         amount = record.get("amount")
         transaction_desc = record.get("transaction_desc", "")
         
-        logger.debug(f"查找京东账单: family_user_ids={family_user_ids}, order_id={order_id}, time={transaction_time}, amount={amount}")
+        logger.debug(f"查找京东账单: family_id={family_id}, order_id={order_id}")
         
-        # 策略1: 如果有order_id，使用order_id + transaction_time + amount进行精确匹配
-        if order_id and transaction_time and amount is not None:
-            existing_bill = db.query(Bill).filter(
-                Bill.user_id.in_(family_user_ids),
-                Bill.source_type == "jd",
-                Bill.raw_data.op('->>')('order_id') == order_id,
-                Bill.transaction_time == transaction_time,
-                Bill.amount == amount
-            ).first()
-            
-            if existing_bill:
-                logger.info(f"找到已存在的京东账单（订单号+时间+金额匹配）: {order_id}")
-                return existing_bill
+        if not order_id:
+            logger.warning("京东账单缺少交易订单号")
+            return None
         
-        # 策略2: 如果没有order_id或策略1没找到，使用时间+金额+描述进行匹配
-        if transaction_time and amount is not None and transaction_desc:
-            # 时间容差：允许1分钟内的时间差异
-            time_start = transaction_time - timedelta(minutes=1)
-            time_end = transaction_time + timedelta(minutes=1)
+        # 使用交易订单号进行精确匹配
+        existing_bill = db.query(Bill).filter(
+            Bill.family_id == family_id,
+            Bill.source_type == "jd",
+            Bill.raw_data.op('->>')('order_id') == order_id
+        ).first()
+        
+        if existing_bill:
+            logger.info(f"找到已存在的京东账单（订单号匹配）: {order_id}")
+        else:
+            logger.debug(f"未找到重复的京东账单: {order_id}")
             
-            existing_bill = db.query(Bill).filter(
-                Bill.user_id.in_(family_user_ids),
-                Bill.source_type == "jd",
-                Bill.transaction_time >= time_start,
-                Bill.transaction_time <= time_end,
-                Bill.amount == amount,
-                Bill.transaction_desc == transaction_desc
-            ).first()
-            
-            if existing_bill:
-                logger.info(f"找到已存在的京东账单（时间+金额+描述匹配）: {transaction_desc[:50]}...")
-                return existing_bill
+        return existing_bill
         
         logger.debug(f"未找到重复的京东账单")
         return None
@@ -221,6 +118,27 @@ def find_existing_jd_bill(record: Dict[str, Any], family_user_ids: List[int], db
     except Exception as e:
         logger.error(f"查找京东账单时出错: {e}")
         return None
+
+
+def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> bool:
+    """
+    检查支付宝文件是否已经上传过
+    """
+    try:
+        logger.info(f"检查支付宝文件重复: filename={filename}, family_id={family_id}")
+        existing_bill = db.query(Bill).filter(
+            Bill.family_id == family_id,
+            Bill.source_type == "alipay",
+            Bill.source_filename == filename
+        ).first()
+        
+        result = existing_bill is not None
+        logger.info(f"支付宝文件重复检查结果: {result}, existing_bill_id={existing_bill.id if existing_bill else None}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"检查支付宝文件重复失败: {e}")
+        return False
 
 
 def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: Session) -> bool:
@@ -364,28 +282,6 @@ async def upload_file(
                 detail="无法识别文件类型，请指定source_type参数"
             )
         
-        # 支付宝文件重复检查
-        if source_type == "alipay":
-            if check_duplicate_alipay_file(file.filename, family_user_ids, db):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="此账单已经上传, 支付宝账单不支持重复上传!"
-                )
-        
-        # 招商银行文件重复检查
-        if source_type == "cmb":
-            existing_cmb_bill = db.query(Bill).filter(
-                Bill.user_id.in_(family_user_ids),
-                Bill.source_type == "cmb",
-                Bill.source_filename == file.filename
-            ).first()
-            
-            if existing_cmb_bill:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="此招商银行账单文件已经上传过，不支持重复上传!"
-                )
-        
         # 获取解析器
         parser = get_parser(source_type)
         if not parser:
@@ -425,21 +321,6 @@ async def upload_file(
                         logger.warning(f"记录 {i+1} 缺少必需字段: {missing_fields}, 记录内容: {record}")
                         failed_count += 1
                         continue
-                    
-                    # 批次内去重检查（支付宝和招商银行账单不进行批次内去重）
-                    if source_type not in ["alipay", "cmb"]:
-                        record_key = (
-                            record["transaction_time"].isoformat() if hasattr(record["transaction_time"], 'isoformat') else str(record["transaction_time"]),
-                            str(record["amount"]),
-                            record.get("transaction_desc", ""),
-                            record.get("counter_party", "")  # 加入对手方信息
-                        )
-                        
-                        if record_key in batch_records:
-                            logger.info(f"跳过批次内重复记录 (记录 {i+1}): {record_key}")
-                            continue
-                        
-                        batch_records.add(record_key)
                     
                     # 京东账单：查找已存在的记录并更新
                     if source_type == "jd":
@@ -503,26 +384,13 @@ async def upload_file(
                         transaction_type=record["transaction_type"],
                         transaction_desc=record.get("transaction_desc"),
                         source_type=source_type,
-                        category_id=category.id,
-                        raw_data=record.get("raw_data", {}),
-                        source_filename=file.filename,  # 记录所有账单的文件名
-                        order_id=record.get("order_id"),  # 添加订单号字段
-                        counter_party=record.get("counter_party"),  # 添加对手方字段
-                        remark=record.get("remark"),  # 添加备注字段
-                        balance=record.get("balance")  # 添加余额字段
+                        category_id=category.id if category else None,
+                        raw_data=record.get("raw_data", {})
                     )
                     
-                    try:
-                        db.add(bill)
-                        db.flush()  # 先flush检查是否有错误
-                        created_bills.append(bill)
-                        success_count += 1
-                    except Exception as db_error:
-                        logger.error(f"数据库插入失败 (记录 {i+1}): {db_error}")
-                        logger.error(f"问题记录内容: {record}")
-                        db.rollback()  # 回滚这个记录
-                        failed_count += 1
-                        continue
+                    db.add(bill)
+                    created_bills.append(bill)
+                    success_count += 1
                     
                 except Exception as e:
                     logger.error(f"创建账单记录失败 (记录 {i+1}): {e}")
