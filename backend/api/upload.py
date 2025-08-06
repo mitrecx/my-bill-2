@@ -54,14 +54,12 @@ async def get_or_create_category(
     """获取或映射账单分类（不创建新分类，只进行映射）"""
     # 首先尝试精确匹配
     category = db.query(BillCategory).filter(
-        BillCategory.name == name,
-        BillCategory.family_id == family_id
+        BillCategory.category_name == name
     ).first()
     
     if not category:
         category = BillCategory(
-            name=name,
-            family_id=family_id,
+            category_name=name,
             description=description or f"自动创建的{name}分类",
             icon=icon or "category",
             color=color or "#666666"
