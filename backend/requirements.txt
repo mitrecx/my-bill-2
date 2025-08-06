@@ -18,7 +18,7 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # PDF处理
-pdfplumber==0.11.7
+PyMuPDF==1.23.26
 
 # 文件处理
 aiofiles==23.2.1
