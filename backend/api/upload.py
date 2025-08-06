@@ -71,51 +71,68 @@ async def get_or_create_category(
     return category
 
 
-def find_existing_jd_bill(record: Dict[str, Any], family_id: int, db: Session) -> Optional[Bill]:
+def handle_jd_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
     """
-    查找已存在的京东账单记录
+    处理JD账单的按日期覆盖逻辑（与CMB账单保持一致）
+    删除数据库中与新文件记录日期相同的所有JD账单记录
     
-    对于京东账单，使用更精确的匹配策略：
-    1. 优先使用 order_id + transaction_time + amount 的组合
-    2. 如果没有order_id，则使用 transaction_time + amount + transaction_desc
+    Args:
+        filename: 当前上传的文件名
+        records: 当前文件解析出的账单记录
+        family_user_ids: 家庭成员用户ID列表
+        db: 数据库会话
     
-    返回：
-    - 如果找到重复记录，返回该记录
-    - 如果没有找到，返回 None
+    Returns:
+        被删除的重叠记录数量
     """
     try:
-        raw_data = record.get("raw_data", {})
-        order_id = raw_data.get("order_id")
-        transaction_time = record.get("transaction_time")
-        amount = record.get("amount")
-        transaction_desc = record.get("transaction_desc", "")
-        
-        logger.debug(f"查找京东账单: family_id={family_id}, order_id={order_id}")
-        
-        if not order_id:
-            logger.warning("京东账单缺少交易订单号")
-            return None
-        
-        # 使用交易订单号进行精确匹配
-        existing_bill = db.query(Bill).filter(
-            Bill.family_id == family_id,
-            Bill.source_type == "jd",
-            Bill.raw_data.op('->>')('order_id') == order_id
-        ).first()
-        
-        if existing_bill:
-            logger.info(f"找到已存在的京东账单（订单号匹配）: {order_id}")
-        else:
-            logger.debug(f"未找到重复的京东账单: {order_id}")
+        # 获取当前文件中的所有交易日期
+        if not records:
+            return 0
             
-        return existing_bill
+        transaction_dates = set()  # 使用set去重
+        for record in records:
+            transaction_time = record.get("transaction_time")
+            if transaction_time:
+                if isinstance(transaction_time, str):
+                    # 如果是字符串，尝试解析
+                    try:
+                        transaction_time = datetime.fromisoformat(transaction_time.replace('Z', '+00:00'))
+                    except:
+                        continue
+                transaction_dates.add(transaction_time.date())
         
-        logger.debug(f"未找到重复的京东账单")
-        return None
+        if not transaction_dates:
+            return 0
+            
+        logger.info(f"当前JD文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
+        
+        deleted_count = 0
+        
+        # 对于每个交易日期，删除数据库中该日期的所有JD记录
+        for date in transaction_dates:
+            bills_to_delete = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "jd",
+                func.date(Bill.transaction_time) == date
+            ).all()
+            
+            if bills_to_delete:
+                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条JD记录")
+                for bill in bills_to_delete:
+                    db.delete(bill)
+                    deleted_count += 1
+        
+        if deleted_count > 0:
+            db.commit()
+            logger.info(f"JD账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+        
+        return deleted_count
         
     except Exception as e:
-        logger.error(f"查找京东账单时出错: {e}")
-        return None
+        logger.error(f"处理JD账单按日期覆盖时出错: {e}")
+        db.rollback()
+        return 0
 
 
 def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> bool:
@@ -159,6 +176,70 @@ def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: S
         logger.error(f"检查支付宝文件重复失败: {e}")
         return False
 
+
+
+def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
+    """
+    处理支付宝账单的按日期覆盖逻辑（与CMB账单保持一致）
+    删除数据库中与新文件记录日期相同的所有支付宝账单记录
+    
+    Args:
+        filename: 当前上传的文件名
+        records: 当前文件解析出的账单记录
+        family_user_ids: 家庭成员用户ID列表
+        db: 数据库会话
+    
+    Returns:
+        被删除的重叠记录数量
+    """
+    try:
+        # 获取当前文件中的所有交易日期
+        if not records:
+            return 0
+            
+        transaction_dates = set()  # 使用set去重
+        for record in records:
+            transaction_time = record.get("transaction_time")
+            if transaction_time:
+                if isinstance(transaction_time, str):
+                    # 如果是字符串，尝试解析
+                    try:
+                        transaction_time = datetime.fromisoformat(transaction_time.replace('Z', '+00:00'))
+                    except:
+                        continue
+                transaction_dates.add(transaction_time.date())
+        
+        if not transaction_dates:
+            return 0
+            
+        logger.info(f"当前支付宝文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
+        
+        deleted_count = 0
+        
+        # 对于每个交易日期，删除数据库中该日期的所有支付宝记录
+        for date in transaction_dates:
+            bills_to_delete = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "alipay",
+                func.date(Bill.transaction_time) == date
+            ).all()
+            
+            if bills_to_delete:
+                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条支付宝记录")
+                for bill in bills_to_delete:
+                    db.delete(bill)
+                    deleted_count += 1
+        
+        if deleted_count > 0:
+            db.commit()
+            logger.info(f"支付宝账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"处理支付宝账单按日期覆盖时出错: {e}")
+        db.rollback()
+        return 0
 
 
 def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
@@ -365,10 +446,24 @@ async def upload_file(
             # 解析文件
             parse_result = parser.parse_file(temp_file_path)
             
-            # CMB账单：处理时间范围重叠覆盖逻辑
+            # CMB、JD和支付宝账单：处理时间范围重叠覆盖逻辑
             deleted_count = 0
             if source_type == "cmb":
                 deleted_count = handle_cmb_bill_overlap(
+                    file.filename, 
+                    parse_result.success_records, 
+                    family_user_ids, 
+                    db
+                )
+            elif source_type == "jd":
+                deleted_count = handle_jd_bill_overlap(
+                    file.filename, 
+                    parse_result.success_records, 
+                    family_user_ids, 
+                    db
+                )
+            elif source_type == "alipay":
+                deleted_count = handle_alipay_bill_overlap(
                     file.filename, 
                     parse_result.success_records, 
                     family_user_ids, 
@@ -395,44 +490,8 @@ async def upload_file(
                         failed_count += 1
                         continue
                     
-                    # 京东账单：查找已存在的记录并更新
-                    if source_type == "jd":
-                        existing_bill = find_existing_jd_bill(record, family_user_ids, db)
-                        
-                        if existing_bill:
-                            # 更新已存在的记录
-                            existing_bill.amount = record["amount"]
-                            existing_bill.transaction_time = record["transaction_time"]
-                            existing_bill.transaction_type = record["transaction_type"]
-                            existing_bill.transaction_desc = record.get("transaction_desc")
-                            existing_bill.raw_data = record.get("raw_data", {})
-                            existing_bill.source_filename = file.filename  # 更新文件名
-                            existing_bill.order_id = record.get("order_id")  # 更新订单号
-                            existing_bill.counter_party = record.get("counter_party")  # 更新对手方
-                            existing_bill.remark = record.get("remark")  # 更新备注
-                            existing_bill.updated_at = datetime.now()
-                            
-                            # 自动分类
-                            if auto_categorize and record.get("category"):
-                                category = await get_or_create_category(
-                                    record["category"], 
-                                    current_user.id, 
-                                    db
-                                )
-                                if category:
-                                    existing_bill.category_id = category.id
-                                else:
-                                    # fallback: 强制归为"其他"分类
-                                    other_category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
-                                    existing_bill.category_id = other_category.id
-                            
-                            created_bills.append(existing_bill)
-                            updated_count += 1  # 统计更新记录数
-                            logger.info(f"更新京东账单记录: {record.get('raw_data', {}).get('order_id')}")
-                            continue
-                    
                     # 其他来源：检查重复
-                    elif source_type not in ["cmb"]:  # 招商银行已在文件级别检测重复，京东账单不进行重复检查
+                    if source_type not in ["cmb", "jd", "alipay"]:  # 招商银行、京东和支付宝账单已在文件级别检测重复
                         if check_duplicate_bill_other_sources(record, family_user_ids, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue

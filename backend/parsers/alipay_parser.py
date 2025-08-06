@@ -78,8 +78,11 @@ class AlipayParser(BaseParser):
                     # 额外处理支付宝特有字段
                     processed_record = self._process_alipay_fields(mapped_record)
                     
+                    # 提取custom_raw_data
+                    custom_raw_data = processed_record.pop("raw_data", None)
+                    
                     # 标准化记录
-                    standardized = self.standardize_record(processed_record)
+                    standardized = self.standardize_record(processed_record, custom_raw_data)
                     if standardized:
                         result.add_success(standardized)
                     else:
@@ -115,6 +118,9 @@ class AlipayParser(BaseParser):
         for key, value in raw_record.items():
             if key not in self.field_mapping:
                 mapped[key] = value
+        
+        # 保留原始记录用于raw_data处理
+        mapped["_original_record"] = raw_record
                 
         return mapped
     
@@ -185,8 +191,37 @@ class AlipayParser(BaseParser):
         if account:
             processed["payment_method"] = account
         
-        # 设置raw_data字段为清理后的原始记录，避免嵌套
-        processed["raw_data"] = cleaned_record
+        # 设置raw_data字段，使用英文字段名
+        # 中文字段名到英文字段名的映射
+        raw_field_mapping = {
+            "记录时间": "record_time",
+            "分类": "category", 
+            "收支类型": "transaction_type",
+            "金额": "amount",
+            "备注": "description",
+            "账户": "account",
+            "来源": "source",
+            "标签": "tags"
+        }
+        
+        raw_data = {}
+        
+        # 从原始记录中提取指定字段并转换为英文字段名
+        original_record = cleaned_record.get("_original_record", {})
+        for chinese_field, english_field in raw_field_mapping.items():
+            if chinese_field in original_record:
+                value = original_record[chinese_field]
+                # 清理NaN值
+                if pd.isna(value) or (isinstance(value, float) and (value != value)):
+                    raw_data[english_field] = None
+                else:
+                    raw_data[english_field] = value
+        
+        processed["raw_data"] = raw_data
+        
+        # 移除临时的原始记录字段
+        if "_original_record" in processed:
+            del processed["_original_record"]
         
         return processed
     

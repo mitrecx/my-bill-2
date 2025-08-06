@@ -161,11 +161,11 @@ class JDParser(BaseParser):
                     # 映射字段名
                     mapped_record = self._map_fields(raw_record)
                     
-                    # 额外处理京东特有字段
-                    processed_record = self._process_jd_fields(mapped_record)
+                    # 额外处理京东特有字段，传递原始记录用于构建raw_data
+                    processed_record, custom_raw_data = self._process_jd_fields(mapped_record, raw_record)
                     
-                    # 标准化记录
-                    standardized = self.standardize_record(processed_record)
+                    # 标准化记录，传递自定义的raw_data
+                    standardized = self.standardize_record(processed_record, custom_raw_data)
                     if standardized:
                         result.add_success(standardized)
                     else:
@@ -204,9 +204,32 @@ class JDParser(BaseParser):
                 
         return mapped
     
-    def _process_jd_fields(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """处理京东特有字段"""
+    def _process_jd_fields(self, record: Dict[str, Any], raw_record: Dict[str, Any] = None) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """处理京东特有字段，返回处理后的记录和raw_data"""
         processed = record.copy()
+        
+        # 构建raw_data，只保存原始的11个字段，并使用英文键名
+        raw_data = {}
+        if raw_record:
+            # 定义中文到英文的字段映射
+            raw_field_mapping = {
+                "交易时间": "transaction_time",
+                "商户名称": "merchant_name", 
+                "交易说明": "transaction_desc",
+                "金额": "amount",
+                "收/付款方式": "payment_method",
+                "交易状态": "transaction_status",
+                "收/支": "income_expense",
+                "交易分类": "category",
+                "交易订单号": "order_id",
+                "商家订单号": "merchant_order_id",
+                "备注": "remark"
+            }
+            
+            # 从原始记录中提取指定字段并转换为英文键名
+            for chinese_field, english_field in raw_field_mapping.items():
+                if chinese_field in raw_record:
+                    raw_data[english_field] = raw_record[chinese_field]
         
         # 处理收支情况
         income_expense = record.get("income_expense", "")
@@ -291,4 +314,4 @@ class JDParser(BaseParser):
         if merchant_name and merchant_name not in ["京东小金库", "京东白条", "京东金融"]:
             processed["counter_party"] = merchant_name
         
-        return processed
+        return processed, raw_data
