@@ -34,9 +34,7 @@ class Bill(Base):
     transaction_desc = Column(String, nullable=True)
     source_type = Column(String, nullable=False)  # alipay, jd, cmb
     source_filename = Column(String, nullable=True)  # 新增：记录来源文件名
-    order_id = Column(String, nullable=True)  # 新增：订单ID字段
     counter_party = Column(String, nullable=True)  # 新增：交易对方字段
-    merchant_name = Column(String, nullable=True)  # 新增：商户名称字段
     currency = Column(String, nullable=True)  # 新增：货币字段
     remark = Column(String, nullable=True)  # 新增：备注字段
     raw_data = Column(JSON, nullable=True)

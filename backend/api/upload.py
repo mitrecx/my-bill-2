@@ -339,12 +339,12 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: 
                 logger.info(f"发现重复记录（订单号匹配）: {order_id}")
                 return True
         
-        # 使用组合字段进行匹配（交易时间 + 金额 + 商户名称）
+        # 使用组合字段进行匹配（交易时间 + 金额 + 交易描述）
         transaction_time = record.get("transaction_time")
         amount = record.get("amount")
-        merchant_name = record.get("merchant_name") or record.get("transaction_desc", "")
+        transaction_desc = record.get("transaction_desc", "")
         
-        logger.debug(f"组合字段检查: time={transaction_time}, amount={amount}, merchant={merchant_name}")
+        logger.debug(f"组合字段检查: time={transaction_time}, amount={amount}, desc={transaction_desc}")
         
         if transaction_time and amount is not None:
             # 时间容差：允许1分钟内的时间差异
@@ -360,14 +360,14 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: 
             ).first()
             
             if existing_bill:
-                # 进一步检查商户名称或交易描述是否相似
+                # 进一步检查交易描述是否相似
                 existing_desc = existing_bill.transaction_desc or ""
-                if merchant_name and (
-                    merchant_name in existing_desc or 
-                    existing_desc in merchant_name or
-                    merchant_name == existing_desc
+                if transaction_desc and (
+                    transaction_desc in existing_desc or 
+                    existing_desc in transaction_desc or
+                    transaction_desc == existing_desc
                 ):
-                    logger.info(f"发现重复记录（组合字段匹配）: 时间={transaction_time}, 金额={amount}, 商户={merchant_name}")
+                    logger.info(f"发现重复记录（组合字段匹配）: 时间={transaction_time}, 金额={amount}, 描述={transaction_desc}")
                     return True
         
         logger.debug("未发现重复记录")
@@ -517,7 +517,6 @@ async def upload_file(
                         source_type=source_type,
                         source_filename=file.filename,
                         category_id=category.id if category else None,
-                        order_id=record.get("order_id"),
                         counter_party=record.get("counter_party"),
                         currency=record.get("currency"),
                         raw_data=record.get("raw_data", {})

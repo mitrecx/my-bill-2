@@ -69,7 +69,7 @@ class BaseParser(ABC):
                 "amount": self._parse_amount(raw_record.get("amount")),
                 "currency": raw_record.get("currency", "CNY"),
                 "transaction_type": self._clean_string(raw_record.get("transaction_type")),
-                "order_id": self._clean_string(raw_record.get("order_id")),
+
                 "counter_party": self._clean_string(raw_record.get("counter_party")),
                 "category": self._clean_string(raw_record.get("category")),  # 添加分类字段
                 "remark": self._clean_string(raw_record.get("remark")),

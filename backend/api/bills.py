@@ -53,7 +53,7 @@ async def get_bills(
     category_id: Optional[int] = Query(None, description="分类ID筛选"),
     transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
     source_type: Optional[str] = Query(None, description="来源类型筛选"),
-    merchant_name: Optional[str] = Query(None, description="商户名称筛选"),
+
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
     min_amount: Optional[float] = Query(None, ge=0, description="最小金额"),
@@ -91,9 +91,6 @@ async def get_bills(
         
         if source_type:
             query = query.filter(Bill.source_type == source_type)
-        
-        if merchant_name:
-            query = query.filter(Bill.transaction_desc.ilike(f"%{merchant_name}%"))
         
         if start_date:
             query = query.filter(Bill.transaction_time >= start_date)

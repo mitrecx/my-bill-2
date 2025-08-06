@@ -279,21 +279,11 @@ class JDParser(BaseParser):
             
             processed["amount"] = amount_str
         
-        # 处理交易描述，合并商户名称和交易说明
-        desc_parts = []
-        if record.get("merchant_name"):
-            desc_parts.append(str(record["merchant_name"]))
+        # 处理交易描述，只使用交易说明
         if record.get("transaction_desc"):
-            desc_parts.append(str(record["transaction_desc"]))
-            
-        if desc_parts:
-            processed["transaction_desc"] = " - ".join(desc_parts)
+            processed["transaction_desc"] = str(record["transaction_desc"])
         
-        # 处理订单号，优先使用交易订单号
-        if record.get("order_id"):
-            processed["order_id"] = record["order_id"]
-        elif record.get("merchant_order_id"):
-            processed["order_id"] = record["merchant_order_id"]
+        # 订单号信息保留在raw_data中，不再设置到processed记录
         
         # 确保分类字段正确保存
         if record.get("category"):

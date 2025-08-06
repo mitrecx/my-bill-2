@@ -221,7 +221,7 @@ class CMBParser(BaseParser):
 
 
         
-        # CMB账单不生成order_id，保持为None
+        # CMB账单不生成order_id，订单号信息保留在raw_data中
         
         # 设置分类（基于交易描述）
         if not processed.get("category"):

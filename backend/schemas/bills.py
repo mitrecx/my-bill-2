@@ -16,7 +16,6 @@ class BillBase(BaseModel):
     """账单基础模型"""
     amount: float = Field(..., ge=0, description="金额")
     transaction_type: str = Field(..., description="交易类型")
-    merchant_name: Optional[str] = Field(None, max_length=200, description="商户名称")
     description: Optional[str] = Field(None, max_length=500, description="描述")
     notes: Optional[str] = Field(None, max_length=1000, description="备注")
 
@@ -176,7 +175,6 @@ class BillFilter(BaseModel):
     category_id: Optional[int] = None
     transaction_type: Optional[str] = None
     source_type: Optional[str] = None
-    merchant_name: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     min_amount: Optional[float] = None

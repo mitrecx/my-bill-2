@@ -173,18 +173,7 @@ class AlipayParser(BaseParser):
         if desc_parts:
             processed["transaction_desc"] = " | ".join(desc_parts)
         
-        # 提取商户名称（从备注中提取）
-        if cleaned_record.get("transaction_desc"):
-            desc = str(cleaned_record["transaction_desc"])
-            # 尝试从描述中提取商户名称
-            if "-" in desc:
-                parts = desc.split("-", 1)
-                if len(parts) > 1:
-                    processed["merchant_name"] = parts[0].strip()
-            elif "：" in desc:
-                parts = desc.split("：", 1)
-                if len(parts) > 1:
-                    processed["merchant_name"] = parts[0].strip()
+        # 商户名称信息保留在raw_data中，不再设置到processed记录
         
         # 处理支付方式
         account = cleaned_record.get("account", "")
