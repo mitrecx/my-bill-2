@@ -43,3 +43,5 @@ ssl-certs/*.crt
 
 .vercel/
 .vscode/
+
+.trae/

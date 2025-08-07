@@ -43,30 +43,15 @@ async def get_user_family_members(user: User, db: Session) -> List[int]:
     return [fm.user_id for fm in family_members]
 
 
-async def get_or_create_category(
+async def get_existing_category(
     name: str, 
-    user_id: int, 
-    db: Session,
-    description: str = None,
-    icon: str = None,
-    color: str = None
+    db: Session
 ) -> Optional[BillCategory]:
-    """获取或映射账单分类（不创建新分类，只进行映射）"""
-    # 首先尝试精确匹配
+    """获取现有的账单分类（不创建新分类）"""
+    # 尝试精确匹配现有分类
     category = db.query(BillCategory).filter(
         BillCategory.category_name == name
     ).first()
-    
-    if not category:
-        category = BillCategory(
-            category_name=name,
-            description=description or f"自动创建的{name}分类",
-            icon=icon or "category",
-            color=color or "#666666"
-        )
-        db.add(category)
-        db.commit()
-        db.refresh(category)
     
     return category
 
@@ -496,15 +481,14 @@ async def upload_file(
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue
                     
-                    # 自动分类
+                    # 分类处理：只查找现有分类，不自动创建
                     category = None
                     if auto_categorize and record.get("category"):
-                        category = await get_or_create_category(
+                        category = await get_existing_category(
                             record["category"], 
-                            current_user.id, 
                             db
                         )
-                    # fallback: 无论如何都要有分类
+                    # fallback: 如果没有找到匹配的分类，使用"其他"分类
                     if not category:
                         category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
                     # 创建新的账单记录
