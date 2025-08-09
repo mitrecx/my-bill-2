@@ -143,9 +143,10 @@ class AIClassificationService:
 分类指导：
 1. **优先级顺序**：首先检查是否匹配分类规则，如果匹配则按规则分类；如果不匹配任何规则，再根据账单描述进行智能分类
 2. **交易类型匹配**：根据交易类型选择对应类别
+   - 不能混淆收入和支出类别
    - 交易类型为"收入"的账单，必须从收入类别中选择分类
    - 交易类型为"支出"的账单，必须从支出类别中选择分类
-   - 不能混淆收入和支出类别
+   - 交易类型为"不计收支"的账单，分类可以选择支出或收入，根据账单描述判断
 3. **关键词分析**：仔细分析账单描述中的关键词
 4. **最佳匹配**：选择最具体、最相关的分类
 
@@ -185,37 +186,68 @@ class AIClassificationService:
                 content = response.choices[0].message.content.strip()
                 logger.info(f"AI单个分类内容: {content}")
                 
-                # 简化解析逻辑：直接从格式化响应中提取分类ID
-                if ':' in content:
-                    try:
-                        # 解析 "账单ID: 分类ID" 格式
-                        parts = content.split(':', 1)
-                        if len(parts) == 2:
-                            category_id_str = parts[1].strip()
-                            
-                            # 转换分类ID为整数
+                # 解析AI响应，支持多种格式
+                try:
+                    # 获取所有可用的分类，创建ID到名称的映射
+                    all_categories = db.query(BillCategory).all()
+                    category_id_to_name = {cat.id: cat.category_name for cat in all_categories}
+                    
+                    # 尝试从响应中提取分类ID
+                    category_id = None
+                    
+                    # 处理多行响应，查找包含"分类ID"的行
+                    lines = content.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if '分类ID:' in line:
+                            # 处理格式：分类ID: 11
+                            parts = line.split('分类ID:', 1)
+                            if len(parts) == 2:
+                                category_id_str = parts[1].strip()
+                                try:
+                                    category_id = int(category_id_str)
+                                    break
+                                except ValueError:
+                                    continue
+                        elif line and ':' in line and not line.startswith('账单ID:'):
+                            # 处理简单格式：账单ID: 分类ID
+                            parts = line.split(':', 1)
+                            if len(parts) == 2:
+                                category_id_str = parts[1].strip()
+                                try:
+                                    category_id = int(category_id_str)
+                                    break
+                                except ValueError:
+                                    continue
+                    
+                    # 如果还没找到，尝试从整个内容中提取数字
+                    if category_id is None:
+                        import re
+                        # 查找最后一个数字作为分类ID
+                        numbers = re.findall(r'\d+', content)
+                        if numbers:
                             try:
-                                category_id = int(category_id_str)
-                                
-                                # 获取所有可用的分类，创建ID到名称的映射
-                                all_categories = db.query(BillCategory).all()
-                                category_id_to_name = {cat.id: cat.category_name for cat in all_categories}
-                                
-                                # 根据分类ID获取分类名称
-                                category_name = category_id_to_name.get(category_id)
-                                
-                                if category_name:
-                                    logger.info(f"解析成功: 分类ID {category_id} ({category_name})")
-                                    return category_name
-                                else:
-                                    logger.warning(f"无效分类ID: {category_id}")
-                                    return None
+                                category_id = int(numbers[-1])
                             except ValueError:
-                                logger.warning(f"无效的分类ID格式: {category_id_str}")
-                                return None
-                    except Exception as e:
-                        logger.warning(f"解析响应失败: {content}, 错误: {e}")
+                                pass
+                    
+                    if category_id is not None:
+                        # 根据分类ID获取分类名称
+                        category_name = category_id_to_name.get(category_id)
+                        
+                        if category_name:
+                            logger.info(f"解析成功: 分类ID {category_id} ({category_name})")
+                            return category_name
+                        else:
+                            logger.warning(f"无效分类ID: {category_id}")
+                            return None
+                    else:
+                        logger.warning(f"无法从响应中提取分类ID: {content}")
                         return None
+                        
+                except Exception as e:
+                    logger.warning(f"解析响应失败: {content}, 错误: {e}")
+                    return None
                 else:
                     logger.warning(f"AI响应格式不正确: {content}")
                     return None
@@ -301,9 +333,10 @@ class AIClassificationService:
 分类指导：
 1. **优先级顺序**：首先检查是否匹配分类规则，如果匹配则按规则分类；如果不匹配任何规则，再根据账单描述进行智能分类
 2. **交易类型匹配**：根据交易类型选择对应类别
+   - 不能混淆收入和支出类别
    - 交易类型为"收入"的账单，必须从收入类别中选择分类
    - 交易类型为"支出"的账单，必须从支出类别中选择分类
-   - 不能混淆收入和支出类别
+   - 交易类型为"不计收支"的账单，分类可以选择支出或收入，根据账单描述判断
 3. **关键词分析**：仔细分析账单描述中的关键词
 4. **最佳匹配**：选择最具体、最相关的分类
 
@@ -394,28 +427,40 @@ class AIClassificationService:
             line = line.strip()
             if ':' in line:
                 try:
-                    # 解析格式：账单ID: 分类ID
-                    parts = line.split(':', 1)
-                    if len(parts) == 2:
-                        bill_id_str = parts[0].strip()
-                        category_id_str = parts[1].strip()
+                    # 解析格式：账单ID: xxx: yyy 或 xxx: yyy
+                    if line.startswith('账单ID:'):
+                        # 处理格式：账单ID: 13082: 2
+                        parts = line.split(':', 2)  # 最多分割成3部分
+                        if len(parts) >= 3:
+                            bill_id_str = parts[1].strip()
+                            category_id_str = parts[2].strip()
+                        else:
+                            continue
+                    else:
+                        # 处理格式：13082: 2
+                        parts = line.split(':', 1)
+                        if len(parts) == 2:
+                            bill_id_str = parts[0].strip()
+                            category_id_str = parts[1].strip()
+                        else:
+                            continue
+                    
+                    # 转换账单ID和分类ID为整数
+                    try:
+                        bill_id = int(bill_id_str)
+                        category_id = int(category_id_str)
                         
-                        # 转换账单ID和分类ID为整数
-                        try:
-                            bill_id = int(bill_id_str)
-                            category_id = int(category_id_str)
-                            
-                            # 根据分类ID获取分类名称
-                            category_name = category_id_to_name.get(category_id)
-                            
-                            if category_name:
-                                parsed_results[bill_id] = category_name
-                                logger.info(f"解析成功: 账单{bill_id} -> 分类ID {category_id} ({category_name})")
-                            else:
-                                logger.warning(f"无效分类ID: {category_id}")
-                                parsed_results[bill_id] = None
-                        except ValueError:
-                            logger.warning(f"无效的ID格式: 账单ID={bill_id_str}, 分类ID={category_id_str}")
+                        # 根据分类ID获取分类名称
+                        category_name = category_id_to_name.get(category_id)
+                        
+                        if category_name:
+                            parsed_results[bill_id] = category_name
+                            logger.info(f"解析成功: 账单{bill_id} -> 分类ID {category_id} ({category_name})")
+                        else:
+                            logger.warning(f"无效分类ID: {category_id}")
+                            parsed_results[bill_id] = None
+                    except ValueError:
+                        logger.warning(f"无效的ID格式: 账单ID={bill_id_str}, 分类ID={category_id_str}")
                 except Exception as e:
                     logger.warning(f"解析行失败: {line}, 错误: {e}")
         

@@ -2,13 +2,12 @@
 import os
 import sys
 
-# 添加项目根目录到Python路径
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, project_root)
-sys.path.insert(0, os.path.join(project_root, 'backend'))
+# 添加backend目录到Python路径
+backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'backend')
+sys.path.insert(0, backend_dir)
 
-from backend.database import get_db
-from backend.models.user import User
+from database import get_db
+from models.user import User
 
 def main():
     db = next(get_db())

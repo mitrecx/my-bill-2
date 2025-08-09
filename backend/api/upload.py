@@ -541,11 +541,34 @@ async def upload_file(
                         # 准备账单数据用于AI分类（移除交易时间，添加账单ID）
                         bills_data = []
                         for bill in created_bills:
+                            # 构建描述：组合交易说明和交易分类
+                            description_parts = []
+                            if bill.transaction_desc:
+                                # 对于支付宝账单，需要从transaction_desc中提取纯备注内容（去掉"来源:"部分）
+                                if bill.source_type == 'alipay':
+                                    # 支付宝的transaction_desc格式可能是："备注内容 | 来源: 账单同步"
+                                    desc_text = bill.transaction_desc
+                                    if ' | 来源:' in desc_text:
+                                        # 只取备注部分，去掉来源部分
+                                        desc_text = desc_text.split(' | 来源:')[0]
+                                    description_parts.append(desc_text)
+                                else:
+                                    description_parts.append(bill.transaction_desc)
+                            
+                            # 从raw_data中获取交易分类
+                            if bill.raw_data and isinstance(bill.raw_data, dict):
+                                category = bill.raw_data.get('category')
+                                if category and category.strip():
+                                    if bill.source_type == 'jd':
+                                        description_parts.append(f"[{category}]")
+                                    elif bill.source_type == 'alipay':
+                                        description_parts.append(f"[{category}]")
+                            
                             bill_data = {
                                 'id': bill.id,
                                 'amount': float(bill.amount),
                                 'transaction_type': bill.transaction_type,
-                                'description': bill.transaction_desc or '',
+                                'description': ' '.join(description_parts) if description_parts else '',
                                 'source_type': bill.source_type
                             }
                             bills_data.append(bill_data)

@@ -600,10 +600,16 @@ async def ai_classify_bill(
             )
         
         # 构建账单数据（移除交易时间）
-        # 使用交易摘要作为描述
+        # 构建描述：组合交易说明和交易分类
         description_parts = []
         if bill.transaction_desc:
             description_parts.append(bill.transaction_desc)
+        
+        # 从raw_data中获取交易分类（仅对京东账单）
+        if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
+            category = bill.raw_data.get('category')
+            if category and category.strip():
+                description_parts.append(f"[{category}]")
         
         bill_data = {
             'id': bill.id,
@@ -692,10 +698,16 @@ async def ai_classify_bills_batch(
         # 构建账单数据（移除交易时间，添加账单ID）
         bills_data = []
         for bill in bills:
-            # 使用交易摘要作为描述
+            # 构建描述：组合交易说明和交易分类
             description_parts = []
             if bill.transaction_desc:
                 description_parts.append(bill.transaction_desc)
+            
+            # 从raw_data中获取交易分类（仅对京东账单）
+            if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
+                category = bill.raw_data.get('category')
+                if category and category.strip():
+                    description_parts.append(f"[{category}]")
             
             bill_data = {
                 'id': bill.id,
@@ -789,11 +801,22 @@ async def apply_ai_classification(
             )
         
         # 构建账单数据
+        # 构建描述：组合交易说明和交易分类
+        description_parts = []
+        if bill.transaction_desc:
+            description_parts.append(bill.transaction_desc)
+        
+        # 从raw_data中获取交易分类（仅对京东账单）
+        if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
+            category = bill.raw_data.get('category')
+            if category and category.strip():
+                description_parts.append(f"[{category}]")
+        
         bill_data = {
             'id': bill.id,
             'amount': bill.amount,
             'transaction_type': bill.transaction_type,
-            'description': bill.transaction_desc,
+            'description': ' '.join(description_parts) if description_parts else '',
             'source_type': bill.source_type,
             'transaction_time': bill.transaction_time.isoformat() if bill.transaction_time else None
         }
