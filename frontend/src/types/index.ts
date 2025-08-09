@@ -156,6 +156,53 @@ export interface UploadResponse {
   created_bills: number[];
   errors: string[];
   warnings: string[];
+  ai_classified_count?: number;  // AI分类成功数量
+}
+
+// 分类规则相关类型
+export interface ClassificationRule {
+  id: number;
+  rule_text: string;
+  source_type: 'alipay' | 'jd' | 'cmb' | 'all';
+  target_category: string;
+  priority: number;
+  is_active: boolean;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClassificationRuleCreate {
+  rule_text: string;
+  source_type: 'alipay' | 'jd' | 'cmb' | 'all';
+  target_category: string;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export interface ClassificationRuleUpdate {
+  rule_text?: string;
+  source_type?: 'alipay' | 'jd' | 'cmb' | 'all';
+  target_category?: string;
+  priority?: number;
+  is_active?: boolean;
+}
+
+export interface ClassificationRuleListResponse {
+  rules: ClassificationRule[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface SourceTypeOption {
+  value: 'alipay' | 'jd' | 'cmb' | 'all';
+  label: string;
+}
+
+export interface SourceTypeOptionsResponse {
+  source_types: SourceTypeOption[];
 }
 
 // 导出其他模块的类型

@@ -22,6 +22,16 @@ from .upload import (
     UploadRecord
 )
 
+from .classification_rule import (
+    ClassificationRuleCreate,
+    ClassificationRuleUpdate,
+    ClassificationRuleResponse,
+    ClassificationRuleListResponse,
+    ClassificationRuleBatchCreate,
+    ClassificationRuleTestRequest,
+    ClassificationRuleTestResponse
+)
+
 __all__ = [
     # Auth schemas
     "Token",
@@ -42,5 +52,14 @@ __all__ = [
     "UploadResponse",
     "UploadHistoryResponse",
     "UploadStatsResponse",
-    "UploadRecord"
+    "UploadRecord",
+    
+    # Classification Rule schemas
+    "ClassificationRuleCreate",
+    "ClassificationRuleUpdate",
+    "ClassificationRuleResponse",
+    "ClassificationRuleListResponse",
+    "ClassificationRuleBatchCreate",
+    "ClassificationRuleTestRequest",
+    "ClassificationRuleTestResponse"
 ]

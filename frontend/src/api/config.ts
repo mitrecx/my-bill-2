@@ -72,4 +72,12 @@ export const API_ENDPOINTS = {
     DEFAULT_PASSWORD: '/system-config/default-password',
     INITIALIZE: '/system-config/initialize',
   },
+  
+  // 分类规则相关
+  CLASSIFICATION_RULES: {
+    BASE: '/classification-rules',
+    SOURCE_TYPES: '/classification-rules/source-types/options',
+    TOGGLE_STATUS: (id: number) => `/classification-rules/${id}/toggle`,
+    BATCH: '/classification-rules/batch',
+  },
 }

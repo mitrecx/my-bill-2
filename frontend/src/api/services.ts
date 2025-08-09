@@ -21,6 +21,11 @@ import type {
   SystemConfigUpdate,
   DefaultPasswordConfig,
   SystemConfigResponse,
+  ClassificationRule,
+  ClassificationRuleCreate,
+  ClassificationRuleUpdate,
+  ClassificationRuleListResponse,
+  SourceTypeOptionsResponse,
 } from '../types';
 import type {
   Message,
@@ -292,6 +297,63 @@ export const SystemConfigService = {
   // 初始化默认配置
   async initializeConfigs(): Promise<ApiResponse<boolean>> {
     const response = await ApiClient.post<boolean>(API_ENDPOINTS.SYSTEM_CONFIG.INITIALIZE);
+    return response;
+  },
+};
+
+// 分类规则服务
+export const ClassificationRuleService = {
+  // 获取来源类型选项
+  async getSourceTypeOptions(): Promise<ApiResponse<SourceTypeOptionsResponse>> {
+    const response = await ApiClient.get<SourceTypeOptionsResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.SOURCE_TYPES);
+    return response;
+  },
+
+  // 获取分类规则列表
+  async getRules(params?: { 
+    page?: number; 
+    page_size?: number; 
+    source_type?: string;
+    target_category?: string;
+    is_active?: boolean;
+  }): Promise<ApiResponse<ClassificationRuleListResponse>> {
+    const response = await ApiClient.get<ClassificationRuleListResponse>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/`, { params });
+    return response;
+  },
+
+  // 获取单个分类规则
+  async getRule(id: number): Promise<ApiResponse<ClassificationRule>> {
+    const response = await ApiClient.get<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`);
+    return response;
+  },
+
+  // 创建分类规则
+  async createRule(ruleData: ClassificationRuleCreate): Promise<ApiResponse<ClassificationRule>> {
+    const response = await ApiClient.post<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/`, ruleData);
+    return response;
+  },
+
+  // 更新分类规则
+  async updateRule(id: number, ruleData: ClassificationRuleUpdate): Promise<ApiResponse<ClassificationRule>> {
+    const response = await ApiClient.put<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`, ruleData);
+    return response;
+  },
+
+  // 删除分类规则
+  async deleteRule(id: number): Promise<ApiResponse<boolean>> {
+    const response = await ApiClient.delete<boolean>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`);
+    return response;
+  },
+
+  // 切换规则状态
+  async toggleRuleStatus(id: number): Promise<ApiResponse<ClassificationRule>> {
+    const response = await ApiClient.patch<ClassificationRule>(API_ENDPOINTS.CLASSIFICATION_RULES.TOGGLE_STATUS(id));
+    return response;
+  },
+
+  // 批量创建分类规则
+  async createRulesBatch(rulesData: ClassificationRuleCreate[]): Promise<ApiResponse<ClassificationRule[]>> {
+    const response = await ApiClient.post<ClassificationRule[]>(API_ENDPOINTS.CLASSIFICATION_RULES.BATCH, { rules: rulesData });
     return response;
   },
 };

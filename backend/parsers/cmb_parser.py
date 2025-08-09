@@ -218,27 +218,9 @@ class CMBParser(BaseParser):
             else:
                 processed["transaction_type"] = "收入"
         
-
-
-        
         # CMB账单不生成order_id，订单号信息保留在raw_data中
         
-        # 设置分类（基于交易描述）
-        if not processed.get("category"):
-            transaction_desc = processed.get("transaction_desc", "")
-            if "工资" in transaction_desc:
-                processed["category"] = "工资收入"
-            elif "奖金" in transaction_desc:
-                processed["category"] = "奖金收入"
-            elif "基金" in transaction_desc:
-                processed["category"] = "投资理财"
-            elif "转账" in transaction_desc or "汇款" in transaction_desc:
-                processed["category"] = "转账汇款"
-            elif "还款" in transaction_desc:
-                processed["category"] = "还款"
-            elif "退款" in transaction_desc:
-                processed["category"] = "退款"
-            else:
-                processed["category"] = "其他"
+        # 不再设置硬编码分类，让AI分类服务来处理
+        # 分类将在上传后通过AI服务自动完成
         
         return processed

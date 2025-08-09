@@ -16,6 +16,7 @@ class UploadResponse(BaseModel):
     created_bills: List[int] = []
     errors: List[str] = []
     warnings: List[str] = []
+    ai_classified_count: int = 0  # AI分类成功数量
 
 class UploadHistoryResponse(BaseModel):
     """上传历史响应"""

@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # Redis配置（可选）
     REDIS_URL: Optional[str] = Field(default=None, env="REDIS_URL")
     
+    # AI模型配置
+    ZHIPU_API_KEY: Optional[str] = Field(default=None, env="ZHIPU_API_KEY")
+    
     @validator('SECRET_KEY')
     def secret_key_must_be_strong(cls, v):
         if len(v) < 32:

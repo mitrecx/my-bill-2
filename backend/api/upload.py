@@ -491,13 +491,21 @@ async def upload_file(
                     # fallback: 如果没有找到匹配的分类，使用"其他"分类
                     if not category:
                         category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
+                    # 组合描述字段：将交易摘要和对手信息组合
+                    description_parts = []
+                    if record.get("transaction_desc"):
+                        description_parts.append(record.get("transaction_desc"))
+                    if record.get("counter_party"):
+                        description_parts.append(record.get("counter_party"))
+                    combined_description = '-'.join(description_parts) if description_parts else ''
+                    
                     # 创建新的账单记录
                     bill = Bill(
                         user_id=current_user.id,
                         amount=record["amount"],
                         transaction_time=record["transaction_time"],
                         transaction_type=record["transaction_type"],
-                        transaction_desc=record.get("transaction_desc"),
+                        transaction_desc=combined_description,  # 使用组合后的描述
                         source_type=source_type,
                         source_filename=file.filename,
                         category_id=category.id if category else None,
@@ -526,7 +534,56 @@ async def upload_file(
                     detail="数据库提交失败"
                 )
             
-            logger.info(f"文件上传完成: {file.filename}, 新增: {success_count}, 更新: {updated_count}, 失败: {failed_count}")
+            # AI批量分类处理
+            ai_classified_count = 0
+            if auto_categorize and created_bills:
+                try:
+                    from services.ai_classification_service import ai_classification_service
+                    ai_service = ai_classification_service
+                    
+                    if ai_service.is_available():
+                        logger.info(f"开始对 {len(created_bills)} 个账单进行AI分类")
+                        
+                        # 准备账单数据用于AI分类（移除交易时间，添加账单ID）
+                        bills_data = []
+                        for bill in created_bills:
+                            bill_data = {
+                                'id': bill.id,
+                                'amount': float(bill.amount),
+                                'transaction_type': bill.transaction_type,
+                                'description': bill.transaction_desc or '',
+                                'source_type': bill.source_type
+                            }
+                            bills_data.append(bill_data)
+                        
+                        # 使用优化的批量AI分类（一次处理多个账单）
+                        classification_results = ai_service.classify_bills_batch_optimized(bills_data, db)
+                        
+                        # 应用分类结果
+                        for bill_id, category_name in classification_results:
+                            if category_name:
+                                # 查找对应的账单和分类
+                                bill = db.query(Bill).filter(Bill.id == bill_id).first()
+                                category = db.query(BillCategory).filter(
+                                    BillCategory.category_name == category_name
+                                ).first()
+                                
+                                if bill and category:
+                                    bill.category_id = category.id
+                                    ai_classified_count += 1
+                                    logger.info(f"账单 {bill_id} 分类为: {category_name}")
+                        
+                        # 提交AI分类结果
+                        db.commit()
+                        logger.info(f"AI分类完成，成功分类 {ai_classified_count} 个账单")
+                    else:
+                        logger.warning("AI分类服务不可用，跳过自动分类")
+                        
+                except Exception as e:
+                    logger.error(f"AI批量分类失败: {e}")
+                    # AI分类失败不影响账单导入，只记录错误
+            
+            logger.info(f"文件上传完成: {file.filename}, 新增: {success_count}, 更新: {updated_count}, 失败: {failed_count}, AI分类: {ai_classified_count}")
             
             total_records = len(parse_result.success_records) + len(parse_result.failed_records)
             total_failed = failed_count + len(parse_result.failed_records)
@@ -565,7 +622,8 @@ async def upload_file(
                 status=upload_status,
                 created_bills=[bill.id for bill in created_bills],
                 errors=error_messages,
-                warnings=warnings
+                warnings=warnings,
+                ai_classified_count=ai_classified_count  # AI分类成功数量
             )
             
         finally:

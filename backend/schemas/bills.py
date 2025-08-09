@@ -55,13 +55,18 @@ class CategoryResponse(BaseModel):
         """从BillCategory模型创建响应"""
         if not category:
             return None
+        
+        # 确保所有必需字段都有值
+        name = getattr(category, 'category_name', None) or '未分类'
+        category_type = getattr(category, 'category_type', None) or 'expense'
+        
         return cls(
             id=category.id,
-            name=category.category_name,
+            name=name,
             description=getattr(category, 'description', None),
-            icon=category.icon,
-            color=category.color,
-            category_type=category.category_type
+            icon=getattr(category, 'icon', None),
+            color=getattr(category, 'color', None),
+            category_type=category_type
         )
 
 
@@ -132,10 +137,14 @@ class BillResponse(BaseModel):
         }
         transaction_type = transaction_type_map.get(bill.transaction_type, bill.transaction_type)
         
+        # 确保必需字段都有值
+        transaction_date = bill.transaction_time or bill.created_at
+        created_at = bill.created_at or datetime.utcnow()
+        
         return cls(
             id=bill.id,
             amount=bill.amount,
-            transaction_date=bill.transaction_time,  # 映射字段名
+            transaction_date=transaction_date,  # 确保有值
             transaction_type=transaction_type,  # 使用映射后的值
             transaction_desc=bill.transaction_desc,
             source_type=bill.source_type,
@@ -143,7 +152,7 @@ class BillResponse(BaseModel):
             family=None,  # 暂时设为None，后续可以通过用户的家庭关系获取
             user=UserSimpleResponse.from_user(bill.user) if bill.user else None,
             raw_data=bill.raw_data,
-            created_at=bill.created_at,
+            created_at=created_at,
             updated_at=bill.updated_at
         )
 

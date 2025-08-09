@@ -126,8 +126,14 @@ const UploadPage: React.FC = () => {
       // 检查响应结构并安全访问数据
       const uploadData = response.data || response;
       const successCount = uploadData.success_count || 0;
+      const aiClassifiedCount = uploadData.ai_classified_count || 0;
       
-      message.success(`上传成功！成功处理 ${successCount} 条记录`);
+      let successMessage = `上传成功！成功处理 ${successCount} 条记录`;
+      if (aiClassifiedCount > 0) {
+        successMessage += `，AI自动分类 ${aiClassifiedCount} 条记录`;
+      }
+      
+      message.success(successMessage);
       setFileList([]);
       setUploadProgress(100);
       fetchBills();

@@ -14,6 +14,7 @@ import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import FamilyManagePage from './pages/FamilyManagePage';
 import UsersManagePage from './pages/UsersManagePage';
+import ClassificationRulesPage from './pages/ClassificationRulesPage';
 import './App.css';
 
 // 受保护的路由组件
@@ -110,6 +111,7 @@ const App: React.FC = () => {
               <Route path="messages" element={<MessagesPage />} />
               <Route path="users" element={<UsersManagePage />} />
               <Route path="family" element={<FamilyManagePage />} />
+              <Route path="classification-rules" element={<ClassificationRulesPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
 

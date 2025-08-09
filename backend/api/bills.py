@@ -22,6 +22,7 @@ from schemas.bills import (
     BillCategoryResponse,
     ApiResponse
 )
+from services.ai_classification_service import ai_classification_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bills", tags=["bills"])
@@ -404,7 +405,7 @@ async def create_bill(
             amount=bill_data.amount,
             transaction_time=bill_data.transaction_time,
             transaction_type=transaction_type_map.get(bill_data.transaction_type, bill_data.transaction_type),
-            transaction_desc=bill_data.transaction_desc,
+            transaction_desc=bill_data.description,  # 使用description字段
             source_type=bill_data.source_type,
             category_id=bill_data.category_id,
             raw_data=bill_data.raw_data or {}
@@ -455,7 +456,7 @@ async def get_bill(
             )
         
         return ApiResponse(
-            data=BillResponse.from_orm(bill),
+            data=BillResponse.from_bill(bill),
             success=True,
             message="获取账单详情成功"
         )
@@ -565,4 +566,310 @@ async def delete_bill(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="删除账单失败"
+        )
+
+
+@router.post("/{bill_id}/ai-classify", response_model=ApiResponse[Dict[str, Any]])
+async def ai_classify_bill(
+    bill_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """使用AI对单个账单进行分类"""
+    try:
+        # 检查AI服务是否可用
+        if not ai_classification_service.is_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI分类服务不可用，请检查配置"
+            )
+        
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+        
+        # 获取账单
+        bill = db.query(Bill).filter(
+            Bill.id == bill_id,
+            Bill.user_id.in_(family_user_ids)
+        ).first()
+        
+        if not bill:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="账单不存在或无权访问"
+            )
+        
+        # 构建账单数据（移除交易时间）
+        # 组合交易摘要和对手信息作为完整描述
+        description_parts = []
+        if bill.transaction_desc:
+            description_parts.append(bill.transaction_desc)
+        if bill.counter_party:
+            description_parts.append(bill.counter_party)
+        
+        bill_data = {
+            'id': bill.id,
+            'amount': bill.amount,
+            'transaction_type': bill.transaction_type,
+            'description': ' '.join(description_parts) if description_parts else '',
+            'source_type': bill.source_type
+        }
+        
+        # AI分类
+        suggested_category = ai_classification_service.classify_single_bill(bill_data, db)
+        
+        if suggested_category:
+            # 获取分类ID
+            category = db.query(BillCategory).filter(
+                BillCategory.category_name == suggested_category
+            ).first()
+            
+            result = {
+                'bill_id': bill_id,
+                'current_category': bill.category.category_name if bill.category else None,
+                'suggested_category': suggested_category,
+                'suggested_category_id': category.id if category else None,
+                'confidence': 'high'  # 可以后续添加置信度计算
+            }
+            
+            # 生成分类规则建议
+            rule_suggestion = ai_classification_service.suggest_classification_rule(
+                bill_data, suggested_category, db
+            )
+            if rule_suggestion:
+                result['rule_suggestion'] = rule_suggestion
+            
+            return ApiResponse(
+                success=True,
+                message="AI分类完成",
+                data=result
+            )
+        else:
+            return ApiResponse(
+                success=False,
+                message="AI分类失败，无法确定合适的分类",
+                data={'bill_id': bill_id}
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"AI分类失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI分类失败"
+        )
+
+
+@router.post("/ai-classify-batch", response_model=ApiResponse[Dict[str, Any]])
+async def ai_classify_bills_batch(
+    bill_ids: List[int],
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """批量使用AI对账单进行分类"""
+    try:
+        # 检查AI服务是否可用
+        if not ai_classification_service.is_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI分类服务不可用，请检查配置"
+            )
+        
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+        
+        # 获取账单
+        bills = db.query(Bill).filter(
+            Bill.id.in_(bill_ids),
+            Bill.user_id.in_(family_user_ids)
+        ).all()
+        
+        if not bills:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="未找到可访问的账单"
+            )
+        
+        # 构建账单数据（移除交易时间，添加账单ID）
+        bills_data = []
+        for bill in bills:
+            # 组合交易摘要和对手信息作为完整描述
+            description_parts = []
+            if bill.transaction_desc:
+                description_parts.append(bill.transaction_desc)
+            if bill.counter_party:
+                description_parts.append(bill.counter_party)
+            
+            bill_data = {
+                'id': bill.id,
+                'amount': bill.amount,
+                'transaction_type': bill.transaction_type,
+                'description': ' '.join(description_parts) if description_parts else '',
+                'source_type': bill.source_type
+            }
+            bills_data.append(bill_data)
+        
+        # 使用优化的批量AI分类（一次处理多个账单）
+        classification_results = ai_classification_service.classify_bills_batch_optimized(bills_data, db)
+        
+        # 处理结果
+        results = []
+        successful_count = 0
+        
+        for bill_id, suggested_category in classification_results:
+            bill = next((b for b in bills if b.id == bill_id), None)
+            if bill and suggested_category:
+                # 获取分类ID
+                category = db.query(BillCategory).filter(
+                    BillCategory.category_name == suggested_category
+                ).first()
+                
+                result = {
+                    'bill_id': bill_id,
+                    'current_category': bill.category.category_name if bill.category else None,
+                    'suggested_category': suggested_category,
+                    'suggested_category_id': category.id if category else None,
+                    'status': 'success'
+                }
+                successful_count += 1
+            else:
+                result = {
+                    'bill_id': bill_id,
+                    'status': 'failed',
+                    'error': '无法确定合适的分类'
+                }
+            
+            results.append(result)
+        
+        return ApiResponse(
+            success=True,
+            message=f"批量AI分类完成，成功分类 {successful_count}/{len(bills)} 个账单",
+            data={
+                'total_bills': len(bills),
+                'successful_count': successful_count,
+                'results': results
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"批量AI分类失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="批量AI分类失败"
+        )
+
+
+@router.post("/{bill_id}/apply-ai-classification", response_model=ApiResponse[BillResponse])
+async def apply_ai_classification(
+    bill_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """应用AI分类结果到账单"""
+    try:
+        # 检查AI服务是否可用
+        if not ai_classification_service.is_available():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI分类服务不可用，请检查配置"
+            )
+        
+        # 获取用户家庭中所有成员的用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+        
+        # 获取账单
+        bill = db.query(Bill).filter(
+            Bill.id == bill_id,
+            Bill.user_id.in_(family_user_ids)
+        ).first()
+        
+        if not bill:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="账单不存在或无权访问"
+            )
+        
+        # 构建账单数据
+        bill_data = {
+            'id': bill.id,
+            'amount': bill.amount,
+            'transaction_type': bill.transaction_type,
+            'description': bill.transaction_desc,
+            'source_type': bill.source_type,
+            'transaction_time': bill.transaction_time.isoformat() if bill.transaction_time else None
+        }
+        
+        # AI分类
+        suggested_category = ai_classification_service.classify_single_bill(bill_data, db)
+        
+        if suggested_category:
+            # 获取分类
+            category = db.query(BillCategory).filter(
+                BillCategory.category_name == suggested_category
+            ).first()
+            
+            if category:
+                # 更新账单分类
+                bill.category_id = category.id
+                bill.updated_at = datetime.utcnow()
+                
+                db.commit()
+                db.refresh(bill)
+                
+                return ApiResponse(
+                    success=True,
+                    message=f"已应用AI分类结果：{suggested_category}",
+                    data=BillResponse.from_bill(bill)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="AI建议的分类不存在"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="AI无法确定合适的分类"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"应用AI分类失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="应用AI分类失败"
+        )
+
+
+@router.get("/ai-classification/status", response_model=ApiResponse[Dict[str, Any]])
+async def get_ai_classification_status(
+    current_user: User = Depends(get_current_user)
+):
+    """获取AI分类服务状态"""
+    try:
+        status_info = {
+            'available': ai_classification_service.is_available(),
+            'service_name': 'GLM-4.5',
+            'provider': '智谱AI'
+        }
+        
+        if not ai_classification_service.is_available():
+            status_info['error'] = '未配置ZHIPU_API_KEY或服务初始化失败'
+        
+        return ApiResponse(
+            success=True,
+            message="获取AI分类服务状态成功",
+            data=status_info
+        )
+        
+    except Exception as e:
+        logger.error(f"获取AI分类服务状态失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取AI分类服务状态失败"
         )

@@ -22,6 +22,7 @@ import {
   MenuUnfoldOutlined,
   MessageOutlined,
   TeamOutlined,
+  FilterOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
 import type { MenuProps } from 'antd';
@@ -68,6 +69,11 @@ const Layout: React.FC = () => {
           key: '/upload',
           icon: <UploadOutlined />,
           label: '导入账单',
+        },
+        {
+          key: '/classification-rules',
+          icon: <FilterOutlined />,
+          label: '分类规则',
         },
       ],
     },
