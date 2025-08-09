@@ -299,9 +299,6 @@ class JDParser(BaseParser):
         if remark_parts:
             processed["remark"] = " | ".join(remark_parts)
         
-        # 提取对手方信息（从商户名称中提取）
-        merchant_name = record.get("merchant_name", "")
-        if merchant_name and merchant_name not in ["京东小金库", "京东白条", "京东金融"]:
-            processed["counter_party"] = merchant_name
+        # 对手方信息已保存在 raw_data 中的 merchant_name 字段，不再设置到 processed 记录中
         
         return processed, raw_data

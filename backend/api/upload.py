@@ -491,13 +491,8 @@ async def upload_file(
                     # fallback: 如果没有找到匹配的分类，使用"其他"分类
                     if not category:
                         category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
-                    # 组合描述字段：将交易摘要和对手信息组合
-                    description_parts = []
-                    if record.get("transaction_desc"):
-                        description_parts.append(record.get("transaction_desc"))
-                    if record.get("counter_party"):
-                        description_parts.append(record.get("counter_party"))
-                    combined_description = '-'.join(description_parts) if description_parts else ''
+                    # 使用交易描述字段
+                    combined_description = record.get("transaction_desc", '')
                     
                     # 创建新的账单记录
                     bill = Bill(
@@ -509,7 +504,6 @@ async def upload_file(
                         source_type=source_type,
                         source_filename=file.filename,
                         category_id=category.id if category else None,
-                        counter_party=record.get("counter_party"),
                         currency=record.get("currency"),
                         raw_data=record.get("raw_data", {})
                     )

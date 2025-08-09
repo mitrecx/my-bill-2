@@ -22,7 +22,6 @@ class CMBParser(BaseParser):
             "amount": "amount",
             "balance": "balance",
             "description": "transaction_desc",
-            "counterpart": "counter_party",
             "type": "transaction_type"
         }
     
@@ -50,7 +49,7 @@ class CMBParser(BaseParser):
                         'amount': transaction.get('amount'),
                         'balance': transaction.get('balance'),
                         'description': transaction.get('description'),
-                        'counterpart': transaction.get('counterpart')
+                        'counter_party': transaction.get('counter_party')
                     }
                     
                     # 处理银行特有字段
@@ -91,7 +90,7 @@ class CMBParser(BaseParser):
                         'amount': transaction.get('amount'),
                         'balance': transaction.get('balance'),
                         'description': transaction.get('description'),
-                        'counterpart': transaction.get('counterpart')
+                        'counter_party': transaction.get('counter_party')
                     }
                     
                     # 处理银行特有字段
@@ -154,7 +153,7 @@ class CMBParser(BaseParser):
                         amount = lines[i + 2]     # 交易金额
                         balance = lines[i + 3]    # 联机余额
                         description = lines[i + 4] # 交易摘要
-                        counterpart = lines[i + 5] # 对手信息
+                        counter_party = lines[i + 5] # 对手信息
                         
                         # 验证格式
                         if (currency == "CNY" and 
@@ -174,7 +173,7 @@ class CMBParser(BaseParser):
                                 'amount': amount,
                                 'balance': balance,
                                 'description': description,
-                                'counterpart': counterpart,
+                                'counter_party': counter_party,
                                 'type': trans_type
                             }
                             
@@ -194,6 +193,27 @@ class CMBParser(BaseParser):
     def _process_cmb_fields(self, record: Dict[str, Any]) -> Dict[str, Any]:
         """处理招商银行特有字段"""
         processed = record.copy()
+        
+        # 在映射字段之前，先组合描述字段
+        description = processed.get('description', '')
+        counter_party = processed.get('counter_party', '')
+        
+        # 组合交易摘要和对手信息作为完整描述
+        if description and counter_party:
+            # 如果对手信息不为空且与描述不同，则组合
+            if counter_party.strip() and counter_party.strip() != description.strip():
+                combined_description = f"{description} - {counter_party}"
+            else:
+                combined_description = description
+        elif description:
+            combined_description = description
+        elif counter_party:
+            combined_description = counter_party
+        else:
+            combined_description = ""
+        
+        # 更新描述字段
+        processed['description'] = combined_description
         
         # 映射字段名
         mapped = {}

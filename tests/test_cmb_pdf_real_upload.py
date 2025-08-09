@@ -145,7 +145,7 @@ def main():
                 print(f"  金额: {bill.get('amount', 'N/A')}")
                 print(f"  类型: {bill.get('transaction_type', 'N/A')}")
                 print(f"  描述: {bill.get('transaction_desc', 'N/A')}")
-                print(f"  对方: {bill.get('counter_party', 'N/A')}")
+
                 print(f"  来源: {bill.get('source_type', 'N/A')}")
                 print(f"  分类: {bill.get('category', {}).get('category_name', '未分类') if isinstance(bill.get('category'), dict) else '未分类'}")
                 print("---")

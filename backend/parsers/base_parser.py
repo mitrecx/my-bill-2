@@ -69,8 +69,6 @@ class BaseParser(ABC):
                 "amount": self._parse_amount(raw_record.get("amount")),
                 "currency": raw_record.get("currency", "CNY"),
                 "transaction_type": self._clean_string(raw_record.get("transaction_type")),
-
-                "counter_party": self._clean_string(raw_record.get("counter_party")),
                 "category": self._clean_string(raw_record.get("category")),  # 添加分类字段
                 "remark": self._clean_string(raw_record.get("remark")),
                 "raw_data": custom_raw_data if custom_raw_data is not None else raw_record  # 使用自定义原始数据或默认原始数据

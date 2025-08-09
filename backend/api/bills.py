@@ -600,12 +600,10 @@ async def ai_classify_bill(
             )
         
         # 构建账单数据（移除交易时间）
-        # 组合交易摘要和对手信息作为完整描述
+        # 使用交易摘要作为描述
         description_parts = []
         if bill.transaction_desc:
             description_parts.append(bill.transaction_desc)
-        if bill.counter_party:
-            description_parts.append(bill.counter_party)
         
         bill_data = {
             'id': bill.id,
@@ -694,12 +692,10 @@ async def ai_classify_bills_batch(
         # 构建账单数据（移除交易时间，添加账单ID）
         bills_data = []
         for bill in bills:
-            # 组合交易摘要和对手信息作为完整描述
+            # 使用交易摘要作为描述
             description_parts = []
             if bill.transaction_desc:
                 description_parts.append(bill.transaction_desc)
-            if bill.counter_party:
-                description_parts.append(bill.counter_party)
             
             bill_data = {
                 'id': bill.id,

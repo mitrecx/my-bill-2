@@ -197,7 +197,7 @@ def main():
                     print(f"  金额: {bill['amount']}")
                     print(f"  类型: {bill['transaction_type']}")
                     print(f"  描述: {bill.get('transaction_desc', 'N/A')}")
-                    print(f"  对手: {bill.get('counter_party', 'N/A')}")
+
                     print(f"  日期: {bill['transaction_date']}")
                     
                     # 检查描述字段是否正确组合

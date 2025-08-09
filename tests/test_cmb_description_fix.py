@@ -36,14 +36,14 @@ def login_user():
         print(f"登录请求失败: {response.status_code}")
         return None
 
-def create_test_bill(token, description, counter_party):
+def create_test_bill(token, description):
     """创建测试账单"""
     headers = {"Authorization": f"Bearer {token}"}
     
     bill_data = {
         "amount": 100.0,
         "transaction_type": "expense",
-        "description": f"{description}-{counter_party}" if counter_party else description,
+        "transaction_desc": description,
         "transaction_time": "2025-01-01T12:00:00",
         "source_type": "cmb"
     }
@@ -100,21 +100,18 @@ def test_cmb_description_combination():
     
     print("✓ 用户登录成功")
     
-    # 测试用例
+    # 测试用例 - 现在直接使用组合后的描述
     test_cases = [
         {
-            "description": "快捷支付",
-            "counter_party": "美团外卖",
+            "description": "快捷支付-美团外卖",
             "expected": "快捷支付-美团外卖"
         },
         {
-            "description": "网上支付",
-            "counter_party": "京东商城",
+            "description": "网上支付-京东商城",
             "expected": "网上支付-京东商城"
         },
         {
-            "description": "转账汇款",
-            "counter_party": "张三",
+            "description": "转账汇款-张三",
             "expected": "转账汇款-张三"
         }
     ]
@@ -124,12 +121,11 @@ def test_cmb_description_combination():
     try:
         for i, test_case in enumerate(test_cases, 1):
             print(f"\n--- 测试用例 {i} ---")
-            print(f"原始描述: {test_case['description']}")
-            print(f"对手信息: {test_case['counter_party']}")
-            print(f"期望组合: {test_case['expected']}")
+            print(f"描述: {test_case['description']}")
+            print(f"期望结果: {test_case['expected']}")
             
             # 创建账单
-            bill_id = create_test_bill(token, test_case['description'], test_case['counter_party'])
+            bill_id = create_test_bill(token, test_case['description'])
             if not bill_id:
                 print(f"✗ 创建账单失败")
                 continue
@@ -148,9 +144,9 @@ def test_cmb_description_combination():
             print(f"实际描述: {actual_description}")
             
             if actual_description == test_case['expected']:
-                print(f"✓ 描述字段组合正确")
+                print(f"✓ 描述字段正确")
             else:
-                print(f"✗ 描述字段组合错误，期望: {test_case['expected']}, 实际: {actual_description}")
+                print(f"✗ 描述字段错误，期望: {test_case['expected']}, 实际: {actual_description}")
     
     finally:
         # 清理测试数据
