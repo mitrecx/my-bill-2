@@ -64,11 +64,12 @@ class AIClassificationService:
             logger.error(f"获取分类上下文失败: {e}")
             return "无法获取分类信息"
     
-    def get_classification_rules_context(self, db: Session, source_type: str = None) -> str:
+    def get_classification_rules_context(self, db: Session, user_id: int, source_type: str = None) -> str:
         """获取分类规则上下文信息"""
         try:
-            # 查询启用的分类规则
+            # 查询当前用户启用的分类规则
             query = db.query(ClassificationRule).filter(
+                ClassificationRule.created_by == user_id,
                 ClassificationRule.is_active == True
             )
             
@@ -104,13 +105,14 @@ class AIClassificationService:
     
 
     
-    def classify_single_bill(self, bill_data: Dict, db: Session) -> Optional[str]:
+    def classify_single_bill(self, bill_data: Dict, db: Session, user_id: int) -> Optional[str]:
         """
         使用AI对单个账单进行分类（包含分类规则）
         
         Args:
             bill_data: 账单数据字典
             db: 数据库会话
+            user_id: 用户ID
             
         Returns:
             分类名称，如果分类失败则返回None
@@ -125,7 +127,7 @@ class AIClassificationService:
             
             # 获取分类规则上下文
             source_type = bill_data.get('source_type')
-            rules_context = self.get_classification_rules_context(db, source_type)
+            rules_context = self.get_classification_rules_context(db, user_id, source_type)
             
             # 构建账单信息（删除金额字段，因为对AI推理分类没有帮助）
             bill_info = f"""账单信息：
@@ -227,13 +229,14 @@ class AIClassificationService:
     
 
     
-    def classify_bills_batch_optimized(self, bills_data: List[Dict], db: Session, batch_size: int = 10) -> List[Tuple[int, Optional[str]]]:
+    def classify_bills_batch_optimized(self, bills_data: List[Dict], db: Session, user_id: int, batch_size: int = 10) -> List[Tuple[int, Optional[str]]]:
         """
         优化的批量分类账单（使用AI分类，包含分类规则）
         
         Args:
             bills_data: 账单数据列表
             db: 数据库会话
+            user_id: 用户ID
             batch_size: 每批处理的账单数量，默认10个
             
         Returns:
@@ -248,18 +251,19 @@ class AIClassificationService:
         # 分批处理AI分类
         for i in range(0, len(bills_data), batch_size):
             batch = bills_data[i:i + batch_size]
-            batch_results = self._classify_bills_batch_single_request(batch, db)
+            batch_results = self._classify_bills_batch_single_request(batch, db, user_id)
             results.extend(batch_results)
         
         return results
     
-    def _classify_bills_batch_single_request(self, bills_batch: List[Dict], db: Session) -> List[Tuple[int, Optional[str]]]:
+    def _classify_bills_batch_single_request(self, bills_batch: List[Dict], db: Session, user_id: int) -> List[Tuple[int, Optional[str]]]:
         """
         单次请求批量分类账单
         
         Args:
             bills_batch: 账单数据批次（最多10个）
             db: 数据库会话
+            user_id: 用户ID
             
         Returns:
             [(bill_id, category_name), ...] 分类结果列表
@@ -274,11 +278,11 @@ class AIClassificationService:
             
             # 为每种账单类型获取相应的规则
             for source_type in source_types:
-                rules_context += self.get_classification_rules_context(db, source_type)
+                rules_context += self.get_classification_rules_context(db, user_id, source_type)
             
             # 如果没有特定来源的规则，获取通用规则
             if not rules_context:
-                rules_context = self.get_classification_rules_context(db)
+                rules_context = self.get_classification_rules_context(db, user_id)
             
             # 构建批量账单信息（删除金额字段和来源字段）
             bills_info = "账单列表：\n"
@@ -350,7 +354,7 @@ class AIClassificationService:
                 logger.info(f"AI批量分类内容: {content}")
                 
                 # 解析AI返回的分类结果
-                results = self._parse_batch_classification_result(content, bills_batch, db)
+                results = self._parse_batch_classification_result(content, bills_batch, db, user_id)
                 return results
             else:
                 logger.warning("AI未返回有效的批量分类结果")
@@ -360,7 +364,7 @@ class AIClassificationService:
             logger.error(f"批量AI分类失败: {e}")
             return [(bill.get('id'), None) for bill in bills_batch]
     
-    def _parse_batch_classification_result(self, ai_response: str, bills_batch: List[Dict], db: Session) -> List[Tuple[int, Optional[str]]]:
+    def _parse_batch_classification_result(self, ai_response: str, bills_batch: List[Dict], db: Session, user_id: int) -> List[Tuple[int, Optional[str]]]:
         """
         解析AI批量分类结果
         
@@ -368,6 +372,7 @@ class AIClassificationService:
             ai_response: AI返回的文本
             bills_batch: 账单数据批次
             db: 数据库会话
+            user_id: 用户ID
             
         Returns:
             [(bill_id, category_name), ...] 分类结果列表
@@ -422,7 +427,7 @@ class AIClassificationService:
             # 如果AI没有返回该账单的分类，尝试使用单个分类方法作为后备
             if category_name is None:
                 logger.warning(f"账单{bill_id}未在AI响应中找到分类，使用单个分类方法作为后备")
-                category_name = self.classify_single_bill(bill, db)
+                category_name = self.classify_single_bill(bill, db, user_id)
             
             results.append((bill_id, category_name))
         
@@ -482,13 +487,14 @@ class AIClassificationService:
         
         return None
     
-    def analyze_classification_accuracy(self, bills_data: List[Dict], db: Session) -> Dict:
+    def analyze_classification_accuracy(self, bills_data: List[Dict], db: Session, user_id: int) -> Dict:
         """
         分析分类准确性
         
         Args:
             bills_data: 已分类的账单数据
             db: 数据库会话
+            user_id: 用户ID
             
         Returns:
             分析结果字典
@@ -506,7 +512,7 @@ class AIClassificationService:
                 current_category = bill_data.get('category_name')
                 
                 # AI重新分类
-                ai_category = self.classify_single_bill(bill_data, db)
+                ai_category = self.classify_single_bill(bill_data, db, user_id)
                 
                 if ai_category:
                     ai_classified += 1

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, CheckConstraint, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from config.database import Base
@@ -13,7 +13,7 @@ class ClassificationRule(Base):
     target_category = Column(String(50), nullable=False)
     priority = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # 不能为空
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -24,6 +24,8 @@ class ClassificationRule(Base):
             "source_type IN ('alipay', 'jd', 'cmb', 'all')",
             name='check_source_type'
         ),
+        # 用户隔离的唯一约束
+        UniqueConstraint('created_by', 'rule_text', 'source_type', name='unique_rule_per_user'),
     )
 
     # 关系

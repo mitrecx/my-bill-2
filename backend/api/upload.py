@@ -551,7 +551,7 @@ async def upload_file(
                             bills_data.append(bill_data)
                         
                         # 使用优化的批量AI分类（一次处理多个账单）
-                        classification_results = ai_service.classify_bills_batch_optimized(bills_data, db)
+                        classification_results = ai_service.classify_bills_batch_optimized(bills_data, db, current_user.id)
                         
                         # 应用分类结果
                         for bill_id, category_name in classification_results:

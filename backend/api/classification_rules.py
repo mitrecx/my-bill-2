@@ -33,8 +33,8 @@ async def get_classification_rules(
 ):
     """获取分类规则列表"""
     
-    # 构建查询
-    query = db.query(ClassificationRule)
+    # 构建查询 - 只查询当前用户的规则
+    query = db.query(ClassificationRule).filter(ClassificationRule.created_by == current_user.id)
     
     # 应用筛选条件
     if source_type:
@@ -82,9 +82,10 @@ async def create_classification_rule(
 ):
     """创建分类规则"""
     
-    # 检查是否已存在相同的规则
+    # 检查当前用户是否已存在相同的规则
     existing_rule = db.query(ClassificationRule).filter(
         and_(
+            ClassificationRule.created_by == current_user.id,
             ClassificationRule.rule_text == rule_data.rule_text,
             ClassificationRule.source_type == rule_data.source_type
         )
@@ -122,9 +123,10 @@ async def create_classification_rules_batch(
     
     for i, rule_data in enumerate(batch_data.rules):
         try:
-            # 检查是否已存在相同的规则
+            # 检查当前用户是否已存在相同的规则
             existing_rule = db.query(ClassificationRule).filter(
                 and_(
+                    ClassificationRule.created_by == current_user.id,
                     ClassificationRule.rule_text == rule_data.rule_text,
                     ClassificationRule.source_type == rule_data.source_type
                 )
@@ -172,7 +174,12 @@ async def get_classification_rule(
 ):
     """获取单个分类规则"""
     
-    rule = db.query(ClassificationRule).filter(ClassificationRule.id == rule_id).first()
+    rule = db.query(ClassificationRule).filter(
+        and_(
+            ClassificationRule.id == rule_id,
+            ClassificationRule.created_by == current_user.id
+        )
+    ).first()
     
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")
@@ -189,7 +196,12 @@ async def update_classification_rule(
 ):
     """更新分类规则"""
     
-    rule = db.query(ClassificationRule).filter(ClassificationRule.id == rule_id).first()
+    rule = db.query(ClassificationRule).filter(
+        and_(
+            ClassificationRule.id == rule_id,
+            ClassificationRule.created_by == current_user.id
+        )
+    ).first()
     
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")
@@ -201,6 +213,7 @@ async def update_classification_rule(
         
         existing_rule = db.query(ClassificationRule).filter(
             and_(
+                ClassificationRule.created_by == current_user.id,
                 ClassificationRule.rule_text == new_rule_text,
                 ClassificationRule.source_type == new_source_type,
                 ClassificationRule.id != rule_id
@@ -232,7 +245,12 @@ async def delete_classification_rule(
 ):
     """删除分类规则"""
     
-    rule = db.query(ClassificationRule).filter(ClassificationRule.id == rule_id).first()
+    rule = db.query(ClassificationRule).filter(
+        and_(
+            ClassificationRule.id == rule_id,
+            ClassificationRule.created_by == current_user.id
+        )
+    ).first()
     
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")
@@ -251,7 +269,12 @@ async def toggle_classification_rule_status(
 ):
     """切换分类规则的启用状态"""
     
-    rule = db.query(ClassificationRule).filter(ClassificationRule.id == rule_id).first()
+    rule = db.query(ClassificationRule).filter(
+        and_(
+            ClassificationRule.id == rule_id,
+            ClassificationRule.created_by == current_user.id
+        )
+    ).first()
     
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")

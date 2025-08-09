@@ -614,7 +614,7 @@ async def ai_classify_bill(
         }
         
         # AI分类
-        suggested_category = ai_classification_service.classify_single_bill(bill_data, db)
+        suggested_category = ai_classification_service.classify_single_bill(bill_data, db, current_user.id)
         
         if suggested_category:
             # 获取分类ID
@@ -707,7 +707,7 @@ async def ai_classify_bills_batch(
             bills_data.append(bill_data)
         
         # 使用优化的批量AI分类（一次处理多个账单）
-        classification_results = ai_classification_service.classify_bills_batch_optimized(bills_data, db)
+        classification_results = ai_classification_service.classify_bills_batch_optimized(bills_data, db, current_user.id)
         
         # 处理结果
         results = []
@@ -799,7 +799,7 @@ async def apply_ai_classification(
         }
         
         # AI分类
-        suggested_category = ai_classification_service.classify_single_bill(bill_data, db)
+        suggested_category = ai_classification_service.classify_single_bill(bill_data, db, current_user.id)
         
         if suggested_category:
             # 获取分类
