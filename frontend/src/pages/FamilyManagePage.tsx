@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
+  Typography,
   Card,
+  Table,
   Button,
   Space,
-  Typography,
-  Table,
   Modal,
   Form,
   Input,
@@ -13,20 +13,17 @@ import {
   Popconfirm,
   Tag,
   Divider,
-  AutoComplete,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  UserAddOutlined,
   LogoutOutlined,
-  SearchOutlined,
 } from '@ant-design/icons';
 import { useFamilyStore } from '../stores/family';
-import type { Family, FamilyMember } from '../types';
+import type { Family } from '../types';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 const { Option } = Select;
 
 interface UserSearchOption {
@@ -37,7 +34,7 @@ interface UserSearchOption {
 
 // 防抖函数
 const useDebounce = (callback: Function, delay: number) => {
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<number | null>(null);
 
   const debouncedCallback = useCallback((...args: any[]) => {
     if (debounceTimer) {

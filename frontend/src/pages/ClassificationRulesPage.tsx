@@ -28,8 +28,6 @@ import {
 import { ClassificationRuleService, BillService } from '../api/services';
 import type {
   ClassificationRule,
-  ClassificationRuleCreate,
-  ClassificationRuleUpdate,
   SourceTypeOption,
   BillCategory,
 } from '../types';
@@ -227,25 +225,9 @@ const ClassificationRulesPage: React.FC = () => {
     }
   };
 
-  // 处理搜索 - 根据所有筛选条件进行搜索
+  // 搜索规则
   const handleSearch = () => {
-    const newFilters = {
-      ...filters,
-      search: searchInput,
-    };
-    setFilters(newFilters);
-    setPagination({ ...pagination, current: 1 });
-  };
-
-  // 清除所有筛选条件
-  const handleClearAll = () => {
-    setSearchInput('');
-    setFilters({
-      source_type: '',
-      target_category: '',
-      is_active: undefined,
-      search: '',
-    });
+    setFilters({ ...filters, search: searchInput });
     setPagination({ ...pagination, current: 1 });
   };
 

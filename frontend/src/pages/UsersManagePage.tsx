@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Popconfirm, message, Modal, Form, Input, Pagination, Spin, Tag, Switch, Descriptions, Select, Row, Col } from 'antd';
-import type { InputRef } from 'antd';
 import { SearchOutlined, EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { UserService } from '../api/services';
 import type { User } from '../types';

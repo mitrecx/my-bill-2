@@ -16,7 +16,6 @@ import type {
   UploadRecord,
   UploadResponse,
   ApiResponse, // 新增ApiResponse类型导入
-  SystemConfig,
   SystemConfigCreate,
   SystemConfigUpdate,
   DefaultPasswordConfig,

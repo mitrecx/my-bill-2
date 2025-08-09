@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { familyApi } from '../api/services';
-import type { Family, FamilyMember, FamilyCreate, FamilyUpdate, UserSearchResult } from '../types/family';
+import type { Family, FamilyCreate, FamilyUpdate, UserSearchResult } from '../types/family';
+import type { FamilyMember } from '../types';
 
 interface FamilyState {
   families: Family[];
@@ -50,8 +51,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
   createFamily: async (data: FamilyCreate) => {
     set({ loading: true, error: null });
     try {
-      const response = await familyApi.createFamily(data);
-      const newFamily = response.data;
+      const newFamily = await familyApi.createFamily(data);
       const { families } = get();
       set({ 
         families: [...families, newFamily],
@@ -70,8 +70,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
   updateFamily: async (id: number, data: FamilyUpdate) => {
     set({ loading: true, error: null });
     try {
-      const response = await familyApi.updateFamily(id, data);
-      const updatedFamily = response.data;
+      const updatedFamily = await familyApi.updateFamily(id, data);
       const { families, currentFamily } = get();
       const updatedFamilies = families.map(family => 
         family.id === id ? updatedFamily : family
@@ -118,7 +117,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
     try {
       const response = await familyApi.getFamilyMembers(familyId);
       set({ 
-        members: response.data || [],
+        members: response.members || [],
         loading: false 
       });
     } catch (error) {
@@ -155,7 +154,7 @@ export const useFamilyStore = create<FamilyState & FamilyActions>((set, get) => 
   searchUsers: async (query: string): Promise<UserSearchResult[]> => {
     try {
       const response = await familyApi.searchUsers(query);
-      return response.data || [];
+      return response || [];
     } catch (error) {
       console.error('搜索用户失败:', error);
       return [];

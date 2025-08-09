@@ -22,7 +22,6 @@ import {
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
 import { UserService, SystemConfigService } from '../api/services';
-import type { SystemConfigResponse } from '../types';
 
 const { Title, Text } = Typography;
 // const { Option } = Select;
@@ -35,7 +34,6 @@ const SettingsPage: React.FC = () => {
   const [profileForm] = Form.useForm();
   const [systemConfigForm] = Form.useForm();
   
-  const [systemConfig, setSystemConfig] = useState<SystemConfigResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [userDataLoaded, setUserDataLoaded] = useState(false);
 
@@ -74,7 +72,6 @@ const SettingsPage: React.FC = () => {
   const loadSystemConfig = async () => {
     try {
       const config = await SystemConfigService.getDefaultPassword();
-      setSystemConfig(config.data);
       systemConfigForm.setFieldsValue({
         default_password: config.data.default_password,
       });
@@ -190,7 +187,12 @@ const SettingsPage: React.FC = () => {
 
 
     system: (
-      <Card title="参数管理" icon={<KeyOutlined />}>
+      <Card title={
+        <Space>
+          <KeyOutlined />
+          参数管理
+        </Space>
+      }>
         <Form
           form={systemConfigForm}
           layout="vertical"

@@ -21,7 +21,6 @@ import {
   DeleteOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
-// import { useAuthStore } from '../stores/auth';
 import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -31,14 +30,12 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 const BillsPage: React.FC = () => {
-  // const { user } = useAuthStore();
   const {
     bills,
     categories,
     pagination,
     queryParams,
     isLoading,
-    // error,
     fetchBills,
     fetchCategories,
     deleteBill,

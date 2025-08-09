@@ -115,7 +115,8 @@ ENVEOF
     
     if [ "\$INSTALL_DEPS" = "true" ]; then
         echo "正在安装Python依赖..."
-        pip3 install -r requirements.txt
+        # 使用国内镜像源加速下载
+        pip3 install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple/ --trusted-host pypi.tuna.tsinghua.edu.cn --timeout 300
         # 创建依赖安装标记文件
         touch .deps_installed
         echo "依赖安装完成"
@@ -144,9 +145,9 @@ ENVEOF
     sleep 5
     
     # 检查服务状态
-    if curl -f http://localhost:8000/api/v1/health > /dev/null 2>&1; then
+    if curl -f http://localhost:8000/api/v1/health/ > /dev/null 2>&1; then
         echo "✅ 服务启动成功！"
-        echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health"
+        echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health/"
         echo "API文档: http://jo.mitrecx.top:8000/docs"
     else
         echo "❌ 服务启动失败，请检查日志"
