@@ -27,8 +27,7 @@ frontend/.DS_Store
 .deps_installed
 
 # 账单导入文件
-bills/*.csv
-bills/*.pdf
+bills/*
 
 # 日志
 *.log

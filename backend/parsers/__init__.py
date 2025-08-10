@@ -2,6 +2,7 @@ from .base_parser import BaseParser, ParseResult
 from .alipay_parser import AlipayParser
 from .jd_parser import JDParser
 from .cmb_parser import CMBParser
+from .wechat_parser import WeChatParser
 from typing import Optional, Dict, Type
 
 # 解析器映射
@@ -9,6 +10,7 @@ PARSER_MAP: Dict[str, Type[BaseParser]] = {
     "alipay": AlipayParser,
     "jd": JDParser,
     "cmb": CMBParser,
+    "wechat": WeChatParser,
 }
 
 
@@ -26,6 +28,7 @@ def get_available_parsers() -> Dict[str, str]:
         "alipay": "支付宝账单解析器 (CSV格式)",
         "jd": "京东账单解析器 (CSV格式)",
         "cmb": "招商银行账单解析器 (PDF格式)",
+        "wechat": "微信支付账单解析器 (Excel格式)",
     }
 
 
@@ -35,7 +38,8 @@ __all__ = [
     "AlipayParser",
     "JDParser", 
     "CMBParser",
+    "WeChatParser",
     "get_parser",
     "get_available_parsers",
     "PARSER_MAP",
-] 
+]

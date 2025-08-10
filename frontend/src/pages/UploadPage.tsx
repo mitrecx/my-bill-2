@@ -50,6 +50,12 @@ const UploadPage: React.FC = () => {
       description: '从招商银行APP导出的交易流水PDF文件',
       icon: '🏦',
     },
+    {
+      type: '微信账单',
+      format: 'Excel文件',
+      description: '从微信APP导出的账单流水Excel文件',
+      icon: '💬',
+    },
   ];
 
   // 文件上传配置
@@ -60,11 +66,15 @@ const UploadPage: React.FC = () => {
     beforeUpload: (file) => {
       const isValidType = file.type === 'text/csv' || 
                          file.type === 'application/pdf' ||
+                         file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+                         file.type === 'application/vnd.ms-excel' ||
                          file.name.endsWith('.csv') ||
-                         file.name.endsWith('.pdf');
+                         file.name.endsWith('.pdf') ||
+                         file.name.endsWith('.xlsx') ||
+                         file.name.endsWith('.xls');
       
       if (!isValidType) {
-        message.error('只支持CSV和PDF文件格式');
+        message.error('只支持CSV、PDF和Excel文件格式');
         return false;
       }
 
@@ -161,7 +171,7 @@ const UploadPage: React.FC = () => {
       <Title level={2}>账单上传</Title>
       
       <Paragraph type="secondary">
-        支持上传支付宝、京东、招商银行的账单文件，系统会自动解析并导入账单数据。
+        支持上传支付宝、京东、招商银行、微信的账单文件，系统会自动解析并导入账单数据。
       </Paragraph>
 
       {/* 支持的文件类型说明 */}
@@ -192,7 +202,7 @@ const UploadPage: React.FC = () => {
           </p>
           <p className="ant-upload-text">点击或拖拽文件到此区域上传</p>
           <p className="ant-upload-hint">
-            支持CSV和PDF格式，文件大小不超过10MB
+            支持CSV、PDF和Excel格式，文件大小不超过10MB
           </p>
         </Dragger>
 

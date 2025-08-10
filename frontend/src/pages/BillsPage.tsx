@@ -200,6 +200,7 @@ const BillsPage: React.FC = () => {
           alipay: '支付宝',
           jd: '京东',
           cmb: '招商银行',
+          wechat: '微信支付',
         };
         return sourceMap[source as keyof typeof sourceMap] || source;
       },

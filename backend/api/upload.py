@@ -227,6 +227,70 @@ def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], fam
         return 0
 
 
+def handle_wechat_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
+    """
+    处理微信账单的按日期覆盖逻辑（与CMB账单保持一致）
+    删除数据库中与新文件记录日期相同的所有微信账单记录
+    
+    Args:
+        filename: 当前上传的文件名
+        records: 当前文件解析出的账单记录
+        family_user_ids: 家庭成员用户ID列表
+        db: 数据库会话
+    
+    Returns:
+        被删除的重叠记录数量
+    """
+    try:
+        # 获取当前文件中的所有交易日期
+        if not records:
+            return 0
+            
+        transaction_dates = set()  # 使用set去重
+        for record in records:
+            transaction_time = record.get("transaction_time")
+            if transaction_time:
+                if isinstance(transaction_time, str):
+                    # 如果是字符串，尝试解析
+                    try:
+                        transaction_time = datetime.fromisoformat(transaction_time.replace('Z', '+00:00'))
+                    except:
+                        continue
+                transaction_dates.add(transaction_time.date())
+        
+        if not transaction_dates:
+            return 0
+            
+        logger.info(f"当前微信文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
+        
+        deleted_count = 0
+        
+        # 对于每个交易日期，删除数据库中该日期的所有微信记录
+        for date in transaction_dates:
+            bills_to_delete = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "wechat",
+                func.date(Bill.transaction_time) == date
+            ).all()
+            
+            if bills_to_delete:
+                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条微信记录")
+                for bill in bills_to_delete:
+                    db.delete(bill)
+                    deleted_count += 1
+        
+        if deleted_count > 0:
+            db.commit()
+            logger.info(f"微信账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f"处理微信账单按日期覆盖时出错: {e}")
+        db.rollback()
+        return 0
+
+
 def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
     """
     处理CMB账单的按日期覆盖逻辑
@@ -431,7 +495,7 @@ async def upload_file(
             # 解析文件
             parse_result = parser.parse_file(temp_file_path)
             
-            # CMB、JD和支付宝账单：处理时间范围重叠覆盖逻辑
+            # CMB、JD、支付宝和微信账单：处理时间范围重叠覆盖逻辑
             deleted_count = 0
             if source_type == "cmb":
                 deleted_count = handle_cmb_bill_overlap(
@@ -449,6 +513,13 @@ async def upload_file(
                 )
             elif source_type == "alipay":
                 deleted_count = handle_alipay_bill_overlap(
+                    file.filename, 
+                    parse_result.success_records, 
+                    family_user_ids, 
+                    db
+                )
+            elif source_type == "wechat":
+                deleted_count = handle_wechat_bill_overlap(
                     file.filename, 
                     parse_result.success_records, 
                     family_user_ids, 
@@ -476,7 +547,7 @@ async def upload_file(
                         continue
                     
                     # 其他来源：检查重复
-                    if source_type not in ["cmb", "jd", "alipay"]:  # 招商银行、京东和支付宝账单已在文件级别检测重复
+                    if source_type not in ["cmb", "jd", "alipay", "wechat"]:  # 招商银行、京东、支付宝和微信账单已在文件级别检测重复
                         if check_duplicate_bill_other_sources(record, family_user_ids, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue

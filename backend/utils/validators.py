@@ -61,6 +61,8 @@ def detect_file_source_type(filename: str, content_preview: str = "") -> Optiona
         return "jd"
     elif "招商银行" in filename or "cmb" in filename_lower or "招商银行交易流水" in filename:
         return "cmb"
+    elif "微信" in filename or "wechat" in filename_lower or "微信支付账单" in filename:
+        return "wechat"
     
     # 根据内容预览判断
     if content_preview:
@@ -70,6 +72,8 @@ def detect_file_source_type(filename: str, content_preview: str = "") -> Optiona
             return "jd"
         elif "招商银行交易流水" in content_preview or "Transaction Statement" in content_preview:
             return "cmb"
+        elif "交易时间" in content_preview and "交易对方" in content_preview and "微信" in content_preview:
+            return "wechat"
     
     return None
 
@@ -89,4 +93,4 @@ def sanitize_filename(filename: str) -> str:
         max_name_len = 255 - len(ext) - 1 if ext else 255
         sanitized = f"{name[:max_name_len]}.{ext}" if ext else name[:255]
     
-    return sanitized 
+    return sanitized
