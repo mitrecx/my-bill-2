@@ -27,6 +27,7 @@ const UploadPage: React.FC = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [progressStatus, setProgressStatus] = useState<string>('');
 
 
 
@@ -127,9 +128,19 @@ const UploadPage: React.FC = () => {
     try {
       setUploading(true);
       setUploadProgress(0);
+      setProgressStatus('正在上传文件...');
 
-      // 使用UploadService.uploadFile方法
-      const response = await UploadService.uploadFile(file);
+      // 使用UploadService.uploadFile方法，传入进度回调
+      const response = await UploadService.uploadFile(file, (progress) => {
+        // 文件上传进度占总进度的30%
+        const uploadProgress = Math.round(progress * 0.3);
+        setUploadProgress(uploadProgress);
+        setProgressStatus(`正在上传文件... ${progress}%`);
+      });
+      
+      // 文件上传完成，开始解析阶段
+      setUploadProgress(30);
+      setProgressStatus('文件上传完成，正在解析账单数据...');
       
       console.log('上传响应:', response);
       
@@ -138,14 +149,25 @@ const UploadPage: React.FC = () => {
       const successCount = uploadData.success_count || 0;
       const aiClassifiedCount = uploadData.ai_classified_count || 0;
       
+      // 模拟解析和处理进度
+      setUploadProgress(60); // 解析完成
+      setProgressStatus(`账单解析完成，成功处理 ${successCount} 条记录`);
+      
+      // 如果有AI分类，显示AI分类进度
+      if (aiClassifiedCount > 0) {
+        setUploadProgress(90); // AI分类完成
+        setProgressStatus(`正在进行AI智能分类... 已分类 ${aiClassifiedCount} 条记录`);
+      }
+      
       let successMessage = `上传成功！成功处理 ${successCount} 条记录`;
       if (aiClassifiedCount > 0) {
         successMessage += `，AI自动分类 ${aiClassifiedCount} 条记录`;
       }
       
+      setUploadProgress(100);
+      setProgressStatus('处理完成！');
       message.success(successMessage);
       setFileList([]);
-      setUploadProgress(100);
       fetchBills();
       
     } catch (error: any) {
@@ -162,7 +184,10 @@ const UploadPage: React.FC = () => {
       message.error(errorMessage);
     } finally {
       setUploading(false);
-      setTimeout(() => setUploadProgress(0), 1000);
+      setTimeout(() => {
+        setUploadProgress(0);
+        setProgressStatus('');
+      }, 2000);
     }
   };
 
@@ -208,8 +233,22 @@ const UploadPage: React.FC = () => {
 
         {uploading && (
           <div style={{ marginBottom: 16 }}>
-            <Progress percent={uploadProgress} status="active" />
-            <Text type="secondary">正在上传和解析文件...</Text>
+            <Progress 
+              percent={uploadProgress} 
+              status="active"
+              strokeColor={{
+                '0%': '#108ee9',
+                '100%': '#87d068',
+              }}
+            />
+            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Text type="secondary">{progressStatus}</Text>
+              {uploadProgress < 30 && <Text type="secondary">• 文件上传中</Text>}
+              {uploadProgress >= 30 && uploadProgress < 60 && <Text type="secondary">• 解析账单数据</Text>}
+              {uploadProgress >= 60 && uploadProgress < 90 && <Text type="secondary">• 保存账单记录</Text>}
+              {uploadProgress >= 90 && uploadProgress < 100 && <Text type="secondary">• AI智能分类</Text>}
+              {uploadProgress === 100 && <Text type="success">• 处理完成</Text>}
+            </div>
           </div>
         )}
 

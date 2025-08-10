@@ -104,5 +104,7 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG,
         log_level="info",
-        access_log=True
+        access_log=True,
+        timeout_keep_alive=300,  # 保持连接超时时间（5分钟）
+        timeout_graceful_shutdown=30  # 优雅关闭超时时间
     )

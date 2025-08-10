@@ -92,27 +92,39 @@ def handle_jd_bill_overlap(filename: str, records: List[Dict[str, Any]], family_
             
         logger.info(f"当前JD文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
         
-        deleted_count = 0
-        
-        # 对于每个交易日期，删除数据库中该日期的所有JD记录
+        # 优化：使用单个SQL查询删除所有相关日期的记录
+        # 构建日期范围条件
+        date_conditions = []
         for date in transaction_dates:
+            date_conditions.append(func.date(Bill.transaction_time) == date)
+        
+        # 使用or_条件组合所有日期
+        if date_conditions:
+            # 先查询要删除的记录数量
             bills_to_delete = db.query(Bill).filter(
                 Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "jd",
-                func.date(Bill.transaction_time) == date
+                or_(*date_conditions)
             ).all()
             
-            if bills_to_delete:
-                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条JD记录")
-                for bill in bills_to_delete:
-                    db.delete(bill)
-                    deleted_count += 1
+            deleted_count = len(bills_to_delete)
+            
+            if deleted_count > 0:
+                logger.info(f"准备删除 {deleted_count} 条JD记录")
+                
+                # 批量删除
+                db.query(Bill).filter(
+                    Bill.user_id.in_(family_user_ids),
+                    Bill.source_type == "jd",
+                    or_(*date_conditions)
+                ).delete(synchronize_session=False)
+                
+                db.commit()
+                logger.info(f"JD账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+            
+            return deleted_count
         
-        if deleted_count > 0:
-            db.commit()
-            logger.info(f"JD账单按日期覆盖完成，共删除 {deleted_count} 条记录")
-        
-        return deleted_count
+        return 0
         
     except Exception as e:
         logger.error(f"处理JD账单按日期覆盖时出错: {e}")
@@ -165,8 +177,8 @@ def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: S
 
 def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
     """
-    处理支付宝账单的按日期覆盖逻辑（与CMB账单保持一致）
-    删除数据库中与新文件记录日期相同的所有支付宝账单记录
+    处理支付宝账单的按日期覆盖逻辑（优化版本）
+    使用单个SQL查询删除数据库中与新文件记录日期相同的所有支付宝账单记录
     
     Args:
         filename: 当前上传的文件名
@@ -199,27 +211,39 @@ def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], fam
             
         logger.info(f"当前支付宝文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
         
-        deleted_count = 0
-        
-        # 对于每个交易日期，删除数据库中该日期的所有支付宝记录
+        # 优化：使用单个SQL查询删除所有相关日期的记录
+        # 构建日期范围条件
+        date_conditions = []
         for date in transaction_dates:
+            date_conditions.append(func.date(Bill.transaction_time) == date)
+        
+        # 使用or_条件组合所有日期
+        if date_conditions:
+            # 先查询要删除的记录数量
             bills_to_delete = db.query(Bill).filter(
                 Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "alipay",
-                func.date(Bill.transaction_time) == date
+                or_(*date_conditions)
             ).all()
             
-            if bills_to_delete:
-                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条支付宝记录")
-                for bill in bills_to_delete:
-                    db.delete(bill)
-                    deleted_count += 1
+            deleted_count = len(bills_to_delete)
+            
+            if deleted_count > 0:
+                logger.info(f"准备删除 {deleted_count} 条支付宝记录")
+                
+                # 批量删除
+                db.query(Bill).filter(
+                    Bill.user_id.in_(family_user_ids),
+                    Bill.source_type == "alipay",
+                    or_(*date_conditions)
+                ).delete(synchronize_session=False)
+                
+                db.commit()
+                logger.info(f"支付宝账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+            
+            return deleted_count
         
-        if deleted_count > 0:
-            db.commit()
-            logger.info(f"支付宝账单按日期覆盖完成，共删除 {deleted_count} 条记录")
-        
-        return deleted_count
+        return 0
         
     except Exception as e:
         logger.error(f"处理支付宝账单按日期覆盖时出错: {e}")
@@ -263,27 +287,39 @@ def handle_wechat_bill_overlap(filename: str, records: List[Dict[str, Any]], fam
             
         logger.info(f"当前微信文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
         
-        deleted_count = 0
-        
-        # 对于每个交易日期，删除数据库中该日期的所有微信记录
+        # 优化：使用单个SQL查询删除所有相关日期的记录
+        # 构建日期范围条件
+        date_conditions = []
         for date in transaction_dates:
+            date_conditions.append(func.date(Bill.transaction_time) == date)
+        
+        # 使用or_条件组合所有日期
+        if date_conditions:
+            # 先查询要删除的记录数量
             bills_to_delete = db.query(Bill).filter(
                 Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "wechat",
-                func.date(Bill.transaction_time) == date
+                or_(*date_conditions)
             ).all()
             
-            if bills_to_delete:
-                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条微信记录")
-                for bill in bills_to_delete:
-                    db.delete(bill)
-                    deleted_count += 1
+            deleted_count = len(bills_to_delete)
+            
+            if deleted_count > 0:
+                logger.info(f"准备删除 {deleted_count} 条微信记录")
+                
+                # 批量删除
+                db.query(Bill).filter(
+                    Bill.user_id.in_(family_user_ids),
+                    Bill.source_type == "wechat",
+                    or_(*date_conditions)
+                ).delete(synchronize_session=False)
+                
+                db.commit()
+                logger.info(f"微信账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+            
+            return deleted_count
         
-        if deleted_count > 0:
-            db.commit()
-            logger.info(f"微信账单按日期覆盖完成，共删除 {deleted_count} 条记录")
-        
-        return deleted_count
+        return 0
         
     except Exception as e:
         logger.error(f"处理微信账单按日期覆盖时出错: {e}")
@@ -327,27 +363,39 @@ def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family
             
         logger.info(f"当前CMB文件 {filename} 包含的交易日期: {sorted(transaction_dates)}")
         
-        deleted_count = 0
-        
-        # 对于每个交易日期，删除数据库中该日期的所有CMB记录
+        # 优化：使用单个SQL查询删除所有相关日期的记录
+        # 构建日期范围条件
+        date_conditions = []
         for date in transaction_dates:
+            date_conditions.append(func.date(Bill.transaction_time) == date)
+        
+        # 使用or_条件组合所有日期
+        if date_conditions:
+            # 先查询要删除的记录数量
             bills_to_delete = db.query(Bill).filter(
                 Bill.user_id.in_(family_user_ids),
                 Bill.source_type == "cmb",
-                func.date(Bill.transaction_time) == date
+                or_(*date_conditions)
             ).all()
             
-            if bills_to_delete:
-                logger.info(f"删除日期 {date} 的 {len(bills_to_delete)} 条CMB记录")
-                for bill in bills_to_delete:
-                    db.delete(bill)
-                    deleted_count += 1
+            deleted_count = len(bills_to_delete)
+            
+            if deleted_count > 0:
+                logger.info(f"准备删除 {deleted_count} 条CMB记录")
+                
+                # 批量删除
+                db.query(Bill).filter(
+                    Bill.user_id.in_(family_user_ids),
+                    Bill.source_type == "cmb",
+                    or_(*date_conditions)
+                ).delete(synchronize_session=False)
+                
+                db.commit()
+                logger.info(f"CMB账单按日期覆盖完成，共删除 {deleted_count} 条记录")
+            
+            return deleted_count
         
-        if deleted_count > 0:
-            db.commit()
-            logger.info(f"CMB账单按日期覆盖完成，共删除 {deleted_count} 条记录")
-        
-        return deleted_count
+        return 0
         
     except Exception as e:
         logger.error(f"处理CMB账单按日期覆盖时出错: {e}")

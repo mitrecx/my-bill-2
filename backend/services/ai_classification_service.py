@@ -261,7 +261,7 @@ class AIClassificationService:
     
 
     
-    def classify_bills_batch_optimized(self, bills_data: List[Dict], db: Session, user_id: int, batch_size: int = 10) -> List[Tuple[int, Optional[str]]]:
+    def classify_bills_batch_optimized(self, bills_data: List[Dict], db: Session, user_id: int, batch_size: int = 20) -> List[Tuple[int, Optional[str]]]:
         """
         优化的批量分类账单（使用AI分类，包含分类规则）
         
@@ -269,7 +269,7 @@ class AIClassificationService:
             bills_data: 账单数据列表
             db: 数据库会话
             user_id: 用户ID
-            batch_size: 每批处理的账单数量，默认10个
+            batch_size: 每批处理的账单数量，默认20个
             
         Returns:
             [(bill_id, category_name), ...] 分类结果列表
@@ -293,7 +293,7 @@ class AIClassificationService:
         单次请求批量分类账单
         
         Args:
-            bills_batch: 账单数据批次（最多10个）
+            bills_batch: 账单数据批次（最多20个）
             db: 数据库会话
             user_id: 用户ID
             

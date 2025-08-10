@@ -6,8 +6,8 @@ export const API_CONFIG = {
   // 生产环境API地址 (部署的服务器)
   PROD_BASE_URL: 'https://jo.mitrecx.top/api/v1',
   
-  // 请求超时时间
-  TIMEOUT: 30000,
+  // 请求超时时间 (5分钟，支持大文件上传)
+  TIMEOUT: 300000,
   
   // Token存储key
   TOKEN_KEY: 'bills_access_token',

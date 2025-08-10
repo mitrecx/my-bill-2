@@ -193,7 +193,7 @@ export const BillService = {
 
 // 文件上传服务
 export const UploadService = {
-  uploadFile: async (file: File): Promise<ApiResponse<UploadResponse>> => {
+  uploadFile: async (file: File, onProgress?: (progress: number) => void): Promise<ApiResponse<UploadResponse>> => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('auto_categorize', 'true');
@@ -202,7 +202,13 @@ export const UploadService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
-      timeout: 120000,
+      timeout: 300000, // 增加超时时间到5分钟
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(progress);
+        }
+      },
     });
     return response;
   },
