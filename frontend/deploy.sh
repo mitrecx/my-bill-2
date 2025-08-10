@@ -134,6 +134,15 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        
+        # 超时设置 - 支持大文件上传和AI处理
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+        proxy_buffering off;
+        
+        # 客户端请求体大小限制
+        client_max_body_size 100M;
     }
     
     # 静态资源缓存
