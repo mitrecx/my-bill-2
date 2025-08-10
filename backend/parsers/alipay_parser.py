@@ -161,17 +161,9 @@ class AlipayParser(BaseParser):
         if category and not processed.get("transaction_type"):
             processed["transaction_type"] = category
         
-        # 处理交易描述，合并多个描述字段
-        desc_parts = []
+        # 处理交易描述，只使用备注字段
         if cleaned_record.get("transaction_desc"):
-            desc_parts.append(str(cleaned_record["transaction_desc"]))
-        if cleaned_record.get("source"):
-            desc_parts.append(f"来源: {cleaned_record['source']}")
-        if cleaned_record.get("tags"):
-            desc_parts.append(f"标签: {cleaned_record['tags']}")
-            
-        if desc_parts:
-            processed["transaction_desc"] = " | ".join(desc_parts)
+            processed["transaction_desc"] = str(cleaned_record["transaction_desc"])
         
         # 商户名称信息保留在raw_data中，不再设置到processed记录
         

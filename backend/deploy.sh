@@ -147,8 +147,8 @@ ENVEOF
     # 检查服务状态
     if curl -f http://localhost:8000/api/v1/health/ > /dev/null 2>&1; then
         echo "✅ 服务启动成功！"
-        echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health/"
-        echo "API文档: http://jo.mitrecx.top:8000/docs"
+        echo "健康检查: https://jo.mitrecx.top/api/v1/health/"
+        echo "API文档: https://jo.mitrecx.top/api/docs"
     else
         echo "❌ 服务启动失败，请检查日志"
         tail -n 20 logs/app.log
@@ -163,6 +163,6 @@ echo "4. 清理本地临时文件..."
 rm -f family-bills-backend.tar.gz
 
 echo "✅ 部署完成！"
-echo "服务地址: http://jo.mitrecx.top:8000"
-echo "健康检查: http://jo.mitrecx.top:8000/api/v1/health"
-echo "API文档: http://jo.mitrecx.top:8000/docs"
+echo "服务地址: https://jo.mitrecx.top"
+echo "健康检查: https://jo.mitrecx.top/api/v1/health"
+echo "API文档: https://jo.mitrecx.top/api/docs"

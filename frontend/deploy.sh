@@ -103,11 +103,22 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
     sudo chown -R nginx:nginx ${REMOTE_PATH}
     sudo chmod -R 755 ${REMOTE_PATH}
     
-    # 创建或更新nginx配置
+    # 创建或更新nginx配置 - 使用HTTPS配置
     sudo tee /etc/nginx/conf.d/family-bills.conf > /dev/null << 'NGINXEOF'
 server {
-    listen 80;
+    listen 443 ssl http2;
     server_name jo.mitrecx.top;
+
+    ssl_certificate     /etc/nginx/ssl/jo.mitrecx.top.pem;
+    ssl_certificate_key /etc/nginx/ssl/jo.mitrecx.top.key;
+    
+    # SSL 优化配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
     root ${REMOTE_PATH};
     index index.html;
     
@@ -118,7 +129,7 @@ server {
     
     # API代理到后端
     location /api/ {
-        proxy_pass http://localhost:8000/;
+        proxy_pass http://127.0.0.1:8000/api/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
@@ -142,6 +153,12 @@ server {
     gzip_min_length 1024;
     gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
 }
+
+server {
+    listen 80;
+    server_name jo.mitrecx.top;
+    return 301 https://\$host\$request_uri;
+}
 NGINXEOF
     
     # 配置已直接写入conf.d目录，无需额外启用
@@ -155,7 +172,7 @@ NGINXEOF
     # 检查nginx状态
     if sudo systemctl is-active --quiet nginx; then
         echo "✅ Nginx重新加载成功！"
-        echo "前端地址: http://jo.mitrecx.top"
+        echo "前端地址: https://jo.mitrecx.top"
     else
         echo "❌ Nginx重新加载失败，请检查配置"
         sudo systemctl status nginx
@@ -170,6 +187,6 @@ echo "6. 清理本地临时文件..."
 rm -f family-bills-frontend.tar.gz
 
 echo "✅ 前端部署完成！"
-echo "网站地址: http://jo.mitrecx.top"
-echo "API地址: http://jo.mitrecx.top/api"
-echo "后端文档: http://jo.mitrecx.top/api/docs"
+echo "网站地址: https://jo.mitrecx.top"
+echo "API地址: https://jo.mitrecx.top/api"
+echo "后端文档: https://jo.mitrecx.top/api/docs"
