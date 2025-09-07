@@ -44,3 +44,4 @@ ssl-certs/*.crt
 .vscode/
 
 .trae/
+docs/项目入门文档.md

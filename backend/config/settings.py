@@ -1,7 +1,7 @@
 import os
-from typing import List, Optional
-from pydantic_settings import BaseSettings
-from pydantic import validator, Field
+from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator, Field
 from pathlib import Path
 
 # 项目根目录
@@ -54,20 +54,23 @@ class Settings(BaseSettings):
     # AI模型配置
     ZHIPU_API_KEY: Optional[str] = Field(default=None, env="ZHIPU_API_KEY")
     
-    @validator('SECRET_KEY')
+    @field_validator('SECRET_KEY')
+    @classmethod
     def secret_key_must_be_strong(cls, v):
         if len(v) < 32:
             raise ValueError('SECRET_KEY must be at least 32 characters')
         return v
     
-    @validator('ENVIRONMENT')
+    @field_validator('ENVIRONMENT')
+    @classmethod
     def environment_must_be_valid(cls, v):
         valid_envs = ['development', 'production', 'testing']
         if v not in valid_envs:
             raise ValueError(f'ENVIRONMENT must be one of {valid_envs}')
         return v
     
-    @validator("CORS_ORIGINS", pre=True)
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
     def parse_cors_origins(cls, v):
         """解析CORS origins"""
         if isinstance(v, str):
@@ -75,12 +78,12 @@ class Settings(BaseSettings):
         return v
     
     @property
-    def cors_origins(self) -> List[str]:
+    def cors_origins(self) -> list[str]:
         """获取CORS origins列表"""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
     
     @property
-    def allowed_extensions(self) -> List[str]:
+    def allowed_extensions(self) -> list[str]:
         """获取允许的文件扩展名列表"""
         return [ext.strip() for ext in self.ALLOWED_EXTENSIONS.split(",") if ext.strip()]
     
@@ -115,9 +118,10 @@ class Settings(BaseSettings):
         path.parent.mkdir(exist_ok=True)
         return path
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8"
+    )
 
 
 # 根据环境加载特定配置
