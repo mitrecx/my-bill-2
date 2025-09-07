@@ -195,8 +195,12 @@ const BillsPage: React.FC = () => {
       title: '交易时间',
       dataIndex: 'transaction_date',
       key: 'transaction_date',
-      width: 160,
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm:ss'),
+      width: 200,
+      render: (date: string) => (
+        <span style={{ whiteSpace: 'nowrap' }}>
+          {dayjs(date).format('YYYY-MM-DD HH:mm:ss')}
+        </span>
+      ),
       sorter: true,
     },
     {
