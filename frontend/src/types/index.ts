@@ -117,7 +117,8 @@ export interface BillListQueryParams {
   size?: number;
   family_id?: number;
   user_id?: number;
-  category_id?: number;
+  // 支持单选或多选分类
+  category_id?: number | number[];
   transaction_type?: 'income' | 'expense' | 'transfer';
   source_type?: 'alipay' | 'jd' | 'cmb';
   start_date?: string;

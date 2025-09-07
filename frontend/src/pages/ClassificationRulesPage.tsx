@@ -33,7 +33,7 @@ import type {
 } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 interface RuleFormData {
@@ -231,6 +231,13 @@ const ClassificationRulesPage: React.FC = () => {
     setPagination({ ...pagination, current: 1 });
   };
 
+  // 重置筛选
+  const handleReset = () => {
+    setSearchInput('');
+    setFilters({ source_type: '', target_category: '', is_active: undefined, search: '' });
+    setPagination({ ...pagination, current: 1 });
+  };
+
   // 获取来源类型标签
   const getSourceTypeLabel = (sourceType: string) => {
     const option = sourceTypeOptions.find(opt => opt.value === sourceType);
@@ -348,81 +355,91 @@ const ClassificationRulesPage: React.FC = () => {
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
           <Col span={6}>
-            <Input
-              placeholder="搜索规则文本"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              onPressEnter={handleSearch}
-              allowClear
-              style={{ width: '100%' }}
-            />
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>规则文本：</Text>
+              <Input
+                placeholder="请输入规则文本"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onPressEnter={handleSearch}
+                allowClear
+                style={{ width: '100%' }}
+              />
+            </Space>
           </Col>
-          
+
           <Col span={4}>
-            <Select
-              placeholder="来源类型"
-              value={filters.source_type || undefined}
-              onChange={(value) => setFilters({ ...filters, source_type: value || '' })}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              {sourceTypeOptions.map((option) => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>来源类型：</Text>
+              <Select
+                placeholder="请选择"
+                value={filters.source_type || undefined}
+                onChange={(value) => setFilters({ ...filters, source_type: value || '' })}
+                allowClear
+                style={{ width: '100%' }}
+              >
+                {sourceTypeOptions.map((option) => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
+              </Select>
+            </Space>
           </Col>
-          
+
           <Col span={4}>
-            <Select
-              placeholder="目标分类"
-              value={filters.target_category || undefined}
-              onChange={(value) => setFilters({ ...filters, target_category: value || '' })}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              {categories.map((category) => (
-                <Option key={category.id} value={category.name}>
-                  {category.name}
-                </Option>
-              ))}
-            </Select>
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>目标分类：</Text>
+              <Select
+                placeholder="请选择"
+                value={filters.target_category || undefined}
+                onChange={(value) => setFilters({ ...filters, target_category: value || '' })}
+                allowClear
+                style={{ width: '100%' }}
+              >
+                {categories.map((category) => (
+                  <Option key={category.id} value={category.name}>
+                    {category.name}
+                  </Option>
+                ))}
+              </Select>
+            </Space>
           </Col>
-          
+
           <Col span={4}>
-            <Select
-              placeholder="状态"
-              value={filters.is_active}
-              onChange={(value) => setFilters({ ...filters, is_active: value })}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              <Option value={true}>启用</Option>
-              <Option value={false}>禁用</Option>
-            </Select>
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>状态：</Text>
+              <Select
+                placeholder="请选择"
+                value={filters.is_active}
+                onChange={(value) => setFilters({ ...filters, is_active: value })}
+                allowClear
+                style={{ width: '100%' }}
+              >
+                <Option value={true}>启用</Option>
+                <Option value={false}>禁用</Option>
+              </Select>
+            </Space>
           </Col>
-          
-          <Col span={6}>
+
+          <Col span={6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Space>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleCreate}
-              >
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
                 新建规则
-              </Button>
-              <Button
-                type="primary"
-                icon={<SearchOutlined />}
-                onClick={handleSearch}
-                loading={loading}
-              >
-                搜索
               </Button>
             </Space>
           </Col>
         </Row>
+
+        {/* 操作按钮单独一行：查询/重置 居中 */}
+        <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <Space>
+            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} loading={loading}>
+              查询
+            </Button>
+            <Button onClick={handleReset}>重置</Button>
+          </Space>
+        </div>
       </Card>
 
       {/* 规则列表 */}

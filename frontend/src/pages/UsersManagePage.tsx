@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Space, Popconfirm, message, Modal, Form, Input, Pagination, Spin, Tag, Switch, Descriptions, Select, Row, Col } from 'antd';
+import { Table, Button, Space, Popconfirm, message, Modal, Form, Input, Pagination, Spin, Tag, Switch, Descriptions, Select, Row, Col, Typography } from 'antd';
 import { SearchOutlined, EyeOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+const { Text } = Typography;
 import { UserService } from '../api/services';
 import type { User } from '../types';
 
@@ -281,45 +282,60 @@ const UsersManagePage: React.FC = () => {
       <div style={{ marginBottom: 16, padding: 16, backgroundColor: '#fafafa', borderRadius: 6 }}>
         <Row gutter={16}>
           <Col span={6}>
-            <Input
-              placeholder="用户名"
-              value={searchParams.username}
-              onChange={(e) => setSearchParams({ ...searchParams, username: e.target.value })}
-              allowClear
-            />
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>用户名：</Text>
+              <Input
+                placeholder="用户名"
+                value={searchParams.username}
+                onChange={(e) => setSearchParams({ ...searchParams, username: e.target.value })}
+                allowClear
+                style={{ width: '100%' }}
+              />
+            </Space>
           </Col>
           <Col span={6}>
-            <Input
-              placeholder="姓名"
-              value={searchParams.full_name}
-              onChange={(e) => setSearchParams({ ...searchParams, full_name: e.target.value })}
-              allowClear
-            />
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>姓名：</Text>
+              <Input
+                placeholder="姓名"
+                value={searchParams.full_name}
+                onChange={(e) => setSearchParams({ ...searchParams, full_name: e.target.value })}
+                allowClear
+                style={{ width: '100%' }}
+              />
+            </Space>
           </Col>
           <Col span={6}>
-            <Select
-              placeholder="角色"
-              value={searchParams.role || undefined}
-              onChange={(value) => setSearchParams({ ...searchParams, role: value || '' })}
-              allowClear
-              style={{ width: '100%' }}
-            >
-              <Select.Option value="admin">管理员</Select.Option>
-              <Select.Option value="user">普通用户</Select.Option>
-            </Select>
+            <Space align="center">
+              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>角色：</Text>
+              <Select
+                placeholder="角色"
+                value={searchParams.role || undefined}
+                onChange={(value) => setSearchParams({ ...searchParams, role: value || '' })}
+                allowClear
+                style={{ width: '100%' }}
+              >
+                <Select.Option value="admin">管理员</Select.Option>
+                <Select.Option value="user">普通用户</Select.Option>
+              </Select>
+            </Space>
           </Col>
-          <Col span={6}>
+          <Col span={6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <Space>
-              <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-                查询
-              </Button>
-              <Button onClick={handleReset}>重置</Button>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                 新增
               </Button>
             </Space>
           </Col>
         </Row>
+
+        {/* 操作按钮单独一行：查询/重置 居中 */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+          <Space>
+            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>查询</Button>
+            <Button onClick={handleReset}>重置</Button>
+          </Space>
+        </div>
       </div>
 
       <Spin spinning={loading}>

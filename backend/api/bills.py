@@ -51,7 +51,9 @@ async def get_user_family_members(user: User, db: Session) -> List[int]:
 async def get_bills(
     page: int = Query(1, ge=1, description="页码"),
     size: int = Query(20, ge=1, le=100, description="每页大小"),
-    category_id: Optional[int] = Query(None, description="分类ID筛选"),
+    # 支持多选分类：同时兼容 category_id=1&category_id=2 以及 category_id[]=1&category_id[]=2 两种形式
+    category_id: Optional[List[int]] = Query(None, description="分类ID筛选（可多选）"),
+    category_id_brackets: Optional[List[int]] = Query(None, alias="category_id[]", description="分类ID筛选（可多选，方括号数组形式）"),
     transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
     source_type: Optional[str] = Query(None, description="来源类型筛选"),
 
@@ -77,8 +79,14 @@ async def get_bills(
         ).filter(Bill.user_id.in_(family_user_ids))
         
         # 应用筛选条件
+        # 合并两种形式的分类参数
+        merged_category_ids: Optional[List[int]] = None
         if category_id:
-            query = query.filter(Bill.category_id == category_id)
+            merged_category_ids = category_id
+        if category_id_brackets:
+            merged_category_ids = (merged_category_ids or []) + category_id_brackets
+        if merged_category_ids:
+            query = query.filter(Bill.category_id.in_(merged_category_ids))
         
         if transaction_type:
             # 将英文交易类型转换为中文进行数据库查询

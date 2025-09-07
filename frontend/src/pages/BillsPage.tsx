@@ -25,7 +25,7 @@ import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -61,7 +61,6 @@ const BillsPage: React.FC = () => {
       search: searchText,
       page: 1,
     });
-    fetchBills();
   };
 
   // 处理筛选
@@ -70,7 +69,6 @@ const BillsPage: React.FC = () => {
       [key]: value,
       page: 1,
     });
-    fetchBills();
   };
 
   // 处理分页
@@ -137,7 +135,6 @@ const BillsPage: React.FC = () => {
       start_date: undefined,
       end_date: undefined,
     });
-    fetchBills();
   };
 
   // 查询按钮 - 触发搜索
@@ -270,82 +267,110 @@ const BillsPage: React.FC = () => {
 
       {/* 筛选区域 */}
       <Card style={{ marginBottom: 16 }}>
-        <Space wrap>
-          <Input
-            placeholder="搜索交易描述"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            onPressEnter={handleSearch}
-            style={{ width: 200 }}
-          />
-          
-          <Select
-            placeholder="交易类型"
-            style={{ width: 120 }}
-            allowClear
-            onChange={(value) => handleFilter('transaction_type', value)}
-            value={queryParams.transaction_type}
-          >
-            <Option value="income">收入</Option>
-            <Option value="expense">支出</Option>
-            <Option value="transfer">不计收支</Option>
-          </Select>
-
-          <Select
-            placeholder="来源"
-            style={{ width: 120 }}
-            allowClear
-            onChange={(value) => handleFilter('source_type', value)}
-            value={queryParams.source_type}
-          >
-            <Option value="alipay">支付宝</Option>
-            <Option value="jd">京东</Option>
-            <Option value="cmb">招商银行</Option>
-          </Select>
-
-          <Select
-            placeholder="分类"
-            style={{ width: 120 }}
-            allowClear
-            onChange={(value) => handleFilter('category_id', value)}
-            value={queryParams.category_id}
-          >
-            {categories.map(category => (
-              <Option key={category.id} value={category.id}>
-                {category.name}
-              </Option>
-            ))}
-          </Select>
-
-          <RangePicker
-            placeholder={['开始日期', '结束日期']}
-            value={dateRange}
-            onChange={(dates) => {
-              setDateRange(dates);
-              if (dates && dates[0] && dates[1]) {
+        <Space wrap align="center">
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易描述：</Text>
+            <Input
+              placeholder="请输入交易描述"
+              value={searchText}
+              onChange={(e) => {
+                setSearchText(e.target.value);
                 setQueryParams({
-                  start_date: dates[0].format('YYYY-MM-DD'),
-                  end_date: dates[1].format('YYYY-MM-DD'),
+                  search: e.target.value,
                   page: 1,
                 });
-              } else {
-                setQueryParams({
-                  start_date: undefined,
-                  end_date: undefined,
-                  page: 1,
-                });
-              }
-            }}
-          />
+              }}
+              style={{ width: 200 }}
+            />
+          </Space>
 
-          <Button type="primary" onClick={handleQuery}>
-            查询
-          </Button>
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易类型：</Text>
+            <Select
+              placeholder="请选择"
+              style={{ width: 120 }}
+              allowClear
+              onChange={(value) => handleFilter('transaction_type', value)}
+              value={queryParams.transaction_type}
+            >
+              <Option value="income">收入</Option>
+              <Option value="expense">支出</Option>
+              <Option value="transfer">不计收支</Option>
+            </Select>
+          </Space>
 
-          <Button onClick={handleReset}>
-            重置
-          </Button>
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>来源：</Text>
+            <Select
+              placeholder="请选择"
+              style={{ width: 120 }}
+              allowClear
+              onChange={(value) => handleFilter('source_type', value)}
+              value={queryParams.source_type}
+            >
+              <Option value="alipay">支付宝</Option>
+              <Option value="jd">京东</Option>
+              <Option value="cmb">招商银行</Option>
+            </Select>
+          </Space>
+
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>分类：</Text>
+            <Select
+              placeholder="请选择分类"
+              style={{ width: 240 }}
+              mode="multiple"
+              allowClear
+              maxTagCount={2}
+              onChange={(values) => handleFilter('category_id', values)}
+              value={Array.isArray(queryParams.category_id)
+                ? queryParams.category_id
+                : (typeof queryParams.category_id === 'number' ? [queryParams.category_id] : undefined)}
+            >
+              {categories.map(category => (
+                <Option key={category.id} value={category.id}>
+                  {category.name}
+                </Option>
+              ))}
+            </Select>
+          </Space>
+
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>日期范围：</Text>
+            <RangePicker
+              placeholder={["开始日期", "结束日期"]}
+              value={dateRange}
+              onChange={(dates) => {
+                setDateRange(dates);
+                if (dates && dates[0] && dates[1]) {
+                  setQueryParams({
+                    start_date: dates[0].format('YYYY-MM-DD'),
+                    end_date: dates[1].format('YYYY-MM-DD'),
+                    page: 1,
+                  });
+                } else {
+                  setQueryParams({
+                    start_date: undefined,
+                    end_date: undefined,
+                    page: 1,
+                  });
+                }
+              }}
+            />
+          </Space>
         </Space>
+
+        {/* 操作按钮单独一行 */}
+        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+          <Space>
+             <Button type="primary" onClick={handleQuery}>
+               查询
+             </Button>
+             <Button onClick={handleReset}>
+               重置
+             </Button>
+           </Space>
+         </div>
       </Card>
 
       {/* 账单表格 */}
@@ -371,7 +396,6 @@ const BillsPage: React.FC = () => {
               sort_by: sorter.field as string,
               sort_order: sorter.order === 'ascend' ? 'asc' : 'desc',
             });
-            fetchBills();
           }
         }}
         scroll={{ x: 800 }}
