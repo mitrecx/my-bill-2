@@ -4,12 +4,34 @@ import type { ApiResponse } from '../types';
 
 // 创建axios实例
 const createApiClient = (): AxiosInstance => {
+  // 自定义查询参数序列化：数组参数使用重复键格式 ?key=a&key=b，跳过空数组/undefined/null
+  const serializeParams = (params: Record<string, any> | undefined): string => {
+    const searchParams = new URLSearchParams();
+    if (!params) return '';
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        if (value.length === 0) return;
+        value.forEach((v) => {
+          if (v === undefined || v === null) return;
+          searchParams.append(key, String(v));
+        });
+      } else {
+        searchParams.append(key, String(value));
+      }
+    });
+    return searchParams.toString();
+  };
+
   const client = axios.create({
     baseURL: getApiBaseUrl(),
     timeout: API_CONFIG.TIMEOUT,
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': 'no-cache', // 禁用所有请求的缓存，防止数据不刷新
+    },
+    paramsSerializer: {
+      serialize: serializeParams,
     },
   });
 

@@ -24,6 +24,8 @@ import { useBillsStore } from '../stores/bills';
 import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { ClassificationRuleService } from '../api/services';
+import type { SourceTypeOption } from '../types';
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -49,10 +51,55 @@ const BillsPage: React.FC = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
   const [form] = Form.useForm();
+  // 来源选项状态
+  const [sourceTypeOptions, setSourceTypeOptions] = useState<SourceTypeOption[]>([]);
+  const [loadingSourceTypes, setLoadingSourceTypes] = useState<boolean>(false);
+
+  // 获取来源类型中文名（优先从动态选项，其次回退到内置映射，最后原值）
+  const getSourceTypeLabel = (value: string) => {
+    const found = sourceTypeOptions.find(opt => opt.value === value)?.label;
+    if (found) return found;
+    const fallbackMap: Record<string, string> = {
+      alipay: '支付宝',
+      jd: '京东',
+      cmb: '招商银行',
+      wechat: '微信支付',
+      manual: '手动录入',
+    };
+    return fallbackMap[value] || value;
+  };
+
+  // 加载来源选项（动态）
+  const fetchSourceTypes = async () => {
+    setLoadingSourceTypes(true);
+    const fallback: SourceTypeOption[] = [
+      { value: 'alipay', label: '支付宝' },
+      { value: 'jd', label: '京东' },
+      { value: 'cmb', label: '招商银行' },
+      { value: 'wechat', label: '微信支付' },
+    ];
+    try {
+      const res = await ClassificationRuleService.getSourceTypeOptions();
+      if (res.success) {
+        // 过滤掉不适合筛选的“全部/all”项
+        const opts = (res.data?.source_types || []).filter(opt => opt.value !== 'all');
+        setSourceTypeOptions(opts);
+      } else {
+        message.error(res.message || '获取来源选项失败');
+        setSourceTypeOptions(fallback);
+      }
+    } catch (err: any) {
+      message.error(err?.message || '获取来源选项失败');
+      setSourceTypeOptions(fallback);
+    } finally {
+      setLoadingSourceTypes(false);
+    }
+  };
 
   useEffect(() => {
     fetchBills();
     fetchCategories();
+    fetchSourceTypes();
   }, [fetchBills, fetchCategories]);
 
   // 处理搜索
@@ -192,15 +239,7 @@ const BillsPage: React.FC = () => {
       dataIndex: 'source_type',
       key: 'source_type',
       width: 100,
-      render: (source: string) => {
-        const sourceMap = {
-          alipay: '支付宝',
-          jd: '京东',
-          cmb: '招商银行',
-          wechat: '微信支付',
-        };
-        return sourceMap[source as keyof typeof sourceMap] || source;
-      },
+      render: (source: string) => getSourceTypeLabel(source),
     },
     {
       title: '分类',
@@ -303,14 +342,20 @@ const BillsPage: React.FC = () => {
             <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>来源：</Text>
             <Select
               placeholder="请选择"
-              style={{ width: 120 }}
+              style={{ width: 240 }}
+              mode="multiple"
               allowClear
-              onChange={(value) => handleFilter('source_type', value)}
-              value={queryParams.source_type}
+              maxTagCount={2}
+              loading={loadingSourceTypes}
+              onChange={(values) => handleFilter('source_type', values)}
+              value={Array.isArray(queryParams.source_type)
+                ? queryParams.source_type
+                : (typeof queryParams.source_type === 'string' ? [queryParams.source_type] : undefined)}
+              notFoundContent={loadingSourceTypes ? '加载中...' : '暂无数据'}
             >
-              <Option value="alipay">支付宝</Option>
-              <Option value="jd">京东</Option>
-              <Option value="cmb">招商银行</Option>
+              {sourceTypeOptions.map(opt => (
+                <Option key={opt.value} value={opt.value}>{opt.label}</Option>
+              ))}
             </Select>
           </Space>
 

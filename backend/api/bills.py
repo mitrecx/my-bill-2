@@ -55,7 +55,9 @@ async def get_bills(
     category_id: Optional[List[int]] = Query(None, description="分类ID筛选（可多选）"),
     category_id_brackets: Optional[List[int]] = Query(None, alias="category_id[]", description="分类ID筛选（可多选，方括号数组形式）"),
     transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
-    source_type: Optional[str] = Query(None, description="来源类型筛选"),
+    # 支持多选来源：同时兼容 source_type=a&source_type=b 以及 source_type[]=a&source_type[]=b 两种形式
+    source_type: Optional[List[str]] = Query(None, description="来源类型筛选（可多选）"),
+    source_type_brackets: Optional[List[str]] = Query(None, alias="source_type[]", description="来源类型筛选（可多选，方括号数组形式）"),
 
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
@@ -98,8 +100,14 @@ async def get_bills(
             db_transaction_type = transaction_type_map.get(transaction_type, transaction_type)
             query = query.filter(Bill.transaction_type == db_transaction_type)
         
+        # 合并两种形式的来源参数，并支持多选
+        merged_source_types: Optional[List[str]] = None
         if source_type:
-            query = query.filter(Bill.source_type == source_type)
+            merged_source_types = source_type
+        if source_type_brackets:
+            merged_source_types = (merged_source_types or []) + source_type_brackets
+        if merged_source_types:
+            query = query.filter(Bill.source_type.in_(merged_source_types))
         
         if start_date:
             query = query.filter(Bill.transaction_time >= start_date)

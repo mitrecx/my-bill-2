@@ -296,6 +296,7 @@ async def get_source_type_options():
             {"value": "alipay", "label": "支付宝"},
             {"value": "jd", "label": "京东"},
             {"value": "cmb", "label": "招商银行"},
+            {"value": "wechat", "label": "微信支付"},
             {"value": "all", "label": "所有来源"}
         ]
     }
