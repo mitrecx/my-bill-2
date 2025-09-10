@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Row, Col, Card, Statistic, Typography, Spin, Alert } from 'antd';
 import { 
   DollarOutlined, 
@@ -7,32 +7,45 @@ import {
   FileTextOutlined 
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
+import { BillService } from '../api/services';
+import type { Bill } from '../types';
 
 const { Title } = Typography;
 
 const DashboardPage: React.FC = () => {
   const { 
     stats, 
-    bills, 
     fetchStats, 
-    fetchBills, 
-    isLoading, 
     error 
   } = useBillsStore();
 
-  useEffect(() => {
-    // 加载统计数据和最近的账单
-    fetchStats();
-    fetchBills({ page: 1, size: 5 });
-  }, [fetchStats, fetchBills]);
+  const [recentBills, setRecentBills] = useState<Bill[]>([]);
+  const [recentLoading, setRecentLoading] = useState<boolean>(false);
+  const [recentError, setRecentError] = useState<string | null>(null);
 
-  if (isLoading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '50px' }}>
-        <Spin size="large" tip="加载中..." />
-      </div>
-    );
-  }
+  useEffect(() => {
+    // 加载统计数据
+    fetchStats();
+
+    // 加载最近账单（局部状态，不写入全局 store）
+    const loadRecentBills = async () => {
+      setRecentLoading(true);
+      setRecentError(null);
+      try {
+        const response = await BillService.getBills({ page: 1, size: 5, sort_by: 'transaction_time', sort_order: 'desc' });
+        setRecentBills(response.data.items || []);
+      } catch (e: any) {
+        const msg = e?.friendlyMessage || e?.response?.data?.message || e?.response?.data?.detail || '获取最近账单失败';
+        setRecentError(msg);
+      } finally {
+        setRecentLoading(false);
+      }
+    };
+
+    loadRecentBills();
+  }, [fetchStats]);
+
+  const combinedError = error || recentError;
 
   return (
     <div>
@@ -40,10 +53,10 @@ const DashboardPage: React.FC = () => {
         仪表板
       </Title>
 
-      {error && (
+      {combinedError && (
         <Alert
           message="加载数据失败"
-          description={error}
+          description={combinedError}
           type="error"
           style={{ marginBottom: 24 }}
           showIcon
@@ -112,13 +125,17 @@ const DashboardPage: React.FC = () => {
             title="最近账单" 
             extra={<a href="/bills">查看全部</a>}
           >
-            {(bills?.length || 0) === 0 ? (
+            {recentLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <Spin size="large" tip="加载中..." />
+              </div>
+            ) : (recentBills.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '40px', color: '#999' }}>
                 暂无账单数据
               </div>
             ) : (
               <div>
-                {bills?.slice(0, 5).map((bill) => (
+                {recentBills.map((bill) => (
                   <div 
                     key={bill.id} 
                     style={{ 
@@ -147,7 +164,7 @@ const DashboardPage: React.FC = () => {
                   </div>
                 ))}
               </div>
-            )}
+            ))}
           </Card>
         </Col>
       </Row>

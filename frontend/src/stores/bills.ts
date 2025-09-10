@@ -54,7 +54,7 @@ interface BillsActions {
 
 const initialQueryParams: BillListQueryParams = {
   page: 1,
-  size: 20,
+  size: 10,
   sort_by: 'transaction_time',
   sort_order: 'desc',
 };
@@ -69,7 +69,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   pagination: {
     total: 0,
     page: 1,
-    size: 20,
+    size: 10,
     pages: 0,
   },
   queryParams: initialQueryParams,
@@ -283,20 +283,13 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
     set({ isLoading: loading });
   },
 
-  resetState: () => {
-    set({
-      bills: [],
-      currentBill: null,
-      stats: null,
-      categoryStats: [],
-      pagination: {
-        total: 0,
-        page: 1,
-        size: 20,
-        pages: 0,
-      },
-      queryParams: initialQueryParams,
-      error: null,
-    });
-  },
+  resetState: () => set({
+    bills: [],
+    currentBill: null,
+    stats: null,
+    categoryStats: [],
+    pagination: { page: 1, size: 10, total: 0, pages: 0 },
+    queryParams: initialQueryParams,
+    error: null,
+  }),
 }));

@@ -27,7 +27,7 @@ import dayjs from 'dayjs';
 import { ClassificationRuleService } from '../api/services';
 import type { SourceTypeOption } from '../types';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
@@ -107,6 +107,7 @@ const BillsPage: React.FC = () => {
     setQueryParams({
       search: searchText,
       page: 1,
+      size: 10,
     });
   };
 
@@ -115,6 +116,7 @@ const BillsPage: React.FC = () => {
     setQueryParams({
       [key]: value,
       page: 1,
+      size: 10,
     });
   };
 
@@ -172,7 +174,7 @@ const BillsPage: React.FC = () => {
     setDateRange(null);
     setQueryParams({
       page: 1,
-      size: 20,
+      size: 10,
       sort_by: 'transaction_date',
       sort_order: 'desc',
       search: undefined,
@@ -186,7 +188,9 @@ const BillsPage: React.FC = () => {
 
   // 查询按钮 - 触发搜索
   const handleQuery = () => {
-    fetchBills();
+    const nextParams = { ...queryParams, page: 1, size: 10 } as BillListQueryParams;
+    setQueryParams(nextParams);
+    fetchBills(nextParams);
   };
 
   // 表格列定义
@@ -286,41 +290,24 @@ const BillsPage: React.FC = () => {
   ];
 
   return (
-    <div>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: 24 
-      }}>
-        <Title level={2} style={{ margin: 0 }}>
-          账单管理
-        </Title>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => {
-            setEditingBill(null);
-            setIsModalVisible(true);
-          }}
-        >
-          新增账单
-        </Button>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'none' }} />
 
       {/* 筛选区域 */}
-      <Card style={{ marginBottom: 16 }}>
-        <Space wrap align="center">
+      <Card style={{ marginBottom: 8 }} bodyStyle={{ padding: 12 }}>
+        <Space wrap align="center" size={8}>
           <Space align="center">
             <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易描述：</Text>
             <Input
               placeholder="请输入交易描述"
               value={searchText}
+              size="small"
               onChange={(e) => {
                 setSearchText(e.target.value);
                 setQueryParams({
                   search: e.target.value,
                   page: 1,
+                  size: 10,
                 });
               }}
               style={{ width: 200 }}
@@ -333,6 +320,7 @@ const BillsPage: React.FC = () => {
               placeholder="请选择"
               style={{ width: 120 }}
               allowClear
+              size="small"
               onChange={(value) => handleFilter('transaction_type', value)}
               value={queryParams.transaction_type}
             >
@@ -351,6 +339,7 @@ const BillsPage: React.FC = () => {
               allowClear
               maxTagCount={2}
               loading={loadingSourceTypes}
+              size="small"
               onChange={(values) => handleFilter('source_type', values)}
               value={Array.isArray(queryParams.source_type)
                 ? queryParams.source_type
@@ -371,6 +360,7 @@ const BillsPage: React.FC = () => {
               mode="multiple"
               allowClear
               maxTagCount={2}
+              size="small"
               onChange={(values) => handleFilter('category_id', values)}
               value={Array.isArray(queryParams.category_id)
                 ? queryParams.category_id
@@ -389,6 +379,7 @@ const BillsPage: React.FC = () => {
             <RangePicker
               placeholder={["开始日期", "结束日期"]}
               value={dateRange}
+              size="small"
               onChange={(dates) => {
                 setDateRange(dates);
                 if (dates && dates[0] && dates[1]) {
@@ -396,59 +387,74 @@ const BillsPage: React.FC = () => {
                     start_date: dates[0].format('YYYY-MM-DD'),
                     end_date: dates[1].format('YYYY-MM-DD'),
                     page: 1,
+                    size: 10,
                   });
                 } else {
                   setQueryParams({
                     start_date: undefined,
                     end_date: undefined,
                     page: 1,
+                    size: 10,
                   });
                 }
               }}
             />
           </Space>
         </Space>
-
-        {/* 操作按钮单独一行 */}
-        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: 8 }}>
           <Space>
-             <Button type="primary" onClick={handleQuery}>
-               查询
-             </Button>
-             <Button onClick={handleReset}>
-               重置
-             </Button>
-           </Space>
-         </div>
+            <Button type="primary" size="small" onClick={handleQuery}>
+              查询
+            </Button>
+            <Button size="small" onClick={handleReset}>
+              重置
+            </Button>
+            <Button
+              icon={<PlusOutlined />}
+              size="small"
+              onClick={() => {
+                setEditingBill(null);
+                setIsModalVisible(true);
+              }}
+            >
+              新增账单
+            </Button>
+          </Space>
+        </div>
       </Card>
 
       {/* 账单表格 */}
-      <Table
-        columns={columns}
-        dataSource={bills}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{
-          current: pagination.page,
-          pageSize: pagination.size,
-          total: pagination.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: (total) => `共 ${total} 条记录`,
-          onChange: handlePageChange,
-          onShowSizeChange: handlePageChange,
-        }}
-        onChange={(_paginationInfo, _filters, sorter) => {
-          if (Array.isArray(sorter)) return;
-          if (sorter.field && sorter.order) {
-            setQueryParams({
-              sort_by: sorter.field as string,
-              sort_order: sorter.order === 'ascend' ? 'asc' : 'desc',
-            });
-          }
-        }}
-        scroll={{ x: 800 }}
-      />
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        <Table
+          columns={columns}
+          dataSource={bills}
+          rowKey="id"
+          loading={isLoading}
+          size="small"
+          pagination={{
+            current: pagination.page,
+            pageSize: pagination.size,
+            total: pagination.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: (total) => `共 ${total} 条记录`,
+            onChange: handlePageChange,
+            onShowSizeChange: handlePageChange,
+          }}
+          onChange={(_paginationInfo, _filters, sorter) => {
+            if (Array.isArray(sorter)) return;
+            if (sorter.field && sorter.order) {
+              setQueryParams({
+                sort_by: sorter.field as string,
+                sort_order: sorter.order === 'ascend' ? 'asc' : 'desc',
+                page: 1,
+                size: 10,
+              });
+            }
+          }}
+          scroll={{ x: 800 }}
+        />
+      </div>
 
       {/* 编辑/新增模态框 */}
       <Modal

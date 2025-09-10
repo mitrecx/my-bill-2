@@ -9,6 +9,7 @@ import {
   Space,
   Typography,
   theme,
+  Tooltip,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -133,24 +134,50 @@ const Layout: React.FC = () => {
   return (
     <AntdLayout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed}>
-        <div style={{ 
-          height: 64, 
-          padding: 16, 
-          display: 'flex', 
+        <div style={{
+          padding: 16,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          gap: 12,
+        }}>
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomLeft">
+            <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+              <Avatar style={{ backgroundColor: '#1890ff' }}>
+                {user?.full_name?.[0] || user?.username?.[0] || 'U'}
+              </Avatar>
+              {!collapsed && (
+                <div style={{ marginLeft: 8, color: '#fff', display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                  <span style={{ fontWeight: 600 }}>{user?.full_name || user?.username || '用户'}</span>
+                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>个人中心</span>
+                </div>
+              )}
+            </div>
+          </Dropdown>
+        </div>
+        <div style={{
+          padding: collapsed ? '8px' : '8px 16px',
+          display: 'flex',
           alignItems: 'center',
           justifyContent: collapsed ? 'center' : 'flex-start',
         }}>
-          <Text 
-            strong 
-            style={{ 
-              color: 'white', 
-              fontSize: collapsed ? 14 : 18,
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-            }}
-          >
-            {collapsed ? '账单' : '家庭账单管理'}
-          </Text>
+          <Tooltip title={collapsed ? '展开导航' : '收起导航'} placement="right">
+            <Button
+              onClick={() => setCollapsed(!collapsed)}
+              type="text"
+              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
+              style={{
+                color: '#fff',
+                background: 'rgba(255,255,255,0.08)',
+                borderRadius: 6,
+                transition: 'all .2s ease',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+            >
+              {!collapsed && <span style={{ marginLeft: 6 }}>收起</span>}
+            </Button>
+          </Tooltip>
         </div>
         <Menu
           theme="dark"
@@ -162,41 +189,17 @@ const Layout: React.FC = () => {
       </Sider>
       
       <AntdLayout>
-        <Header style={{ 
-          padding: '0 16px', 
-          background: colorBgContainer,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{
-              fontSize: '16px',
-              width: 64,
-              height: 64,
-            }}
-          />
-          
-          <Space>
-            <Text>欢迎，{user?.full_name || user?.username}</Text>
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Avatar style={{ backgroundColor: '#1890ff', cursor: 'pointer' }}>
-                {user?.full_name?.[0] || user?.username?.[0] || 'U'}
-              </Avatar>
-            </Dropdown>
-          </Space>
-        </Header>
-        
+        {/* 移除顶部 Header，避免空白占位 */}
         <Content
           style={{
-            margin: '16px',
-            padding: 24,
-            minHeight: 280,
+            margin: '0 16px 16px 16px',
+            padding: 16,
             background: colorBgContainer,
             borderRadius: 8,
+            height: 'calc(100vh - 16px)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
           }}
         >
           <Outlet />
