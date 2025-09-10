@@ -182,7 +182,6 @@ const StatsPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>统计分析</Title>
 
       {/* 筛选条件 */}
       <Card style={{ marginBottom: 24 }}>

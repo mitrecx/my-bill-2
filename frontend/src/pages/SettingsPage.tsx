@@ -235,7 +235,6 @@ const SettingsPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>设置</Title>
       
       {/* 标签导航 */}
       <div style={{ marginBottom: 24 }}>

@@ -38,9 +38,7 @@ const RegisterPage: React.FC = () => {
       }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
-            <Title level={2} style={{ margin: 0 }}>
-              创建账户
-            </Title>
+            
             <Text type="secondary">注册新的账户开始使用</Text>
           </div>
 
@@ -161,4 +159,4 @@ const RegisterPage: React.FC = () => {
   );
 };
 
-export default RegisterPage; 
+export default RegisterPage;

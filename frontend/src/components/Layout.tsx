@@ -188,7 +188,7 @@ const Layout: React.FC = () => {
         />
       </Sider>
       
-      <AntdLayout>
+      <AntdLayout style={{ height: '100vh', overflow: 'hidden' }}>
         {/* 移除顶部 Header，避免空白占位 */}
         <Content
           style={{
@@ -197,7 +197,7 @@ const Layout: React.FC = () => {
             background: colorBgContainer,
             borderRadius: 8,
             height: 'calc(100vh - 16px)',
-            overflow: 'hidden',
+            overflow: 'auto',
             display: 'flex',
             flexDirection: 'column',
           }}

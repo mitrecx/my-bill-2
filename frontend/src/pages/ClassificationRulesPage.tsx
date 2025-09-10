@@ -38,7 +38,7 @@ const { Option } = Select;
 
 interface RuleFormData {
   rule_text: string;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'all';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
   target_category: string;
   priority: number;
   is_active: boolean;
@@ -349,34 +349,33 @@ const ClassificationRulesPage: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
-      <Title level={2}>分类规则管理</Title>
 
       {/* 筛选和操作栏 */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={16} align="middle" style={{ marginBottom: 16 }}>
-          <Col span={6}>
-            <Space align="center">
-              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>规则文本：</Text>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>规则文本：</Text>
               <Input
                 placeholder="请输入规则文本"
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onPressEnter={handleSearch}
                 allowClear
-                style={{ width: '100%' }}
+                style={{ flex: 1, minWidth: 0 }}
               />
-            </Space>
+            </div>
           </Col>
 
-          <Col span={4}>
-            <Space align="center">
-              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>来源类型：</Text>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>来源类型：</Text>
               <Select
                 placeholder="请选择"
                 value={filters.source_type || undefined}
                 onChange={(value) => setFilters({ ...filters, source_type: value || '' })}
                 allowClear
-                style={{ width: '100%' }}
+                style={{ flex: 1, minWidth: 0 }}
               >
                 {sourceTypeOptions.map((option) => (
                   <Option key={option.value} value={option.value}>
@@ -384,18 +383,18 @@ const ClassificationRulesPage: React.FC = () => {
                   </Option>
                 ))}
               </Select>
-            </Space>
+            </div>
           </Col>
 
-          <Col span={4}>
-            <Space align="center">
-              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>目标分类：</Text>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>目标分类：</Text>
               <Select
                 placeholder="请选择"
                 value={filters.target_category || undefined}
                 onChange={(value) => setFilters({ ...filters, target_category: value || '' })}
                 allowClear
-                style={{ width: '100%' }}
+                style={{ flex: 1, minWidth: 0 }}
               >
                 {categories.map((category) => (
                   <Option key={category.id} value={category.name}>
@@ -403,41 +402,35 @@ const ClassificationRulesPage: React.FC = () => {
                   </Option>
                 ))}
               </Select>
-            </Space>
+            </div>
           </Col>
 
-          <Col span={4}>
-            <Space align="center">
-              <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>状态：</Text>
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>状态：</Text>
               <Select
                 placeholder="请选择"
                 value={filters.is_active}
                 onChange={(value) => setFilters({ ...filters, is_active: value })}
                 allowClear
-                style={{ width: '100%' }}
+                style={{ flex: 1, minWidth: 0 }}
               >
                 <Option value={true}>启用</Option>
                 <Option value={false}>禁用</Option>
               </Select>
-            </Space>
+            </div>
           </Col>
 
-          <Col span={6} style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Space>
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
-                新建规则
-              </Button>
-            </Space>
-          </Col>
         </Row>
 
-        {/* 操作按钮单独一行：查询/重置 居中 */}
+        {/* 操作按钮单独一行：查询/重置/新建 居中 */}
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <Space>
+          <Space size="middle">
             <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch} loading={loading}>
               查询
             </Button>
             <Button onClick={handleReset}>重置</Button>
+            <Button icon={<PlusOutlined />} onClick={handleCreate}>新建规则</Button>
           </Space>
         </div>
       </Card>

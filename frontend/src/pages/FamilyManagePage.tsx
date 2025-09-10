@@ -261,9 +261,7 @@ const FamilyManagePage: React.FC = () => {
       <Card>
         <div style={{ marginBottom: 16 }}>
           <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Title level={3} style={{ margin: 0 }}>
-              家庭管理
-            </Title>
+            
             <Button
               type="primary"
               icon={<PlusOutlined />}

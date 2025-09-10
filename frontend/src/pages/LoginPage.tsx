@@ -173,14 +173,7 @@ const LoginPage: React.FC = () => {
       }}>
         <Space direction="vertical" size="large" style={{ width: '100%' }}>
           <div style={{ textAlign: 'center' }}>
-            <Title level={2} style={{ 
-              margin: 0,
-              color: '#ffffff',
-              textShadow: '0 2px 4px rgba(0, 0, 0, 0.5)',
-              fontWeight: 600
-            }}>
-              家庭账单管理
-            </Title>
+            
             <Text type="secondary" style={{ 
               color: 'rgba(255, 255, 255, 0.8)',
               textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'

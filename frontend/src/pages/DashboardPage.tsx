@@ -49,9 +49,6 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2} style={{ marginBottom: 24 }}>
-        仪表板
-      </Title>
 
       {combinedError && (
         <Alert

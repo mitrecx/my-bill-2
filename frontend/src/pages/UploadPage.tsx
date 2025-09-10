@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Typography,
   Upload,
@@ -28,8 +28,31 @@ const UploadPage: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [progressStatus, setProgressStatus] = useState<string>('');
+  const progressContainerRef = useRef<HTMLDivElement | null>(null);
+  const [showStickyProgress, setShowStickyProgress] = useState(false);
 
-
+  // 当上传中且内联进度条不在可视区域内时，自动展示悬浮进度条
+  useEffect(() => {
+    if (!uploading) {
+      setShowStickyProgress(false);
+      return;
+    }
+    const node = progressContainerRef.current;
+    if (!node) {
+      setShowStickyProgress(true);
+      return;
+    }
+    if (typeof window !== 'undefined' && !("IntersectionObserver" in window)) {
+      setShowStickyProgress(true);
+      return;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      setShowStickyProgress(!entry.isIntersecting);
+    }, { threshold: 0.01 });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [uploading]);
 
   // 支持的文件类型和说明
   const supportedFiles = [
@@ -193,7 +216,6 @@ const UploadPage: React.FC = () => {
 
   return (
     <div>
-      <Title level={2}>账单上传</Title>
       
       <Paragraph type="secondary">
         支持上传支付宝、京东、招商银行、微信的账单文件，系统会自动解析并导入账单数据。
@@ -232,23 +254,39 @@ const UploadPage: React.FC = () => {
         </Dragger>
 
         {uploading && (
-          <div style={{ marginBottom: 16 }}>
-            <Progress 
-              percent={uploadProgress} 
-              status="active"
-              strokeColor={{
-                '0%': '#108ee9',
-                '100%': '#87d068',
-              }}
-            />
-            <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Text type="secondary">{progressStatus}</Text>
-              {uploadProgress < 30 && <Text type="secondary">• 文件上传中</Text>}
-              {uploadProgress >= 30 && uploadProgress < 60 && <Text type="secondary">• 解析账单数据</Text>}
-              {uploadProgress >= 60 && uploadProgress < 90 && <Text type="secondary">• 保存账单记录</Text>}
-              {uploadProgress >= 90 && uploadProgress < 100 && <Text type="secondary">• AI智能分类</Text>}
-              {uploadProgress === 100 && <Text type="success">• 处理完成</Text>}
-            </div>
+          <div ref={progressContainerRef} style={{ marginBottom: 16 }}>
+             <Progress 
+               percent={uploadProgress} 
+               status="active"
+               strokeColor={{
+                 '0%': '#108ee9',
+                 '100%': '#87d068',
+               }}
+             />
+             <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+               <Text type="secondary">{progressStatus}</Text>
+               {uploadProgress < 30 && <Text type="secondary">• 文件上传中</Text>}
+               {uploadProgress >= 30 && uploadProgress < 60 && <Text type="secondary">• 解析账单数据</Text>}
+               {uploadProgress >= 60 && uploadProgress < 90 && <Text type="secondary">• 保存账单记录</Text>}
+               {uploadProgress >= 90 && uploadProgress < 100 && <Text type="secondary">• AI智能分类</Text>}
+               {uploadProgress === 100 && <Text type="success">• 处理完成</Text>}
+             </div>
+           </div>
+         )}
+        {/* 悬浮进度条：当内联进度条不可见时自动显示 */}
+        {uploading && showStickyProgress && (
+          <div style={{ position: 'fixed', left: '50%', bottom: 16, transform: 'translateX(-50%)', zIndex: 1000, width: 'min(560px, 90vw)' }}>
+            <Card size="small" bodyStyle={{ padding: 12 }}>
+              <Progress
+                percent={uploadProgress}
+                status="active"
+                strokeColor={{ '0%': '#108ee9', '100%': '#87d068' }}
+              />
+              <div style={{ marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text type="secondary">{progressStatus || '处理中...'}</Text>
+                <Text type="secondary">{uploadProgress}%</Text>
+              </div>
+            </Card>
           </div>
         )}
 

@@ -195,9 +195,7 @@ const MessagesPage: React.FC = () => {
       <Card>
         <div style={{ marginBottom: 16 }}>
           <Space align="center">
-            <Title level={3} style={{ margin: 0 }}>
-              消息中心
-            </Title>
+            
             {unreadCount > 0 && (
               <Badge count={unreadCount} style={{ backgroundColor: '#f5222d' }} />
             )}
