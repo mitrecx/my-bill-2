@@ -54,7 +54,11 @@ export const API_ENDPOINTS = {
   BILLS: {
     BASE: '/bills',
     STATS: '/bills/stats',
+    FINANCE_SUMMARY: '/bills/finance-summary',
+    // 新增：批量月度财务汇总
+    FINANCE_SUMMARY_BATCH: '/bills/finance-summary/batch',
     CATEGORIES: '/bills/categories',
+    YEARLY_EXPENSE_CHART: '/bills/yearly-expense-chart',
     BY_ID: (id: number) => `/bills/${id}`,
   },
   
@@ -79,5 +83,14 @@ export const API_ENDPOINTS = {
     SOURCE_TYPES: '/classification-rules/source-types/options',
     TOGGLE_STATUS: (id: number) => `/classification-rules/${id}/toggle`,
     BATCH: '/classification-rules/batch',
+  },
+
+  // 消息相关
+  MESSAGES: {
+    BASE: '/messages',
+    FOR_USER: (userId: number) => `/messages/user/${userId}`,
+    UNREAD_COUNT: '/messages/unread-count',
+    BY_ID: (id: number) => `/messages/${id}`,
+    ACTION: (id: number) => `/messages/${id}/actions`,
   },
 }

@@ -9,7 +9,6 @@ import type {
   BillCategory,
   BillListQueryParams,
   PaginatedResponse,
-  BillStats,
   CategoryStats,
   Family,
   FamilyMember,
@@ -25,6 +24,7 @@ import type {
   ClassificationRuleUpdate,
   ClassificationRuleListResponse,
   SourceTypeOptionsResponse,
+  FinanceSummary,
 } from '../types';
 import type {
   Message,
@@ -78,290 +78,296 @@ export const UserService = {
     size?: number; 
     search?: string;
     username?: string;
-    full_name?: string;
-    role?: string;
-  }): Promise<ApiResponse<PaginatedResponse<User>>> {
+  }) {
     const response = await ApiClient.get<PaginatedResponse<User>>(API_ENDPOINTS.USERS.BASE, { params });
     return response;
   },
 
-  async createUser(userData: { username: string; password: string; full_name?: string; email?: string }): Promise<ApiResponse<User>> {
+  async createUser(userData: Partial<User>): Promise<ApiResponse<User>> {
     const response = await ApiClient.post<User>(API_ENDPOINTS.USERS.BASE, userData);
     return response;
   },
 
-  async updateUser(id: number, userData: { password?: string; full_name?: string; email?: string, is_active?: boolean }): Promise<ApiResponse<User>> {
+  async updateUser(id: number, userData: Partial<User>): Promise<ApiResponse<User>> {
     const response = await ApiClient.put<User>(`${API_ENDPOINTS.USERS.BASE}/${id}`, userData);
     return response;
   },
 
-  async deleteUser(id: number): Promise<ApiResponse<string>> {
-    const response = await ApiClient.delete<string>(`${API_ENDPOINTS.USERS.BASE}/${id}`);
+  async deleteUser(id: number) {
+    const response = await ApiClient.delete(`${API_ENDPOINTS.USERS.BASE}/${id}`);
     return response;
   },
 };
 
 // 家庭服务
 export const FamilyService = {
-  async getFamilies(): Promise<ApiResponse<Family[]>> {
-    const response = await ApiClient.get<Family[]>('/families');
+  async getFamilies() {
+    const response = await ApiClient.get<Family[]>(API_ENDPOINTS.FAMILIES.BASE);
     return response;
   },
 
-  async createFamily(familyData: { family_name: string; description?: string; invite_usernames?: string[] }): Promise<Family> {
-    const response = await ApiClient.post<Family>('/families/', familyData);
-    return response.data;
+  async createFamily(family: Partial<Family>) {
+    const response = await ApiClient.post<Family>(API_ENDPOINTS.FAMILIES.BASE, family);
+    return response;
   },
 
-  async updateFamily(familyId: number, familyData: { family_name?: string; description?: string }): Promise<Family> {
-    const response = await ApiClient.put<Family>(`/families/${familyId}`, familyData);
-    return response.data;
+  async updateFamily(id: number, family: Partial<Family>) {
+    const response = await ApiClient.put<Family>(`${API_ENDPOINTS.FAMILIES.BASE}/${id}`, family);
+    return response;
   },
 
-  async deleteFamily(familyId: number): Promise<void> {
-    await ApiClient.delete(`/families/${familyId}`);
+  async deleteFamily(id: number) {
+    const response = await ApiClient.delete(`${API_ENDPOINTS.FAMILIES.BASE}/${id}`);
+    return response;
   },
 
-  async getFamilyMembers(familyId: number): Promise<{ members: FamilyMember[] }> {
-    const response = await ApiClient.get<{ members: FamilyMember[] }>(`/families/${familyId}/members`);
-    return response.data;
-  },
-
-  async joinFamily(familyId: number): Promise<FamilyMember> {
-    const response = await ApiClient.post<FamilyMember>(`/families/${familyId}/join`);
-    return response.data;
-  },
-
-  async leaveFamily(familyId: number): Promise<void> {
-    await ApiClient.delete(`/families/${familyId}/leave`);
-  },
-
-  async searchUsers(query: string): Promise<{ id: number; username: string; full_name?: string; email: string }[]> {
-    const response = await ApiClient.get<{ id: number; username: string; full_name?: string; email: string }[]>('/families/search-users', {
-      params: { q: query }
-    });
-    return response.data;
+  async getMembers(family_id: number) {
+    const response = await ApiClient.get<FamilyMember[]>(API_ENDPOINTS.FAMILIES.MEMBERS(family_id));
+    return response;
   },
 };
 
 // 账单服务
 export const BillService = {
-  async getBills(params?: BillListQueryParams): Promise<ApiResponse<PaginatedResponse<Bill>>> {
+  async getBills(params?: BillListQueryParams) {
     const response = await ApiClient.get<PaginatedResponse<Bill>>(API_ENDPOINTS.BILLS.BASE, { params });
     return response;
   },
 
-  async getBill(id: number): Promise<ApiResponse<Bill>> {
-    const response = await ApiClient.get<Bill>(`${API_ENDPOINTS.BILLS.BASE}/${id}`);
+  async getBill(id: number) {
+    const response = await ApiClient.get<Bill>(API_ENDPOINTS.BILLS.BY_ID(id));
     return response;
   },
 
-  async createBill(billData: Partial<Bill>): Promise<ApiResponse<Bill>> {
-    const response = await ApiClient.post<Bill>(API_ENDPOINTS.BILLS.BASE, billData);
+  async createBill(bill: Partial<Bill>) {
+    const response = await ApiClient.post<Bill>(API_ENDPOINTS.BILLS.BASE, bill);
+    return response;
+  },
+ 
+  async updateBill(id: number, bill: Partial<Bill>) {
+    const response = await ApiClient.put<Bill>(API_ENDPOINTS.BILLS.BY_ID(id), bill);
     return response;
   },
 
-  async updateBill(id: number, billData: Partial<Bill>): Promise<ApiResponse<Bill>> {
-    const response = await ApiClient.put<Bill>(`${API_ENDPOINTS.BILLS.BASE}/${id}`, billData);
+  // 新增：创建分类
+  async createCategory(category: { name: string; category_type: 'income' | 'expense'; description?: string; icon?: string; color?: string }) {
+    // 后端 BillCategoryCreate 仅接收: name, description, icon, color
+    const payload = {
+      name: category.name,
+      description: category.description,
+      icon: category.icon,
+      color: category.color,
+    };
+    const response = await ApiClient.post<BillCategory>(API_ENDPOINTS.BILLS.CATEGORIES, payload);
     return response;
   },
 
-  async deleteBill(id: number): Promise<void> {
-    await ApiClient.delete(`${API_ENDPOINTS.BILLS.BASE}/${id}`);
-  },
-
-  async getBillStats(params?: { family_id?: number; start_date?: string; end_date?: string }): Promise<ApiResponse<BillStats>> {
-    const response = await ApiClient.get<BillStats>(API_ENDPOINTS.BILLS.STATS, { params });
+  async deleteBill(id: number) {
+    const response = await ApiClient.delete(API_ENDPOINTS.BILLS.BY_ID(id));
     return response;
   },
 
-  async getCategoryStats(params?: { family_id?: number; start_date?: string; end_date?: string }): Promise<ApiResponse<CategoryStats[]>> {
+  // NOTE: 后端 /bills/stats 返回的是裸 BillStatsResponse，而非 ApiResponse 包裹
+  // 返回 any 以便在 store 中进行字段映射到 BillStats
+  async getBillStats(params?: { family_id?: number; start_date?: string; end_date?: string }): Promise<any> {
+    const resp = await ApiClient.get<any>(API_ENDPOINTS.BILLS.STATS, { params });
+    return resp; // 返回原始数据供前端映射
+  },
+
+  async getCategoryStats(params?: { family_id?: number; start_date?: string; end_date?: string }) {
     const response = await ApiClient.get<CategoryStats[]>(`${API_ENDPOINTS.BILLS.STATS}/categories`, { params });
     return response;
   },
 
-  async getCategories(): Promise<ApiResponse<BillCategory[]>> {
+  // /bills/finance-summary 获取按年或按月的财务汇总
+  async getFinanceSummary(params: { result_type: 'income' | 'expense' | 'surplus'; year: number; month?: number }) {
+    const response = await ApiClient.get<FinanceSummary>(API_ENDPOINTS.BILLS.FINANCE_SUMMARY, { params });
+    return response; // ApiResponse<FinanceSummary>
+  },
+
+  // 新增：/bills/finance-summary/batch 获取最近N个月的月度财务汇总
+  async getFinanceSummaryBatch(params: { result_type: 'income' | 'expense' | 'surplus'; months?: number; end_year?: number; end_month?: number }) {
+    const response = await ApiClient.get<FinanceSummary[]>(API_ENDPOINTS.BILLS.FINANCE_SUMMARY_BATCH, { params });
+    return response; // ApiResponse<FinanceSummary[]>
+  },
+
+  async getCategories() {
     const response = await ApiClient.get<BillCategory[]>(API_ENDPOINTS.BILLS.CATEGORIES);
     return response;
   },
 
-  async createCategory(categoryData: { name: string; category_type: 'income' | 'expense'; description?: string }): Promise<ApiResponse<BillCategory>> {
-    const response = await ApiClient.post<BillCategory>(API_ENDPOINTS.BILLS.CATEGORIES, categoryData);
+  // 获取年度支出图表数据
+  async getYearlyExpenseChart(year?: number) {
+    const params = year ? { year } : {};
+    const response = await ApiClient.get<any>(API_ENDPOINTS.BILLS.YEARLY_EXPENSE_CHART, { params });
     return response;
   },
 };
 
-// 文件上传服务
+// 上传记录服务
 export const UploadService = {
-  uploadFile: async (file: File, onProgress?: (progress: number) => void): Promise<ApiResponse<UploadResponse>> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('auto_categorize', 'true');
-    
-    const response = await ApiClient.post<UploadResponse>('/upload/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      timeout: 300000, // 增加超时时间到5分钟
-      onUploadProgress: (progressEvent) => {
-        if (onProgress && progressEvent.total) {
-          const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          onProgress(progress);
-        }
-      },
-    });
+  async uploadFile(file: File, onProgress?: (progress: number) => void) {
+    const response = await ApiClient.upload<UploadResponse>(API_ENDPOINTS.UPLOAD.BASE, file, onProgress);
     return response;
   },
 
-  async getUploadHistory(params?: { page?: number; size?: number; family_id?: number }): Promise<ApiResponse<PaginatedResponse<UploadRecord>>> {
+  async getRecords(params?: { page?: number; page_size?: number }) {
     const response = await ApiClient.get<PaginatedResponse<UploadRecord>>(API_ENDPOINTS.UPLOAD.HISTORY, { params });
     return response;
   },
 
-  async deleteUploadRecord(id: number): Promise<void> {
-    await ApiClient.delete(`${API_ENDPOINTS.UPLOAD.BASE}/${id}`);
-  },
-};
-
-// 消息服务
-export const messageApi = {
-  async getMessages(page = 1, size = 20, isRead?: boolean): Promise<ApiResponse<MessageListResponse>> {
-    const params: any = { page, size };
-    if (isRead !== undefined) {
-      params.is_read = isRead;
-    }
-    const response = await ApiClient.get<MessageListResponse>('/messages/', { params });
-    return response;
-  },
-
-  async getUnreadCount(): Promise<ApiResponse<number>> {
-    const response = await ApiClient.get<number>('/messages/unread-count');
-    return response;
-  },
-
-  async updateMessage(messageId: number, update: MessageUpdate): Promise<ApiResponse<Message>> {
-    const response = await ApiClient.patch<Message>(`/messages/${messageId}`, update);
-    return response;
-  },
-
-  async createMessageAction(messageId: number, action: MessageActionCreate): Promise<ApiResponse<any>> {
-    const response = await ApiClient.post<any>(`/messages/${messageId}/actions`, action);
-    return response;
-  },
-
-  async deleteMessage(messageId: number): Promise<ApiResponse<boolean>> {
-    const response = await ApiClient.delete<boolean>(`/messages/${messageId}`);
+  async deleteRecord(id: number) {
+    const response = await ApiClient.delete(`${API_ENDPOINTS.UPLOAD.HISTORY}/${id}`);
     return response;
   },
 };
 
 // 系统配置服务
 export const SystemConfigService = {
-  // 获取所有系统配置
-  async getConfigs(): Promise<ApiResponse<SystemConfigResponse[]>> {
-    const response = await ApiClient.get<SystemConfigResponse[]>(API_ENDPOINTS.SYSTEM_CONFIG.BASE);
-    return response;
-  },
-
-  // 获取单个配置
-  async getConfig(key: string): Promise<ApiResponse<SystemConfigResponse>> {
-    const response = await ApiClient.get<SystemConfigResponse>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`);
-    return response;
-  },
-
-  // 创建配置
-  async createConfig(configData: SystemConfigCreate): Promise<ApiResponse<SystemConfigResponse>> {
-    const response = await ApiClient.post<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.BASE, configData);
-    return response;
-  },
-
-  // 更新配置
-  async updateConfig(key: string, configData: SystemConfigUpdate): Promise<ApiResponse<SystemConfigResponse>> {
-    const response = await ApiClient.put<SystemConfigResponse>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`, configData);
-    return response;
-  },
-
-  // 删除配置
-  async deleteConfig(key: string): Promise<ApiResponse<boolean>> {
-    const response = await ApiClient.delete<boolean>(`${API_ENDPOINTS.SYSTEM_CONFIG.BASE}/${key}`);
-    return response;
-  },
-
-  // 获取默认密码
-  async getDefaultPassword(): Promise<ApiResponse<DefaultPasswordConfig>> {
+  async getDefaultPasswordConfig(): Promise<ApiResponse<DefaultPasswordConfig>> {
     const response = await ApiClient.get<DefaultPasswordConfig>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD);
     return response;
   },
 
-  // 设置默认密码
-  async setDefaultPassword(passwordData: DefaultPasswordConfig): Promise<ApiResponse<SystemConfigResponse>> {
-    const response = await ApiClient.put<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD, passwordData);
+  async updateDefaultPasswordConfig(data: SystemConfigUpdate): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.put<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD, data);
+    return response;
+  },
+};
+
+// 消息服务
+export const MessageService = {
+  async getMessages(params?: { page?: number; page_size?: number; is_read?: boolean }) {
+    const response = await ApiClient.get<MessageListResponse>(API_ENDPOINTS.MESSAGES.BASE, { params });
     return response;
   },
 
-  // 初始化默认配置
-  async initializeConfigs(): Promise<ApiResponse<boolean>> {
-    const response = await ApiClient.post<boolean>(API_ENDPOINTS.SYSTEM_CONFIG.INITIALIZE);
+  async markAsRead(id: number) {
+    const response = await ApiClient.patch(API_ENDPOINTS.MESSAGES.BY_ID(id), { is_read: true });
     return response;
+  },
+
+  async markAllAsRead() {
+    const response = await ApiClient.post(`${API_ENDPOINTS.MESSAGES.BASE}/mark-all-read`);
+    return response;
+  },
+
+  async createAction(messageId: number, action: MessageActionCreate) {
+    const response = await ApiClient.post(`${API_ENDPOINTS.MESSAGES.ACTION(messageId)}`, action);
+    return response;
+  },
+
+  async updateMessage(id: number, update: MessageUpdate) {
+    const response = await ApiClient.put(API_ENDPOINTS.MESSAGES.BY_ID(id), update);
+    return response;
+  },
+
+  async deleteMessage(id: number) {
+    const response = await ApiClient.delete(API_ENDPOINTS.MESSAGES.BY_ID(id));
+    return response;
+  },
+
+  async getUnreadCount() {
+    const response = await ApiClient.get<number>(API_ENDPOINTS.MESSAGES.UNREAD_COUNT);
+    return response;
+  },
+};
+
+// 兼容旧版 stores/message.ts 的包装导出
+export const messageApi = {
+  getMessages: (page?: number, pageSize?: number, isRead?: boolean) => {
+    const params: { page?: number; page_size?: number; is_read?: boolean } = {};
+    if (page !== undefined) params.page = page;
+    if (pageSize !== undefined) params.page_size = pageSize;
+    if (typeof isRead === 'boolean') params.is_read = isRead;
+    return MessageService.getMessages(params);
+  },
+  getUnreadCount: () => MessageService.getUnreadCount(),
+  updateMessage: (id: number, update: MessageUpdate) => MessageService.updateMessage(id, update),
+  createMessageAction: (messageId: number, actionData: MessageActionCreate) => MessageService.createAction(messageId, actionData),
+  deleteMessage: (id: number) => MessageService.deleteMessage(id),
+};
+
+// 兼容旧版 stores/family.ts 的包装导出
+export const familyApi = {
+  async getFamilies() {
+    const resp = await FamilyService.getFamilies();
+    return resp; // { data: Family[] }
+  },
+  async createFamily(data: Partial<Family>) {
+    const resp = await FamilyService.createFamily(data);
+    return resp.data; // stores/family 期望直接返回新建的 Family 对象
+  },
+  async updateFamily(id: number, data: Partial<Family>) {
+    const resp = await FamilyService.updateFamily(id, data);
+    return resp.data; // 返回更新后的 Family
+  },
+  async deleteFamily(id: number) {
+    await FamilyService.deleteFamily(id);
+  },
+  async getFamilyMembers(familyId: number) {
+    const resp = await FamilyService.getMembers(familyId);
+    return { members: resp.data } as { members: FamilyMember[] };
+  },
+  async leaveFamily(familyId: number) {
+    try {
+      const r = await ApiClient.post(`${API_ENDPOINTS.FAMILIES.LEAVE(familyId)}`);
+      return r;
+    } catch {
+      return;
+    }
+  },
+  async searchUsers(query: string) {
+    try {
+      const r = await UserService.listUsers({ search: query });
+      const items = (r.data?.items as any[]) || [];
+      return items.map(u => ({ id: u.id, username: u.username })) as any;
+    } catch {
+      return [] as any[];
+    }
   },
 };
 
 // 分类规则服务
 export const ClassificationRuleService = {
-  // 获取来源类型选项
-  async getSourceTypeOptions(): Promise<ApiResponse<SourceTypeOptionsResponse>> {
+  async getRules(params?: { page?: number; page_size?: number; source_type?: string; target_category?: string; is_active?: boolean; search?: string; }) {
+    const response = await ApiClient.get<ClassificationRuleListResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.BASE, { params });
+    return response;
+  },
+
+  async createRule(data: ClassificationRuleCreate) {
+    const response = await ApiClient.post<ClassificationRule>(API_ENDPOINTS.CLASSIFICATION_RULES.BASE, data);
+    return response;
+  },
+
+  async updateRule(id: number, data: ClassificationRuleUpdate) {
+    const response = await ApiClient.put<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`, data);
+    return response;
+  },
+
+  async deleteRule(id: number) {
+    const response = await ApiClient.delete(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`);
+    return response;
+  },
+
+  async getSourceTypeOptions() {
     const response = await ApiClient.get<SourceTypeOptionsResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.SOURCE_TYPES);
     return response;
   },
 
-  // 获取分类规则列表
-  async getRules(params?: { 
-    page?: number; 
-    page_size?: number; 
-    source_type?: string;
-    target_category?: string;
-    is_active?: boolean;
-  }): Promise<ApiResponse<ClassificationRuleListResponse>> {
-    const response = await ApiClient.get<ClassificationRuleListResponse>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/`, { params });
-    return response;
-  },
-
-  // 获取单个分类规则
-  async getRule(id: number): Promise<ApiResponse<ClassificationRule>> {
-    const response = await ApiClient.get<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`);
-    return response;
-  },
-
-  // 创建分类规则
-  async createRule(ruleData: ClassificationRuleCreate): Promise<ApiResponse<ClassificationRule>> {
-    const response = await ApiClient.post<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/`, ruleData);
-    return response;
-  },
-
-  // 更新分类规则
-  async updateRule(id: number, ruleData: ClassificationRuleUpdate): Promise<ApiResponse<ClassificationRule>> {
-    const response = await ApiClient.put<ClassificationRule>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`, ruleData);
-    return response;
-  },
-
-  // 删除分类规则
-  async deleteRule(id: number): Promise<ApiResponse<boolean>> {
-    const response = await ApiClient.delete<boolean>(`${API_ENDPOINTS.CLASSIFICATION_RULES.BASE}/${id}`);
-    return response;
-  },
-
-  // 切换规则状态
-  async toggleRuleStatus(id: number): Promise<ApiResponse<ClassificationRule>> {
-    const response = await ApiClient.patch<ClassificationRule>(API_ENDPOINTS.CLASSIFICATION_RULES.TOGGLE_STATUS(id));
-    return response;
-  },
-
-  // 批量创建分类规则
-  async createRulesBatch(rulesData: ClassificationRuleCreate[]): Promise<ApiResponse<ClassificationRule[]>> {
-    const response = await ApiClient.post<ClassificationRule[]>(API_ENDPOINTS.CLASSIFICATION_RULES.BATCH, { rules: rulesData });
+  async toggleRuleStatus(id: number) {
+    const response = await ApiClient.patch(`${API_ENDPOINTS.CLASSIFICATION_RULES.TOGGLE_STATUS(id)}`);
     return response;
   },
 };
 
-// 别名导出
-export const familyApi = FamilyService;
+export default {
+  AuthService,
+  UserService,
+  FamilyService,
+  BillService,
+  UploadService,
+  SystemConfigService,
+  MessageService,
+  ClassificationRuleService,
+};

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, or_, func, desc
+from sqlalchemy import and_, or_, func, desc, cast, Numeric, case
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 import logging
 
 from config.database import get_db
@@ -20,7 +21,11 @@ from schemas.bills import (
     BillCategoryCreate,
     BillCategoryUpdate,
     BillCategoryResponse,
-    ApiResponse
+    ApiResponse,
+    FinanceSummaryResponse,
+    CategoryStatsItem,
+    YearlyExpenseChartResponse,
+    MonthlyExpenseItem,
 )
 from services.ai_classification_service import ai_classification_service
 
@@ -113,8 +118,8 @@ async def get_bills(
             query = query.filter(Bill.transaction_time >= start_date)
         
         if end_date:
-            # 结束日期包含当天，所以加1天
-            query = query.filter(Bill.transaction_time < end_date.replace(day=end_date.day + 1))
+            # 结束日期包含当天，所以加1天（使用安全的timedelta避免月底溢出）
+            query = query.filter(Bill.transaction_time < (end_date + timedelta(days=1)))
         
         if min_amount is not None:
             query = query.filter(Bill.amount >= min_amount)
@@ -123,9 +128,9 @@ async def get_bills(
             query = query.filter(Bill.amount <= max_amount)
         
         if search:
-            search_term = f"%{search}%"
+            # 在描述中搜索关键词
             query = query.filter(
-                Bill.transaction_desc.ilike(search_term)
+                Bill.transaction_desc.ilike(f"%{search}%")
             )
         
         # 排序
@@ -136,748 +141,36 @@ async def get_bills(
             else:
                 query = query.order_by(order_column)
         else:
+            # 默认按交易时间倒序
             query = query.order_by(desc(Bill.transaction_time))
         
         # 分页
         total = query.count()
-        offset = (page - 1) * size
-        bills = query.offset(offset).limit(size).all()
-        
-        # 计算总页数
         pages = (total + size - 1) // size
+        items = query.offset((page - 1) * size).limit(size).all()
         
-        return ApiResponse(
-            data=BillListResponse(
-                items=[BillResponse.from_bill(bill) for bill in bills],
-                total=total,
-                page=page,
-                size=size,
-                pages=pages
-            ),
+        # 构建响应
+        response_items = [BillResponse.from_bill(bill) for bill in items]
+        response = BillListResponse(
+            items=response_items,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages
+        )
+        
+        return ApiResponse[BillListResponse](
+            data=response,
             success=True,
             message="获取账单列表成功"
         )
-        
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"获取账单列表失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取账单列表失败"
-        )
-
-
-@router.get("/stats", response_model=BillStatsResponse)
-async def get_bill_stats(
-    start_date: Optional[date] = Query(None, description="开始日期"),
-    end_date: Optional[date] = Query(None, description="结束日期"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取账单统计信息"""
-    try:
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        # 构建基础查询
-        query = db.query(Bill).filter(Bill.user_id.in_(family_user_ids))
-        
-        # 应用筛选条件
-        if start_date:
-            query = query.filter(Bill.transaction_time >= start_date)
-        
-        if end_date:
-            query = query.filter(Bill.transaction_time < end_date.replace(day=end_date.day + 1))
-        
-        # 基础统计
-        bills = query.all()
-        
-        total_income = sum(bill.amount for bill in bills if bill.transaction_type == "收入")
-        total_expense = sum(bill.amount for bill in bills if bill.transaction_type == "支出")
-        total_count = len(bills)
-        income_count = sum(1 for bill in bills if bill.transaction_type == "收入")
-        expense_count = sum(1 for bill in bills if bill.transaction_type == "支出")
-        avg_amount = sum(bill.amount for bill in bills) / total_count if total_count > 0 else 0
-        
-        # 按分类统计
-        by_category = {}
-        category_stats = db.query(
-            BillCategory.category_name,
-            Bill.transaction_type,
-            func.sum(Bill.amount).label("total_amount"),
-            func.count(Bill.id).label("count")
-        ).join(Bill, Bill.category_id == BillCategory.id)\
-         .filter(Bill.user_id.in_(family_user_ids))
-        
-        if start_date:
-            category_stats = category_stats.filter(Bill.transaction_time >= start_date)
-        if end_date:
-            category_stats = category_stats.filter(Bill.transaction_time < end_date.replace(day=end_date.day + 1))
-        
-        category_stats = category_stats.group_by(BillCategory.category_name, Bill.transaction_type).all()
-        
-        for stat in category_stats:
-            category_name = stat.category_name
-            if category_name not in by_category:
-                by_category[category_name] = {"收入": 0, "支出": 0, "count": 0}
-            
-            by_category[category_name][stat.transaction_type] = float(stat.total_amount)
-            by_category[category_name]["count"] += stat.count
-        
-        # 按来源统计
-        by_source = {}
-        source_stats = db.query(
-            Bill.source_type,
-            Bill.transaction_type,
-            func.sum(Bill.amount).label("total_amount"),
-            func.count(Bill.id).label("count")
-        ).filter(Bill.user_id.in_(family_user_ids))
-        
-        if start_date:
-            source_stats = source_stats.filter(Bill.transaction_time >= start_date)
-        if end_date:
-            source_stats = source_stats.filter(Bill.transaction_time < end_date.replace(day=end_date.day + 1))
-        
-        source_stats = source_stats.group_by(Bill.source_type, Bill.transaction_type).all()
-        
-        for stat in source_stats:
-            source_type = stat.source_type
-            if source_type not in by_source:
-                by_source[source_type] = {"收入": 0, "支出": 0, "count": 0}
-            
-            by_source[source_type][stat.transaction_type] = float(stat.total_amount)
-            by_source[source_type]["count"] += stat.count
-        
-        # 按月统计
-        by_month = {}
-        month_stats = db.query(
-            func.date_trunc('month', Bill.transaction_time).label("month"),
-            Bill.transaction_type,
-            func.sum(Bill.amount).label("total_amount"),
-            func.count(Bill.id).label("count")
-        ).filter(Bill.user_id.in_(family_user_ids))
-        
-        if start_date:
-            month_stats = month_stats.filter(Bill.transaction_time >= start_date)
-        if end_date:
-            month_stats = month_stats.filter(Bill.transaction_time < end_date.replace(day=end_date.day + 1))
-        
-        month_stats = month_stats.group_by(
-            func.date_trunc('month', Bill.transaction_time),
-            Bill.transaction_type
-        ).order_by(func.date_trunc('month', Bill.transaction_time)).all()
-        
-        for stat in month_stats:
-            month_key = stat.month.strftime("%Y-%m")
-            if month_key not in by_month:
-                by_month[month_key] = {"收入": 0, "支出": 0, "count": 0}
-            
-            by_month[month_key][stat.transaction_type] = float(stat.total_amount)
-            by_month[month_key]["count"] += stat.count
-        
-        return BillStatsResponse(
-            total_income=total_income,
-            total_expense=total_expense,
-            total_count=total_count,
-            income_count=income_count,
-            expense_count=expense_count,
-            avg_amount=avg_amount,
-            by_category=by_category,
-            by_source=by_source,
-            by_month=by_month
-        )
-        
-    except Exception as e:
-        logger.error(f"获取账单统计失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取账单统计失败"
-        )
-
-
-
-
-
-@router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])
-async def get_categories(
-    category_type: Optional[str] = Query(None, description="分类类型筛选：income(收入) 或 expense(支出)"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取账单分类列表"""
-    try:
-        # 构建查询
-        query = db.query(BillCategory)
-        
-        # 如果指定了分类类型，则进行筛选
-        if category_type:
-            if category_type not in ['income', 'expense']:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="分类类型必须是 'income' 或 'expense'"
-                )
-            query = query.filter(BillCategory.category_type == category_type)
-        
-        # 按分类类型和名称排序
-        categories = query.order_by(BillCategory.category_type, BillCategory.category_name).all()
-        
-        # 为每个分类添加账单数量统计（只统计当前用户的账单）
-        category_responses = []
-        for category in categories:
-            bills_count = db.query(Bill).filter(
-                Bill.category_id == category.id,
-                Bill.user_id == current_user.id
-            ).count()
-            
-            # 设置bills_count属性
-            category.bills_count = bills_count
-            category_data = BillCategoryResponse.from_orm(category)
-            category_responses.append(category_data)
-        
-        return ApiResponse(
-            success=True,
-            message="获取分类列表成功",
-            data=category_responses
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"获取分类列表失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取分类列表失败"
-        )
-
-
-@router.post("/categories", response_model=ApiResponse[BillCategoryResponse])
-async def create_category(
-    category_data: BillCategoryCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """创建账单分类"""
-    try:
-        # 检查分类名称是否已存在
-        existing_category = db.query(BillCategory).filter(
-            BillCategory.category_name == category_data.name
-        ).first()
-        
-        if existing_category:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该分类名称已存在"
-            )
-        
-        # 创建新分类（当前BillCategory模型没有user_id字段）
-        new_category = BillCategory(
-            category_name=category_data.name,
-            color=category_data.color,
-            icon=category_data.icon
-        )
-        
-        db.add(new_category)
-        db.commit()
-        db.refresh(new_category)
-        
-        # 设置bills_count属性
-        new_category.bills_count = 0
-        category_response = BillCategoryResponse.from_orm(new_category)
-        
-        return ApiResponse(
-            success=True,
-            message="创建分类成功",
-            data=category_response
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"创建分类失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建分类失败"
-        )
-
-
-@router.post("", response_model=ApiResponse[BillResponse])
-async def create_bill(
-    bill_data: BillCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """创建新账单"""
-    try:
-        # 将英文交易类型转换为中文
-        transaction_type_map = {
-            "income": "收入",
-            "expense": "支出", 
-            "transfer": "不计收支"
-        }
-        
-        # 创建账单记录
-        bill = Bill(
-            user_id=current_user.id,
-            amount=bill_data.amount,
-            transaction_time=bill_data.transaction_time,
-            transaction_type=transaction_type_map.get(bill_data.transaction_type, bill_data.transaction_type),
-            transaction_desc=bill_data.description,  # 使用description字段
-            source_type=bill_data.source_type,
-            category_id=bill_data.category_id,
-            raw_data=bill_data.raw_data or {}
-        )
-        
-        db.add(bill)
-        db.commit()
-        db.refresh(bill)
-        
-        return ApiResponse(
-            data=BillResponse.from_bill(bill),
-            success=True,
-            message="账单创建成功"
-        )
-        
-    except Exception as e:
-        db.rollback()
-        logger.error(f"创建账单失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="创建账单失败"
-        )
-
-
-@router.get("/{bill_id}", response_model=ApiResponse[BillResponse])
-async def get_bill(
-    bill_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取单个账单详情"""
-    try:
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        bill = db.query(Bill).options(
-            joinedload(Bill.category),
-            joinedload(Bill.user)
-        ).filter(
-            Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
-        ).first()
-        
-        if not bill:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账单不存在或无权访问"
-            )
-        
-        return ApiResponse(
-            data=BillResponse.from_bill(bill),
-            success=True,
-            message="获取账单详情成功"
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"获取账单详情失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取账单详情失败"
-        )
-
-
-@router.put("/{bill_id}", response_model=BillResponse)
-async def update_bill(
-    bill_id: int,
-    bill_update: BillUpdate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """更新账单信息"""
-    try:
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
-        ).first()
-        
-        if not bill:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账单不存在或无权访问"
-            )
-        
-        # 更新字段
-        update_data = bill_update.dict(exclude_unset=True)
-        # 更新字段
-        for field, value in update_data.items():
-            if field == 'transaction_type':
-                # 将英文交易类型转换为中文
-                transaction_type_map = {
-                    "income": "收入",
-                    "expense": "支出", 
-                    "transfer": "不计收支"
-                }
-                setattr(bill, field, transaction_type_map.get(value, value))
-            else:
-                setattr(bill, field, value)
-        
-        bill.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(bill)
-        
-        return BillResponse.from_bill(bill)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"更新账单失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="更新账单失败"
-        )
-
-
-@router.delete("/{bill_id}", response_model=ApiResponse[Dict[str, str]])
-async def delete_bill(
-    bill_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """删除账单"""
-    try:
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
-        ).first()
-        
-        if not bill:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账单不存在或无权访问"
-            )
-        
-        db.delete(bill)
-        db.commit()
-        
-        return ApiResponse(
-            success=True,
-            message="账单删除成功",
-            data={}
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"删除账单失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="删除账单失败"
-        )
-
-
-@router.post("/{bill_id}/ai-classify", response_model=ApiResponse[Dict[str, Any]])
-async def ai_classify_bill(
-    bill_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """使用AI对单个账单进行分类"""
-    try:
-        # 检查AI服务是否可用
-        if not ai_classification_service.is_available():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI分类服务不可用，请检查配置"
-            )
-        
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        # 获取账单
-        bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
-        ).first()
-        
-        if not bill:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账单不存在或无权访问"
-            )
-        
-        # 构建账单数据（移除交易时间）
-        # 构建描述：组合交易说明和交易分类
-        description_parts = []
-        if bill.transaction_desc:
-            description_parts.append(bill.transaction_desc)
-        
-        # 从raw_data中获取交易分类（仅对京东账单）
-        if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
-            category = bill.raw_data.get('category')
-            if category and category.strip():
-                description_parts.append(f"[{category}]")
-        
-        bill_data = {
-            'id': bill.id,
-            'amount': bill.amount,
-            'transaction_type': bill.transaction_type,
-            'description': ' '.join(description_parts) if description_parts else '',
-            'source_type': bill.source_type
-        }
-        
-        # AI分类
-        suggested_category = ai_classification_service.classify_single_bill(bill_data, db, current_user.id)
-        
-        if suggested_category:
-            # 获取分类ID
-            category = db.query(BillCategory).filter(
-                BillCategory.category_name == suggested_category
-            ).first()
-            
-            result = {
-                'bill_id': bill_id,
-                'current_category': bill.category.category_name if bill.category else None,
-                'suggested_category': suggested_category,
-                'suggested_category_id': category.id if category else None,
-                'confidence': 'high'  # 可以后续添加置信度计算
-            }
-            
-            # 生成分类规则建议
-            rule_suggestion = ai_classification_service.suggest_classification_rule(
-                bill_data, suggested_category, db
-            )
-            if rule_suggestion:
-                result['rule_suggestion'] = rule_suggestion
-            
-            return ApiResponse(
-                success=True,
-                message="AI分类完成",
-                data=result
-            )
-        else:
-            return ApiResponse(
-                success=False,
-                message="AI分类失败，无法确定合适的分类",
-                data={'bill_id': bill_id}
-            )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"AI分类失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="AI分类失败"
-        )
-
-
-@router.post("/ai-classify-batch", response_model=ApiResponse[Dict[str, Any]])
-async def ai_classify_bills_batch(
-    bill_ids: List[int],
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """批量使用AI对账单进行分类"""
-    try:
-        # 检查AI服务是否可用
-        if not ai_classification_service.is_available():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI分类服务不可用，请检查配置"
-            )
-        
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        # 获取账单
-        bills = db.query(Bill).filter(
-            Bill.id.in_(bill_ids),
-            Bill.user_id.in_(family_user_ids)
-        ).all()
-        
-        if not bills:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="未找到可访问的账单"
-            )
-        
-        # 构建账单数据（移除交易时间，添加账单ID）
-        bills_data = []
-        for bill in bills:
-            # 构建描述：组合交易说明和交易分类
-            description_parts = []
-            if bill.transaction_desc:
-                description_parts.append(bill.transaction_desc)
-            
-            # 从raw_data中获取交易分类（仅对京东账单）
-            if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
-                category = bill.raw_data.get('category')
-                if category and category.strip():
-                    description_parts.append(f"[{category}]")
-            
-            bill_data = {
-                'id': bill.id,
-                'amount': bill.amount,
-                'transaction_type': bill.transaction_type,
-                'description': ' '.join(description_parts) if description_parts else '',
-                'source_type': bill.source_type
-            }
-            bills_data.append(bill_data)
-        
-        # 使用优化的批量AI分类（一次处理多个账单）
-        classification_results = ai_classification_service.classify_bills_batch_optimized(bills_data, db, current_user.id)
-        
-        # 处理结果
-        results = []
-        successful_count = 0
-        
-        for bill_id, suggested_category in classification_results:
-            bill = next((b for b in bills if b.id == bill_id), None)
-            if bill and suggested_category:
-                # 获取分类ID
-                category = db.query(BillCategory).filter(
-                    BillCategory.category_name == suggested_category
-                ).first()
-                
-                result = {
-                    'bill_id': bill_id,
-                    'current_category': bill.category.category_name if bill.category else None,
-                    'suggested_category': suggested_category,
-                    'suggested_category_id': category.id if category else None,
-                    'status': 'success'
-                }
-                successful_count += 1
-            else:
-                result = {
-                    'bill_id': bill_id,
-                    'status': 'failed',
-                    'error': '无法确定合适的分类'
-                }
-            
-            results.append(result)
-        
-        return ApiResponse(
-            success=True,
-            message=f"批量AI分类完成，成功分类 {successful_count}/{len(bills)} 个账单",
-            data={
-                'total_bills': len(bills),
-                'successful_count': successful_count,
-                'results': results
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"批量AI分类失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="批量AI分类失败"
-        )
-
-
-@router.post("/{bill_id}/apply-ai-classification", response_model=ApiResponse[BillResponse])
-async def apply_ai_classification(
-    bill_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """应用AI分类结果到账单"""
-    try:
-        # 检查AI服务是否可用
-        if not ai_classification_service.is_available():
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="AI分类服务不可用，请检查配置"
-            )
-        
-        # 获取用户家庭中所有成员的用户ID
-        family_user_ids = await get_user_family_members(current_user, db)
-        
-        # 获取账单
-        bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
-        ).first()
-        
-        if not bill:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="账单不存在或无权访问"
-            )
-        
-        # 构建账单数据
-        # 构建描述：组合交易说明和交易分类
-        description_parts = []
-        if bill.transaction_desc:
-            description_parts.append(bill.transaction_desc)
-        
-        # 从raw_data中获取交易分类（仅对京东账单）
-        if bill.source_type == 'jd' and bill.raw_data and isinstance(bill.raw_data, dict):
-            category = bill.raw_data.get('category')
-            if category and category.strip():
-                description_parts.append(f"[{category}]")
-        
-        bill_data = {
-            'id': bill.id,
-            'amount': bill.amount,
-            'transaction_type': bill.transaction_type,
-            'description': ' '.join(description_parts) if description_parts else '',
-            'source_type': bill.source_type,
-            'transaction_time': bill.transaction_time.isoformat() if bill.transaction_time else None
-        }
-        
-        # AI分类
-        suggested_category = ai_classification_service.classify_single_bill(bill_data, db, current_user.id)
-        
-        if suggested_category:
-            # 获取分类
-            category = db.query(BillCategory).filter(
-                BillCategory.category_name == suggested_category
-            ).first()
-            
-            if category:
-                # 更新账单分类
-                bill.category_id = category.id
-                bill.updated_at = datetime.utcnow()
-                
-                db.commit()
-                db.refresh(bill)
-                
-                return ApiResponse(
-                    success=True,
-                    message=f"已应用AI分类结果：{suggested_category}",
-                    data=BillResponse.from_bill(bill)
-                )
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="AI建议的分类不存在"
-                )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="AI无法确定合适的分类"
-            )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"应用AI分类失败: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="应用AI分类失败"
         )
 
 
@@ -907,4 +200,459 @@ async def get_ai_classification_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取AI分类服务状态失败"
+        )
+
+
+@router.get("/finance-summary", response_model=ApiResponse[FinanceSummaryResponse], response_model_exclude_none=True)
+async def get_finance_summary(
+    result_type: str = Query(..., description="结果类型：income/expense/surplus"),
+    year: int = Query(..., ge=1970, le=2100, description="年份"),
+    month: Optional[int] = Query(None, ge=1, le=12, description="月份（可选）"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取财务汇总数据：按年或按月聚合。
+    - 当传入月份时，返回指定年月的聚合结果
+    - 当不传月份时，返回指定年份的聚合结果
+    返回统一结构：年份、（按月查询时返回月份）、金额（两位小数）、交易笔数
+    """
+    try:
+        # 校验 result_type
+        allowed_types = {"income", "expense", "surplus"}
+        if result_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="result_type 必须为 income/expense/surplus 之一")
+
+        # 获取家庭相关用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        # 计算时间范围
+        if month:
+            # 月度范围：[year-month-01, next month 01)
+            if month == 12:
+                start_dt = date(year, 12, 1)
+                end_dt = date(year + 1, 1, 1)
+            else:
+                start_dt = date(year, month, 1)
+                end_dt = date(year, month + 1, 1)
+        else:
+            # 年度范围：[year-01-01, next year 01-01)
+            start_dt = date(year, 1, 1)
+            end_dt = date(year + 1, 1, 1)
+
+        # 公共过滤条件
+        base_filters = [
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_time >= start_dt,
+            Bill.transaction_time < end_dt,
+        ]
+
+        # 定义中文交易类型映射
+        db_type_map = {
+            "income": "收入",
+            "expense": "支出",
+        }
+
+        # 统计函数：金额使用numeric聚合，确保精度
+        def sum_amount(filters):
+            return db.query(
+                func.coalesce(func.sum(cast(Bill.amount, Numeric(18, 4))), 0)
+            ).filter(*filters).scalar()
+
+        def count_bills(filters):
+            return db.query(func.count(Bill.id)).filter(*filters).scalar()
+
+        if result_type in ("income", "expense"):
+            tx_type = db_type_map[result_type]
+            filters = base_filters + [Bill.transaction_type == tx_type]
+            total_amount_dec = sum_amount(filters)
+            # 将Decimal/数值统一量化到两位小数
+            total_amount = float(Decimal(total_amount_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            total_count = int(count_bills(filters))
+        else:
+            # surplus = income - expense
+            income_filters = base_filters + [Bill.transaction_type == db_type_map["income"]]
+            expense_filters = base_filters + [Bill.transaction_type == db_type_map["expense"]]
+            income_amount_dec = sum_amount(income_filters)
+            expense_amount_dec = sum_amount(expense_filters)
+            surplus_dec = Decimal(income_amount_dec) - Decimal(expense_amount_dec)
+            total_amount = float(surplus_dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            total_count = int(count_bills(income_filters) + count_bills(expense_filters))
+
+        response = FinanceSummaryResponse(
+            year=year,
+            month=month,
+            result_type=result_type,
+            amount=total_amount,
+            count=total_count
+        )
+
+        return ApiResponse[FinanceSummaryResponse](
+            data=response,
+            success=True,
+            message="获取财务汇总成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取财务汇总失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取财务汇总失败"
+        )
+
+
+@router.get("/finance-summary/batch", response_model=ApiResponse[List[FinanceSummaryResponse]], response_model_exclude_none=True)
+async def get_finance_summary_batch(
+    result_type: str = Query(..., description="结果类型：income/expense/surplus"),
+    months: int = Query(12, ge=1, le=36, description="回溯月份数，默认12个月"),
+    end_year: Optional[int] = Query(None, ge=1970, le=2100, description="结束年份（可选，默认为当前年）"),
+    end_month: Optional[int] = Query(None, ge=1, le=12, description="结束月份（可选，默认为当前月）"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """批量获取最近N个月的财务汇总数据（默认12个月），单次查询高效聚合。
+    - 若未传 end_year/end_month，则以当前年月为结束点（包含该月）
+    - 返回从 (end - months + 1) 到 end 的每个月数据，按月份升序排列
+    """
+    try:
+        allowed_types = {"income", "expense", "surplus"}
+        if result_type not in allowed_types:
+            raise HTTPException(status_code=400, detail="result_type 必须为 income/expense/surplus 之一")
+        if months <= 0:
+            raise HTTPException(status_code=400, detail="months 必须为正整数")
+
+        # 结束年月：默认当前年月
+        now = datetime.now()
+        end_y = end_year or now.year
+        end_m = end_month or now.month
+
+        # 计算开始年月（包含）和结束边界（下个月的1号，不包含）
+        # start: (end_y, end_m) 往前 (months - 1) 个月
+        total_back = months - 1
+        start_y = end_y
+        start_m = end_m
+        # 往前回滚 total_back 个月
+        start_y -= (total_back // 12)
+        start_m -= (total_back % 12)
+        if start_m <= 0:
+            # 借一年
+            borrow = (abs(start_m) // 12) + 1
+            start_y -= borrow
+            start_m += 12 * borrow
+        
+        start_dt = date(start_y, start_m, 1)
+        # end 边界为 end月的下月1号
+        if end_m == 12:
+            end_dt = date(end_y + 1, 1, 1)
+        else:
+            end_dt = date(end_y, end_m + 1, 1)
+
+        # 获取家庭成员用户ID
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        # 统一按月聚合，一次性查询收入/支出金额与笔数
+        month_expr = func.date_trunc('month', Bill.transaction_time).label('month_start')
+        income_amount_expr = func.coalesce(
+            func.sum(case((Bill.transaction_type == "收入", cast(Bill.amount, Numeric(18, 4))), else_=0)), 0
+        ).label("income_amount")
+        expense_amount_expr = func.coalesce(
+            func.sum(case((Bill.transaction_type == "支出", cast(Bill.amount, Numeric(18, 4))), else_=0)), 0
+        ).label("expense_amount")
+        income_count_expr = func.sum(case((Bill.transaction_type == "收入", 1), else_=0)).label("income_count")
+        expense_count_expr = func.sum(case((Bill.transaction_type == "支出", 1), else_=0)).label("expense_count")
+
+        rows = db.query(
+            month_expr,
+            income_amount_expr,
+            expense_amount_expr,
+            income_count_expr,
+            expense_count_expr,
+        ).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_time >= start_dt,
+            Bill.transaction_time < end_dt,
+        ).group_by(month_expr).order_by(month_expr.asc()).all()
+
+        # 将结果转为字典便于补齐月份
+        monthly_map: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            month_start: datetime = r.month_start
+            y = month_start.year
+            m = month_start.month
+            key = f"{y:04d}-{m:02d}"
+            monthly_map[key] = {
+                "income_amount": Decimal(str(r.income_amount)) if r.income_amount is not None else Decimal("0"),
+                "expense_amount": Decimal(str(r.expense_amount)) if r.expense_amount is not None else Decimal("0"),
+                "income_count": int(r.income_count or 0),
+                "expense_count": int(r.expense_count or 0),
+            }
+
+        # 迭代每个月，补齐缺失月份
+        def iter_months(y: int, m: int, count: int):
+            cy, cm = y, m
+            for _ in range(count):
+                yield cy, cm
+                # 前进一个月
+                if cm == 12:
+                    cy += 1
+                    cm = 1
+                else:
+                    cm += 1
+        
+        results: List[FinanceSummaryResponse] = []
+        for y, m in iter_months(start_y, start_m, months):
+            key = f"{y:04d}-{m:02d}"
+            data = monthly_map.get(key, {
+                "income_amount": Decimal("0"),
+                "expense_amount": Decimal("0"),
+                "income_count": 0,
+                "expense_count": 0,
+            })
+
+            if result_type == "income":
+                amount_dec = data["income_amount"]
+                cnt = data["income_count"]
+            elif result_type == "expense":
+                amount_dec = data["expense_amount"]
+                cnt = data["expense_count"]
+            else:
+                amount_dec = data["income_amount"] - data["expense_amount"]
+                cnt = data["income_count"] + data["expense_count"]
+
+            amount = float(Decimal(amount_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            count_val = int(cnt)
+
+            results.append(FinanceSummaryResponse(
+                year=y,
+                month=m,
+                result_type=result_type,
+                amount=amount,
+                count=count_val
+            ))
+
+        return ApiResponse[List[FinanceSummaryResponse]](
+            data=results,
+            success=True,
+            message="获取批量财务汇总成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取批量财务汇总失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取批量财务汇总失败"
+        )
+
+
+@router.get("/stats", response_model=BillStatsResponse)
+async def get_bill_stats(
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取账单统计数据"""
+    try:
+        # 获取家庭成员用户ID集合
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        # 基础查询
+        q = db.query(Bill).filter(Bill.user_id.in_(family_user_ids))
+
+        if start_date:
+            q = q.filter(Bill.transaction_time >= start_date)
+
+        if end_date:
+            q = q.filter(Bill.transaction_time < (end_date + timedelta(days=1)))
+
+        bills = q.all()
+
+        # 计算统计数据
+        total_income = sum(float(bill.amount) for bill in bills if bill.transaction_type == "收入")
+        total_expense = sum(float(bill.amount) for bill in bills if bill.transaction_type == "支出")
+        total_count = len(bills)
+        income_count = len([bill for bill in bills if bill.transaction_type == "收入"])
+        expense_count = len([bill for bill in bills if bill.transaction_type == "支出"])
+        avg_amount = (total_income + total_expense) / total_count if total_count > 0 else 0.0
+
+        # 按分类统计
+        by_category = {}
+        # 按来源统计
+        by_source = {}
+        # 按月份统计
+        by_month = {}
+
+        return BillStatsResponse(
+            total_income=total_income,
+            total_expense=total_expense,
+            total_count=total_count,
+            income_count=income_count,
+            expense_count=expense_count,
+            avg_amount=avg_amount,
+            by_category=by_category,
+            by_source=by_source,
+            by_month=by_month
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取账单统计失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取账单统计失败"
+        )
+
+
+@router.get("/stats/categories", response_model=ApiResponse[List[CategoryStatsItem]])
+async def get_category_stats(
+    start_date: Optional[date] = Query(None, description="开始日期"),
+    end_date: Optional[date] = Query(None, description="结束日期"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取支出分类统计（用于分类饼图）"""
+    try:
+        # 获取家庭成员用户ID集合
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        # 基础查询：仅统计支出
+        q = db.query(
+            BillCategory.id.label("category_id"),
+            BillCategory.category_name.label("category_name"),
+            func.coalesce(func.sum(Bill.amount), 0).label("total_amount"),
+            func.count(Bill.id).label("transaction_count")
+        ).join(Bill, Bill.category_id == BillCategory.id)
+        
+        q = q.filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_type == "支出"
+        )
+
+        if start_date:
+            q = q.filter(Bill.transaction_time >= start_date)
+
+        if end_date:
+            q = q.filter(Bill.transaction_time < (end_date + timedelta(days=1)))
+
+        q = q.group_by(BillCategory.id, BillCategory.category_name)
+        q = q.order_by(desc("total_amount"))
+
+        rows = q.all()
+
+        total_amount = sum([float(r.total_amount) for r in rows]) if rows else 0.0
+        items: List[CategoryStatsItem] = []
+        for r in rows:
+            amt = float(Decimal(str(r.total_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            pct = (amt / total_amount * 100.0) if total_amount > 0 else 0.0
+            items.append(CategoryStatsItem(
+                category_id=r.category_id,
+                category_name=r.category_name,
+                total_amount=amt,
+                transaction_count=int(r.transaction_count or 0),
+                percentage=float(Decimal(str(pct)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            ))
+
+        return ApiResponse[List[CategoryStatsItem]](
+            data=items,
+            success=True,
+            message="获取分类统计成功"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取分类统计失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取分类统计失败"
+        )
+
+
+@router.get("/yearly-expense-chart", response_model=ApiResponse[YearlyExpenseChartResponse])
+async def get_yearly_expense_chart(
+    year: Optional[int] = Query(None, description="年份，默认为当前年份"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取年度支出图表数据"""
+    try:
+        # 如果没有指定年份，使用当前年份
+        if year is None:
+            year = datetime.now().year
+        
+        # 验证年份范围（防止查询过于久远的数据）
+        current_year = datetime.now().year
+        if year < 2000 or year > current_year + 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"年份必须在2000到{current_year + 1}之间"
+            )
+        
+        # 获取家庭成员用户ID集合
+        family_user_ids = await get_user_family_members(current_user, db)
+        
+        # 查询指定年份的月度支出数据
+        # 使用extract函数提取年份和月份
+        monthly_data = db.query(
+            func.extract('month', Bill.transaction_time).label('month'),
+            func.coalesce(func.sum(Bill.amount), 0).label('total_amount')
+        ).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_type == "支出",
+            func.extract('year', Bill.transaction_time) == year
+        ).group_by(
+            func.extract('month', Bill.transaction_time)
+        ).order_by('month').all()
+        
+        # 创建月份映射
+        month_names = {
+            1: "1月", 2: "2月", 3: "3月", 4: "4月", 5: "5月", 6: "6月",
+            7: "7月", 8: "8月", 9: "9月", 10: "10月", 11: "11月", 12: "12月"
+        }
+        
+        # 构建月度数据字典
+        monthly_dict = {int(row.month): float(row.total_amount) for row in monthly_data}
+        
+        # 构建完整的12个月数据（没有数据的月份为0）
+        monthly_expenses = []
+        total_year_expense = 0.0
+        
+        for month in range(1, 13):
+            amount = monthly_dict.get(month, 0.0)
+            # 确保金额精确到小数点后两位
+            amount = float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            total_year_expense += amount
+            
+            monthly_expenses.append(MonthlyExpenseItem(
+                month=month,
+                amount=amount,
+                month_name=month_names[month]
+            ))
+        
+        # 确保总金额精确到小数点后两位
+        total_year_expense = float(Decimal(str(total_year_expense)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        
+        chart_data = YearlyExpenseChartResponse(
+            year=year,
+            monthly_expenses=monthly_expenses,
+            total_year_expense=total_year_expense
+        )
+        
+        return ApiResponse[YearlyExpenseChartResponse](
+            data=chart_data,
+            success=True,
+            message=f"获取{year}年度支出图表数据成功"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取年度支出图表数据失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取年度支出图表数据失败"
         )

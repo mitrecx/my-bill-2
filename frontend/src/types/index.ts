@@ -135,7 +135,6 @@ export interface BillStats {
   total_expense: number;
   net_amount: number;
   transaction_count: number;
-  period: string;
 }
 
 export interface CategoryStats {
@@ -211,3 +210,12 @@ export interface SourceTypeOptionsResponse {
 export * from './family';
 export * from './message';
 export * from './system-config';
+
+// 新增：财务汇总类型（对接后端 /finance-summary）
+export interface FinanceSummary {
+  year: number;
+  month?: number | null;
+  result_type: 'income' | 'expense' | 'surplus';
+  amount: number;
+  count: number;
+}

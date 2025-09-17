@@ -179,6 +179,15 @@ class BillStatsResponse(BaseModel):
     by_month: Dict[str, Dict[str, Any]]
 
 
+# 新增：分类统计项
+class CategoryStatsItem(BaseModel):
+    category_id: int
+    category_name: str
+    total_amount: float
+    transaction_count: int
+    percentage: float
+
+
 class BillFilter(BaseModel):
     """账单筛选模型"""
     category_id: Optional[int] = None
@@ -236,3 +245,26 @@ class BillCategoryResponse(BaseModel):
             bills_count=getattr(category, 'bills_count', 0),
             created_at=category.created_at
         )
+
+
+class FinanceSummaryResponse(BaseModel):
+    """财务汇总响应模型：按年或按月聚合的金额与笔数"""
+    year: int = Field(..., description="年份")
+    month: Optional[int] = Field(None, ge=1, le=12, description="月份（可选，按月查询时返回）")
+    result_type: str = Field(..., description="结果类型：income/expense/surplus")
+    amount: float = Field(..., description="金额（精确到小数点后两位）")
+    count: int = Field(..., description="交易笔数")
+
+
+class MonthlyExpenseItem(BaseModel):
+    """月度支出项模型"""
+    month: int = Field(..., ge=1, le=12, description="月份")
+    amount: float = Field(..., ge=0, description="支出金额")
+    month_name: str = Field(..., description="月份名称")
+
+
+class YearlyExpenseChartResponse(BaseModel):
+    """年度支出图表响应模型"""
+    year: int = Field(..., description="年份")
+    monthly_expenses: List[MonthlyExpenseItem] = Field(..., description="月度支出数据")
+    total_year_expense: float = Field(..., ge=0, description="全年总支出")

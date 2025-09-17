@@ -33,7 +33,7 @@ import type {
 } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { Option } = Select;
 
 interface RuleFormData {

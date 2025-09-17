@@ -6,8 +6,6 @@ import {
   Button,
   Avatar,
   Dropdown,
-  Space,
-  Typography,
   theme,
   Tooltip,
 } from 'antd';
@@ -15,7 +13,6 @@ import {
   DashboardOutlined,
   FileTextOutlined,
   UploadOutlined,
-  BarChartOutlined,
   SettingOutlined,
   UserOutlined,
   LogoutOutlined,
@@ -28,8 +25,7 @@ import {
 import { useAuthStore } from '../stores/auth';
 import type { MenuProps } from 'antd';
 
-const { Header, Sider, Content } = AntdLayout;
-const { Text } = Typography;
+const { Sider, Content } = AntdLayout;
 
 const Layout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -77,11 +73,6 @@ const Layout: React.FC = () => {
           label: '分类规则',
         },
       ],
-    },
-    {
-      key: '/stats',
-      icon: <BarChartOutlined />,
-      label: '统计分析',
     },
     {
       key: '/messages',

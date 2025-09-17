@@ -24,6 +24,7 @@ interface BillsState {
   queryParams: BillListQueryParams;
   isLoading: boolean;
   error: string | null;
+  lastUpdatedAt: number; // 新增：数据最后更新时间戳
 }
 
 interface BillsActions {
@@ -75,6 +76,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   queryParams: initialQueryParams,
   isLoading: false,
   error: null,
+  lastUpdatedAt: Date.now(),
 
   // 操作
   fetchBills: async (params?: BillListQueryParams) => {
@@ -94,6 +96,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
         },
         queryParams,
         isLoading: false,
+        lastUpdatedAt: Date.now(),
       });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
@@ -124,6 +127,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
                           error.response?.data?.detail || 
                           '获取账单详情失败';
       set({
+        currentBill: null,
         error: errorMessage,
         isLoading: false,
       });
@@ -139,7 +143,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       // 重新获取账单列表
       await get().fetchBills();
       
-      set({ isLoading: false });
+      set({ isLoading: false, lastUpdatedAt: Date.now() });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
                           error.response?.data?.message || 
@@ -163,6 +167,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       set({
         currentBill: response.data,
         isLoading: false,
+        lastUpdatedAt: Date.now(),
       });
       
       // 重新获取账单列表
@@ -189,7 +194,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
       // 重新获取账单列表
       await get().fetchBills();
       
-      set({ isLoading: false });
+      set({ isLoading: false, lastUpdatedAt: Date.now() });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
                           error.response?.data?.message || 
@@ -205,14 +210,24 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   fetchCategories: async () => {
     try {
+      set({ isLoading: true, error: null });
+      
       const response = await BillService.getCategories();
-      set({ categories: response.data });
+      
+      set({
+        categories: response.data,
+        isLoading: false,
+      });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
                           error.response?.data?.message || 
                           error.response?.data?.detail || 
-                          '获取分类失败';
-      set({ error: errorMessage, categories: [] });
+                          '获取分类列表失败';
+      set({
+        categories: [],
+        error: errorMessage,
+        isLoading: false,
+      });
     }
   },
 
@@ -241,8 +256,25 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   fetchStats: async (params) => {
     try {
-      const response = await BillService.getBillStats(params);
-      set({ stats: response.data });
+      const raw = await BillService.getBillStats(params);
+
+      // 计算 period 字符串
+      const period = (() => {
+        if (params?.start_date && params?.end_date) return `${params.start_date} ~ ${params.end_date}`;
+        if (params?.start_date) return `${params.start_date} ~ 今`;
+        if (params?.end_date) return `至 ${params.end_date}`;
+        return '全部';
+      })();
+
+      const mapped: BillStats = {
+        total_income: Number(raw?.total_income ?? 0),
+        total_expense: Number(raw?.total_expense ?? 0),
+        net_amount: Number(raw?.total_income ?? 0) - Number(raw?.total_expense ?? 0),
+        transaction_count: Number(raw?.total_count ?? 0),
+        period,
+      };
+
+      set({ stats: mapped });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
                           error.response?.data?.message || 

@@ -102,15 +102,6 @@ const BillsPage: React.FC = () => {
     fetchSourceTypes();
   }, [fetchBills, fetchCategories]);
 
-  // 处理搜索
-  const handleSearch = () => {
-    setQueryParams({
-      search: searchText,
-      page: 1,
-      size: 10,
-    });
-  };
-
   // 处理筛选
   const handleFilter = (key: keyof BillListQueryParams, value: any) => {
     setQueryParams({

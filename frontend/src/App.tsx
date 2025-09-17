@@ -9,7 +9,7 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import BillsPage from './pages/BillsPage';
 import UploadPage from './pages/UploadPage';
-import StatsPage from './pages/StatsPage';
+// import StatsPage from './pages/StatsPage';
 import SettingsPage from './pages/SettingsPage';
 import MessagesPage from './pages/MessagesPage';
 import FamilyManagePage from './pages/FamilyManagePage';
@@ -107,16 +107,14 @@ const App: React.FC = () => {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route path="bills" element={<BillsPage />} />
               <Route path="upload" element={<UploadPage />} />
-              <Route path="stats" element={<StatsPage />} />
+              {/* 统计分析页面已移除 */}
               <Route path="messages" element={<MessagesPage />} />
               <Route path="users" element={<UsersManagePage />} />
               <Route path="family" element={<FamilyManagePage />} />
               <Route path="classification-rules" element={<ClassificationRulesPage />} />
               <Route path="settings" element={<SettingsPage />} />
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Route>
-
-            {/* 404 路由 */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
         </Router>
       </AntdApp>
