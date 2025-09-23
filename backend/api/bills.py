@@ -578,13 +578,11 @@ async def get_yearly_expense_chart(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取年度支出图表数据"""
+    """获取年度收支图表数据"""
     try:
-        # 如果没有指定年份，使用当前年份
         if year is None:
             year = datetime.now().year
         
-        # 验证年份范围（防止查询过于久远的数据）
         current_year = datetime.now().year
         if year < 2000 or year > current_year + 1:
             raise HTTPException(
@@ -592,67 +590,74 @@ async def get_yearly_expense_chart(
                 detail=f"年份必须在2000到{current_year + 1}之间"
             )
         
-        # 获取家庭成员用户ID集合
         family_user_ids = await get_user_family_members(current_user, db)
         
-        # 查询指定年份的月度支出数据
-        # 使用extract函数提取年份和月份
-        monthly_data = db.query(
+        # 查询月度支出
+        monthly_expense_data = db.query(
             func.extract('month', Bill.transaction_time).label('month'),
-            func.coalesce(func.sum(Bill.amount), 0).label('total_amount')
+            func.sum(Bill.amount).label('total_amount')
         ).filter(
             Bill.user_id.in_(family_user_ids),
             Bill.transaction_type == "支出",
             func.extract('year', Bill.transaction_time) == year
-        ).group_by(
-            func.extract('month', Bill.transaction_time)
-        ).order_by('month').all()
+        ).group_by(func.extract('month', Bill.transaction_time)).all()
         
-        # 创建月份映射
+        # 查询月度收入
+        monthly_income_data = db.query(
+            func.extract('month', Bill.transaction_time).label('month'),
+            func.sum(Bill.amount).label('total_amount')
+        ).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_type == "收入",
+            func.extract('year', Bill.transaction_time) == year
+        ).group_by(func.extract('month', Bill.transaction_time)).all()
+
         month_names = {
             1: "1月", 2: "2月", 3: "3月", 4: "4月", 5: "5月", 6: "6月",
             7: "7月", 8: "8月", 9: "9月", 10: "10月", 11: "11月", 12: "12月"
         }
         
-        # 构建月度数据字典
-        monthly_dict = {int(row.month): float(row.total_amount) for row in monthly_data}
+        monthly_expense_dict = {int(row.month): float(row.total_amount) for row in monthly_expense_data if row.total_amount is not None}
+        monthly_income_dict = {int(row.month): float(row.total_amount) for row in monthly_income_data if row.total_amount is not None}
         
-        # 构建完整的12个月数据（没有数据的月份为0）
-        monthly_expenses = []
+        monthly_items = []
         total_year_expense = 0.0
+        total_year_income = 0.0
         
         for month in range(1, 13):
-            amount = monthly_dict.get(month, 0.0)
-            # 确保金额精确到小数点后两位
-            amount = float(Decimal(str(amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-            total_year_expense += amount
+            expense_amount = monthly_expense_dict.get(month, 0.0)
+            income_amount = monthly_income_dict.get(month, 0.0)
             
-            monthly_expenses.append(MonthlyExpenseItem(
+            total_year_expense += expense_amount
+            total_year_income += income_amount
+            
+            monthly_items.append(MonthlyExpenseItem(
                 month=month,
-                amount=amount,
-                month_name=month_names[month]
+                month_name=month_names[month],
+                amount=float(Decimal(str(expense_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)),
+                income=float(Decimal(str(income_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
             ))
         
-        # 确保总金额精确到小数点后两位
         total_year_expense = float(Decimal(str(total_year_expense)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        total_year_income = float(Decimal(str(total_year_income)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
         
         chart_data = YearlyExpenseChartResponse(
-            year=year,
-            monthly_expenses=monthly_expenses,
-            total_year_expense=total_year_expense
+            monthly_expenses=monthly_items,
+            total_year_expense=total_year_expense,
+            total_year_income=total_year_income
         )
         
         return ApiResponse[YearlyExpenseChartResponse](
             data=chart_data,
             success=True,
-            message=f"获取{year}年度支出图表数据成功"
+            message=f"获取{year}年度收支图表数据成功"
         )
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"获取年度支出图表数据失败: {e}")
+        logger.error(f"获取年度收支图表数据失败: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="获取年度支出图表数据失败"
+            detail="获取年度收支图表数据失败"
         )

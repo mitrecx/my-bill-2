@@ -1,10 +1,10 @@
 // API配置
 export const API_CONFIG = {
   // 开发环境API地址
-  BASE_URL: 'http://localhost:8000/api/v1',
+  BASE_URL: 'http://localhost:8000',
   
   // 生产环境API地址 (部署的服务器)
-  PROD_BASE_URL: 'https://jo.mitrecx.top/api/v1',
+  PROD_BASE_URL: 'https://jo.mitrecx.top',
   
   // 请求超时时间 (5分钟，支持大文件上传)
   TIMEOUT: 300000,
@@ -30,67 +30,67 @@ export const getApiBaseUrl = (): string => {
 export const API_ENDPOINTS = {
   // 认证相关
   AUTH: {
-    LOGIN: '/auth/login',
-    REGISTER: '/auth/register',
-    ME: '/auth/me',
-    REFRESH: '/auth/refresh',
+    LOGIN: '/api/v1/auth/login',
+    REGISTER: '/api/v1/auth/register',
+    ME: '/api/v1/auth/me',
+    REFRESH: '/api/v1/auth/refresh',
   },
   
   // 用户相关
   USERS: {
-    BASE: '/users',
-    PROFILE: '/users/profile',
+    BASE: '/api/v1/users',
+    PROFILE: '/api/v1/users/profile',
   },
   
   // 家庭相关
   FAMILIES: {
-    BASE: '/families',
-    MEMBERS: (familyId: number) => `/families/${familyId}/members`,
-    JOIN: (familyId: number) => `/families/${familyId}/join`,
-    LEAVE: (familyId: number) => `/families/${familyId}/leave`,
+    BASE: '/api/v1/families',
+    MEMBERS: (familyId: number) => `/api/v1/families/${familyId}/members`,
+    JOIN: (familyId: number) => `/api/v1/families/${familyId}/join`,
+    LEAVE: (familyId: number) => `/api/v1/families/${familyId}/leave`,
   },
   
   // 账单相关
   BILLS: {
-    BASE: '/bills',
-    STATS: '/bills/stats',
-    FINANCE_SUMMARY: '/bills/finance-summary',
+    BASE: '/api/v1/bills',
+    STATS: '/api/v1/bills/stats',
+    FINANCE_SUMMARY: '/api/v1/bills/finance-summary',
     // 新增：批量月度财务汇总
-    FINANCE_SUMMARY_BATCH: '/bills/finance-summary/batch',
-    CATEGORIES: '/bills/categories',
-    YEARLY_EXPENSE_CHART: '/bills/yearly-expense-chart',
-    BY_ID: (id: number) => `/bills/${id}`,
+    FINANCE_SUMMARY_BATCH: '/api/v1/bills/finance-summary/batch',
+    CATEGORIES: '/api/v1/bills/categories',
+    YEARLY_EXPENSE_CHART: '/api/v1/bills/yearly-expense-chart',
+    BY_ID: (id: number) => `/api/v1/bills/${id}`,
   },
   
   // 文件上传相关
   UPLOAD: {
-    BASE: '/upload',
-    PREVIEW: '/upload/preview',
-    CONFIRM: '/upload/confirm',
-    HISTORY: '/upload/history',
+    BASE: '/api/v1/upload',
+    PREVIEW: '/api/v1/upload/preview',
+    CONFIRM: '/api/v1/upload/confirm',
+    HISTORY: '/api/v1/upload/history',
   },
   
   // 系统配置相关
   SYSTEM_CONFIG: {
-    BASE: '/system-config',
-    DEFAULT_PASSWORD: '/system-config/default-password',
-    INITIALIZE: '/system-config/initialize',
+    BASE: '/api/v1/system-config',
+    DEFAULT_PASSWORD: '/api/v1/system-config/default-password',
+    INITIALIZE: '/api/v1/system-config/initialize',
   },
   
   // 分类规则相关
   CLASSIFICATION_RULES: {
-    BASE: '/classification-rules',
-    SOURCE_TYPES: '/classification-rules/source-types/options',
-    TOGGLE_STATUS: (id: number) => `/classification-rules/${id}/toggle`,
-    BATCH: '/classification-rules/batch',
+    BASE: '/api/v1/classification-rules',
+    SOURCE_TYPES: '/api/v1/classification-rules/source-types/options',
+    TOGGLE_STATUS: (id: number) => `/api/v1/classification-rules/${id}/toggle`,
+    BATCH: '/api/v1/classification-rules/batch',
   },
 
   // 消息相关
   MESSAGES: {
-    BASE: '/messages',
-    FOR_USER: (userId: number) => `/messages/user/${userId}`,
-    UNREAD_COUNT: '/messages/unread-count',
-    BY_ID: (id: number) => `/messages/${id}`,
-    ACTION: (id: number) => `/messages/${id}/actions`,
+    BASE: '/api/v1/messages',
+    FOR_USER: (userId: number) => `/api/v1/messages/user/${userId}`,
+    UNREAD_COUNT: '/api/v1/messages/unread-count',
+    BY_ID: (id: number) => `/api/v1/messages/${id}`,
+    ACTION: (id: number) => `/api/v1/messages/${id}/actions`,
   },
 }

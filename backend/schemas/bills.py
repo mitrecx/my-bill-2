@@ -257,14 +257,25 @@ class FinanceSummaryResponse(BaseModel):
 
 
 class MonthlyExpenseItem(BaseModel):
-    """月度支出项模型"""
-    month: int = Field(..., ge=1, le=12, description="月份")
-    amount: float = Field(..., ge=0, description="支出金额")
-    month_name: str = Field(..., description="月份名称")
+    month: int
+    month_name: str
+    amount: float
+    income: float = 0.0
 
 
 class YearlyExpenseChartResponse(BaseModel):
-    """年度支出图表响应模型"""
-    year: int = Field(..., description="年份")
-    monthly_expenses: List[MonthlyExpenseItem] = Field(..., description="月度支出数据")
-    total_year_expense: float = Field(..., ge=0, description="全年总支出")
+    monthly_expenses: List[MonthlyExpenseItem]
+    total_year_expense: float
+    total_year_income: float
+
+
+class FinanceSummaryResponse(BaseModel):
+    total_income: float
+    total_expense: float
+    total_count: int
+    income_count: int
+    expense_count: int
+    avg_amount: float
+    by_category: Dict[str, Dict[str, Any]]
+    by_source: Dict[str, Dict[str, Any]]
+    by_month: Dict[str, Dict[str, Any]]
