@@ -60,7 +60,11 @@ const MonthlyExpenseTrendChart: React.FC = () => {
     const x: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const map = new Map<number, number>();
     data.forEach(d => map.set(d.day, d.amount));
-    const y = x.map(day => map.get(day) ?? 0);
+    // 原始值（包含0）
+    const yRaw = x.map(day => map.get(day) ?? 0);
+    // 对数轴不支持0/负值，这里将0显示为缺失（null），以避免对数计算错误，同时在提示中仍展示为0
+    const y = yRaw.map(v => (v > 0 ? v : null));
+    const hasPositive = yRaw.some(v => v > 0);
 
     const series = chartType === 'line'
       ? [{
@@ -69,6 +73,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
           data: y,
           smooth: false,
           symbol: 'circle',
+          connectNulls: true,
           lineStyle: { color: '#cf1322' },
           itemStyle: { color: '#cf1322' },
           areaStyle: { color: 'rgba(207, 19, 34, 0.15)' },
@@ -82,21 +87,46 @@ const MonthlyExpenseTrendChart: React.FC = () => {
 
     const monthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
 
+    const yAxis = hasPositive
+      ? {
+          type: 'log' as const,
+          logBase: 10,
+          min: 'dataMin' as const,
+          max: 'dataMax' as const,
+          name: '金额（对数刻度）',
+          nameLocation: 'middle' as const,
+          nameGap: 50,
+          axisLabel: {
+            formatter: (value: number) => `¥${value}`,
+          },
+          splitLine: { show: true, lineStyle: { type: 'dashed' } },
+        }
+      : {
+          type: 'value' as const,
+          min: 0,
+          name: '金额',
+          nameLocation: 'middle' as const,
+          nameGap: 50,
+          axisLabel: { formatter: (value: number) => `¥${value}` },
+          splitLine: { show: true, lineStyle: { type: 'dashed' } },
+        };
+
     return {
       tooltip: {
         trigger: 'axis',
         formatter: (params: any[]) => {
-          const p = params[0];
+          const p = params && params.length > 0 ? params[0] : null;
           const day = p?.axisValue ?? '';
-          const val = typeof p?.value === 'number' ? p.value.toFixed(2) : '0.00';
+          const valNum = typeof p?.value === 'number' ? p.value : 0;
+          const val = typeof valNum === 'number' ? valNum.toFixed(2) : '0.00';
           const date = dayjs(`${monthStr}-${String(day).padStart(2, '0')}`).format('YYYY-MM-DD');
-          return `${date}<br/>日支出: <strong style="color:#cf1322">¥${val}</strong>`;
+          return `${date}<br/>日支出: <strong style=\"color:#cf1322\">¥${val}</strong>`;
         },
       },
       legend: { data: ['日支出'] },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: x, axisTick: { alignWithLabel: true }, name: '日' },
-      yAxis: { type: 'value', axisLabel: { formatter: '¥{value}' }, splitLine: { show: true, lineStyle: { type: 'dashed' } } },
+      yAxis,
       series,
     };
   }, [data, chartType, selectedYear, selectedMonth]);
@@ -120,6 +150,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
             <Text>本月总支出: </Text>
             <Text type="danger" strong>¥{total.toFixed(2)}</Text>
           </div>
+          <Text type="secondary">Y轴为对数刻度（0值不显示）</Text>
         </div>
       </div>
       {loading ? (
