@@ -107,10 +107,10 @@ const YearlyExpenseChart: React.FC = () => {
           data: chartData.map(item => item.amount),
           smooth: false,
           itemStyle: {
-            color: '#5470C6'
+            color: '#C72600' // 支出使用红色
           },
           areaStyle: chartType === 'line' ? {
-            color: 'rgba(84, 112, 198, 0.2)'
+            color: 'rgba(242, 46, 49, 0.2)'
           } : undefined,
         },
         {
@@ -119,10 +119,10 @@ const YearlyExpenseChart: React.FC = () => {
           data: chartData.map(item => item.income),
           smooth: false,
           itemStyle: {
-            color: '#91CC75' // 收入使用不同的颜色
+            color: '#009612' // 收入使用绿色
           },
           areaStyle: chartType === 'line' ? {
-            color: 'rgba(145, 204, 117, 0.2)'
+            color: 'rgba(78, 255, 54, 0.2)'
           } : undefined,
         }
       ]

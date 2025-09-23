@@ -8,6 +8,7 @@ import {
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
 import YearlyExpenseChart from '../components/YearlyExpenseChart';
+import YearlyProfitChart from '../components/YearlyProfitChart';
 
 const { Title } = Typography;
 
@@ -99,6 +100,13 @@ const DashboardPage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col span={24}>
           <YearlyExpenseChart />
+        </Col>
+      </Row>
+
+      {/* 年度收益趋势图表 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+        <Col span={24}>
+          <YearlyProfitChart />
         </Col>
       </Row>
 
