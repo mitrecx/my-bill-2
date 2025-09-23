@@ -269,6 +269,20 @@ class YearlyExpenseChartResponse(BaseModel):
     total_year_income: float
 
 
+# 新增：日度支出项与月度支出趋势响应模型
+class DailyExpenseItem(BaseModel):
+    day: int = Field(..., ge=1, le=31, description="日")
+    date_str: str = Field(..., description="日期字符串 YYYY-MM-DD")
+    amount: float = Field(..., ge=0, description="当天支出金额")
+
+
+class MonthlyExpenseTrendResponse(BaseModel):
+    year: int = Field(..., description="年份")
+    month: int = Field(..., ge=1, le=12, description="月份")
+    days: List[DailyExpenseItem]
+    total_month_expense: float = Field(..., description="本月总支出")
+
+
 class FinanceSummaryResponse(BaseModel):
     total_income: float
     total_expense: float

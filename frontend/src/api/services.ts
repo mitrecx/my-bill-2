@@ -26,6 +26,7 @@ import type {
   SourceTypeOptionsResponse,
   FinanceSummary,
 } from '../types';
+import type { MonthlyExpenseTrendResponse } from '../types/bills';
 import type {
   Message,
   MessageListResponse,
@@ -200,6 +201,12 @@ export const BillService = {
   async getYearlyExpenseChart(year?: number) {
     const params = year ? { year } : {};
     const response = await ApiClient.get<any>(API_ENDPOINTS.BILLS.YEARLY_EXPENSE_CHART, { params });
+    return response;
+  },
+
+  // 获取月度支出趋势（按日）
+  async getMonthlyExpenseTrend(params?: { year?: number; month?: number }) {
+    const response = await ApiClient.get<MonthlyExpenseTrendResponse>(API_ENDPOINTS.BILLS.MONTHLY_EXPENSE_TREND, { params });
     return response;
   },
 };

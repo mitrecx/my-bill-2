@@ -26,6 +26,8 @@ from schemas.bills import (
     CategoryStatsItem,
     YearlyExpenseChartResponse,
     MonthlyExpenseItem,
+    DailyExpenseItem,            # 新增
+    MonthlyExpenseTrendResponse  # 新增
 )
 from services.ai_classification_service import ai_classification_service
 
@@ -661,3 +663,80 @@ async def get_yearly_expense_chart(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="获取年度收支图表数据失败"
         )
+
+
+@router.get("/monthly-expense-trend", response_model=ApiResponse[MonthlyExpenseTrendResponse], response_model_exclude_none=True)
+async def get_monthly_expense_trend(
+    year: Optional[int] = Query(None, description="年份，默认为当前年"),
+    month: Optional[int] = Query(None, description="月份(1-12)，默认当前月"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取指定年月的按日支出趋势（x轴为当月所有天，y轴为当天支出金额）"""
+    try:
+        now = datetime.now()
+        year = year or now.year
+        month = month or now.month
+
+        if year < 2000 or year > now.year + 1:
+            raise HTTPException(status_code=400, detail="年份不合法")
+        if month < 1 or month > 12:
+            raise HTTPException(status_code=400, detail="月份不合法")
+
+        # 计算当月起止
+        start_dt = date(year, month, 1)
+        if month == 12:
+            end_dt = date(year + 1, 1, 1)
+        else:
+            end_dt = date(year, month + 1, 1)
+
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        # 按日聚合支出金额
+        day_expr = func.date_trunc('day', Bill.transaction_time).label('day_start')
+        amount_expr = func.coalesce(
+            func.sum(case((Bill.transaction_type == "支出", cast(Bill.amount, Numeric(18, 4))), else_=0)), 0
+        ).label("expense_amount")
+
+        rows = db.query(
+            day_expr,
+            amount_expr,
+        ).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.transaction_time >= start_dt,
+            Bill.transaction_time < end_dt,
+        ).group_by(day_expr).order_by(day_expr.asc()).all()
+
+        # 转为 map 便于补齐天数
+        daily_map: Dict[str, Decimal] = {}
+        for r in rows:
+            d: datetime = r.day_start
+            key = d.date().isoformat()
+            daily_map[key] = Decimal(str(r.expense_amount)) if r.expense_amount is not None else Decimal("0")
+
+        # 计算当月天数并补齐
+        days: List[DailyExpenseItem] = []
+        cur = start_dt
+        total_dec = Decimal("0")
+        while cur < end_dt:
+            key = cur.isoformat()
+            amt_dec = daily_map.get(key, Decimal("0"))
+            amt = float(Decimal(amt_dec).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            days.append(DailyExpenseItem(day=cur.day, date_str=key, amount=amt))
+            total_dec += Decimal(amt)
+            cur = cur + timedelta(days=1)
+
+        resp = MonthlyExpenseTrendResponse(
+            year=year,
+            month=month,
+            days=days,
+            total_month_expense=float(total_dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+        )
+
+        return ApiResponse[MonthlyExpenseTrendResponse](data=resp, success=True, message="获取月度支出趋势成功")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取月度支出趋势失败: {e}")
+        raise HTTPException(status_code=500, detail="获取月度支出趋势失败")

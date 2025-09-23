@@ -9,6 +9,7 @@ import {
 import { useBillsStore } from '../stores/bills';
 import YearlyExpenseChart from '../components/YearlyExpenseChart';
 import YearlyProfitChart from '../components/YearlyProfitChart';
+import MonthlyExpenseTrendChart from '../components/MonthlyExpenseTrendChart';
 
 const { Title } = Typography;
 
@@ -107,6 +108,13 @@ const DashboardPage: React.FC = () => {
       <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
         <Col span={24}>
           <YearlyProfitChart />
+        </Col>
+      </Row>
+
+      {/* 新增：月度支出趋势图表，整行展示，位于年度收益趋势下方 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24}>
+          <MonthlyExpenseTrendChart />
         </Col>
       </Row>
 

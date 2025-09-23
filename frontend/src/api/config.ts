@@ -55,10 +55,10 @@ export const API_ENDPOINTS = {
     BASE: '/api/v1/bills',
     STATS: '/api/v1/bills/stats',
     FINANCE_SUMMARY: '/api/v1/bills/finance-summary',
-    // 新增：批量月度财务汇总
     FINANCE_SUMMARY_BATCH: '/api/v1/bills/finance-summary/batch',
     CATEGORIES: '/api/v1/bills/categories',
     YEARLY_EXPENSE_CHART: '/api/v1/bills/yearly-expense-chart',
+    MONTHLY_EXPENSE_TREND: '/api/v1/bills/monthly-expense-trend', // 新增
     BY_ID: (id: number) => `/api/v1/bills/${id}`,
   },
   
