@@ -4,6 +4,7 @@ import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { MonthlyExpenseTrendResponse, DailyExpenseItem } from '../types/bills';
+import { useBillsStore } from '../stores/bills';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -18,10 +19,8 @@ const generateYearOptions = () => {
 const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseTrendChart: React.FC = () => {
-  const now = new Date();
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth } = useBillsStore();
   const [data, setData] = useState<DailyExpenseItem[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -32,7 +31,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const resp = await BillService.getMonthlyExpenseTrend({ year: selectedYear, month: selectedMonth });
+        const resp = await BillService.getMonthlyExpenseTrend({ year: monthlyChartYear, month: monthlyChartMonth });
         if (resp.success && resp.data) {
           const payload = resp.data as MonthlyExpenseTrendResponse;
           setData(payload.days || []);
@@ -50,13 +49,13 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       }
     };
     load();
-  }, [selectedYear, selectedMonth]);
+  }, [monthlyChartYear, monthlyChartMonth]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
   const option = useMemo(() => {
-    const daysInMonth = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`).daysInMonth();
+    const daysInMonth = dayjs(`${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}-01`).daysInMonth();
     const x: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1);
     const map = new Map<number, number>();
     data.forEach(d => map.set(d.day, d.amount));
@@ -85,7 +84,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
           itemStyle: { color: '#cf1322' },
         }];
 
-    const monthStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+    const monthStr = `${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}`;
 
     const yAxis = hasPositive
       ? {
@@ -129,7 +128,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       yAxis,
       series,
     };
-  }, [data, chartType, selectedYear, selectedMonth]);
+  }, [data, chartType, monthlyChartYear, monthlyChartMonth]);
 
   return (
     <Card style={{ marginTop: 24 }}>
@@ -140,10 +139,10 @@ const MonthlyExpenseTrendChart: React.FC = () => {
             <Radio.Button value="line">折线图</Radio.Button>
             <Radio.Button value="bar">直方图</Radio.Button>
           </Radio.Group>
-          <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 120 }}>
+          <Select value={monthlyChartYear} onChange={setMonthlyChartYear} style={{ width: 120 }}>
             {yearOptions.map(y => <Option key={y} value={y}>{y}年</Option>)}
           </Select>
-          <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 100 }}>
+          <Select value={monthlyChartMonth} onChange={setMonthlyChartMonth} style={{ width: 100 }}>
             {monthOptions.map(m => <Option key={m} value={m}>{m}月</Option>)}
           </Select>
           <div>

@@ -3,6 +3,7 @@ import ReactECharts from 'echarts-for-react';
 import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
+import { useBillsStore } from '../stores/bills';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -21,8 +22,12 @@ const generateYearOptions = () => {
 };
 
 const YearlyExpenseChart: React.FC = () => {
-  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  // 共享：图表类型、年份
+  const chartType = useBillsStore(s => s.yearlyChartType);
+  const selectedYear = useBillsStore(s => s.yearlyChartYear);
+  const setChartType = useBillsStore(s => s.setYearlyChartType);
+  const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
+
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
   const [totalIncome, setTotalIncome] = useState<number>(0);

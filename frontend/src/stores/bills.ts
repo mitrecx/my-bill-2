@@ -25,6 +25,12 @@ interface BillsState {
   isLoading: boolean;
   error: string | null;
   lastUpdatedAt: number; // 新增：数据最后更新时间戳
+  // --- 新增：年度图表共享控制 ---
+  yearlyChartYear: number;
+  yearlyChartType: 'line' | 'bar';
+  // --- 新增：月度图表共享时间范围 ---
+  monthlyChartYear: number;
+  monthlyChartMonth: number;
 }
 
 interface BillsActions {
@@ -51,6 +57,13 @@ interface BillsActions {
   clearError: () => void;
   setLoading: (loading: boolean) => void;
   resetState: () => void;
+  
+  // --- 新增：年度图表共享控制 ---
+  setYearlyChartYear: (year: number) => void;
+  setYearlyChartType: (type: 'line' | 'bar') => void;
+  // --- 新增：月度图表共享时间范围 ---
+  setMonthlyChartYear: (year: number) => void;
+  setMonthlyChartMonth: (month: number) => void;
 }
 
 const initialQueryParams: BillListQueryParams = {
@@ -77,6 +90,12 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   isLoading: false,
   error: null,
   lastUpdatedAt: Date.now(),
+  // --- 新增：年度图表共享控制 ---
+  yearlyChartYear: new Date().getFullYear(),
+  yearlyChartType: 'line',
+  // --- 新增：月度图表共享时间范围 ---
+  monthlyChartYear: new Date().getFullYear(),
+  monthlyChartMonth: new Date().getMonth() + 1,
 
   // 操作
   fetchBills: async (params?: BillListQueryParams) => {
@@ -324,4 +343,11 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
     queryParams: initialQueryParams,
     error: null,
   }),
+
+  // --- 新增：年度图表共享控制 ---
+  setYearlyChartYear: (year: number) => set({ yearlyChartYear: year }),
+  setYearlyChartType: (type: 'line' | 'bar') => set({ yearlyChartType: type }),
+  // --- 新增：月度图表共享时间范围 ---
+  setMonthlyChartYear: (year: number) => set({ monthlyChartYear: year }),
+  setMonthlyChartMonth: (month: number) => set({ monthlyChartMonth: month }),
 }));

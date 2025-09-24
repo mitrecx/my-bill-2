@@ -4,6 +4,7 @@ import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { CategoryStats } from '../types';
+import { useBillsStore } from '../stores/bills';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -18,10 +19,8 @@ const generateYearOptions = () => {
 const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseCategoryChart: React.FC = () => {
-  const now = new Date();
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
-  const [selectedYear, setSelectedYear] = useState<number>(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number>(now.getMonth() + 1);
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth } = useBillsStore();
   const [data, setData] = useState<CategoryStats[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -32,7 +31,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const start = dayjs(`${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`);
+        const start = dayjs(`${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}-01`);
         const end = start.endOf('month');
         const resp = await BillService.getCategoryStats({
           start_date: start.format('YYYY-MM-DD'),
@@ -57,7 +56,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
       }
     };
     load();
-  }, [selectedYear, selectedMonth]);
+  }, [monthlyChartYear, monthlyChartMonth]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
@@ -142,10 +141,10 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
             <Radio.Button value="pie">饼图</Radio.Button>
             <Radio.Button value="bar">直方图</Radio.Button>
           </Radio.Group>
-          <Select value={selectedYear} onChange={setSelectedYear} style={{ width: 120 }}>
+          <Select value={monthlyChartYear} onChange={setMonthlyChartYear} style={{ width: 120 }}>
             {yearOptions.map(y => <Option key={y} value={y}>{y}年</Option>)}
           </Select>
-          <Select value={selectedMonth} onChange={setSelectedMonth} style={{ width: 100 }}>
+          <Select value={monthlyChartMonth} onChange={setMonthlyChartMonth} style={{ width: 100 }}>
             {monthOptions.map(m => <Option key={m} value={m}>{m}月</Option>)}
           </Select>
           <div>

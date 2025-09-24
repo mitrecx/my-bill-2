@@ -135,6 +135,7 @@ export interface BillStats {
   total_expense: number;
   net_amount: number;
   transaction_count: number;
+  period?: string; // 新增：时间区间描述（可选）
 }
 
 export interface CategoryStats {
