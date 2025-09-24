@@ -4,6 +4,8 @@ import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
+import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -27,12 +29,15 @@ const YearlyExpenseChart: React.FC = () => {
   const selectedYear = useBillsStore(s => s.yearlyChartYear);
   const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
+  const setQueryParams = useBillsStore(s => s.setQueryParams);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
   const [totalIncome, setTotalIncome] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadChartData = async (year: number) => {
@@ -134,6 +139,35 @@ const YearlyExpenseChart: React.FC = () => {
     };
   }, [chartData, chartType]);
 
+  // 新增：图表点击交互，跳转到账单总览并预设月份查询条件
+  const handleChartClick = (params: any) => {
+    try {
+      const index: number | undefined = params?.dataIndex;
+      if (index === undefined || index === null) return;
+      const item = chartData[index];
+      if (!item) return;
+      const month = item.month; // 1-12
+      const year = selectedYear;
+      const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
+      const end = start.endOf('month');
+
+      // 写入全局查询参数：仅限定日期范围，不限制交易类型（显示收入+支出）
+      setQueryParams({
+        start_date: start.format('YYYY-MM-DD'),
+        end_date: end.format('YYYY-MM-DD'),
+        transaction_type: undefined,
+        page: 1,
+        size: 10,
+      });
+
+      // 跳转到账单总览
+      navigate('/bills');
+    } catch (err) {
+      // 忽略交互错误，避免影响主流程
+      console.error('处理图表点击交互失败: ', err);
+    }
+  };
+
   return (
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -165,7 +199,14 @@ const YearlyExpenseChart: React.FC = () => {
       ) : error ? (
         <Alert message="错误" description={error} type="error" showIcon />
       ) : (
-        <ReactECharts option={getChartOption} style={{ height: 300 }} notMerge={true} lazyUpdate={true} />
+        // 绑定点击事件
+        <ReactECharts 
+          option={getChartOption} 
+          style={{ height: 300 }} 
+          notMerge={true} 
+          lazyUpdate={true}
+          onEvents={{ click: handleChartClick }}
+        />
       )}
     </Card>
   );

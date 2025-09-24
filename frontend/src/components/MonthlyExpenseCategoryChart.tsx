@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { CategoryStats } from '../types';
 import { useBillsStore } from '../stores/bills';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -20,11 +21,12 @@ const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseCategoryChart: React.FC = () => {
   const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams } = useBillsStore();
   const [data, setData] = useState<CategoryStats[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -132,6 +134,27 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
     };
   }, [chartType, data, total]);
 
+  // 点击分类 -> 跳转到账单总览并预填查询条件（该月份、该分类、支出类型）
+  const handleChartClick = (params: any) => {
+    const clickedName: string | undefined = params?.name;
+    if (!clickedName) return;
+    const item = data.find(d => d.category_name === clickedName);
+    if (!item) return;
+
+    const start = dayjs(`${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}-01`);
+    const end = start.endOf('month');
+
+    setQueryParams({
+      category_id: item.category_id,
+      transaction_type: 'expense',
+      start_date: start.format('YYYY-MM-DD'),
+      end_date: end.format('YYYY-MM-DD'),
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
+
   return (
     <Card style={{ marginTop: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -168,7 +191,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
       ) : data.length === 0 ? (
         <Alert message="暂无数据" type="info" showIcon />
       ) : (
-        <ReactECharts option={option} style={{ height: 360 }} notMerge lazyUpdate />
+        <ReactECharts option={option} style={{ height: 360 }} notMerge lazyUpdate onEvents={{ click: handleChartClick }} />
       )}
     </Card>
   );

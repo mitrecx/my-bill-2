@@ -102,6 +102,18 @@ const BillsPage: React.FC = () => {
     fetchSourceTypes();
   }, [fetchBills, fetchCategories]);
 
+  // 新增：当全局查询参数包含 start_date/end_date 时，自动将日期范围控件同步到该值
+  useEffect(() => {
+    const start = queryParams.start_date;
+    const end = queryParams.end_date;
+    if (start && end) {
+      setDateRange([dayjs(start), dayjs(end)]);
+    } else {
+      // 若清空了全局日期条件，同步清空控件
+      setDateRange(null);
+    }
+  }, [queryParams.start_date, queryParams.end_date]);
+
   // 处理筛选
   const handleFilter = (key: keyof BillListQueryParams, value: any) => {
     setQueryParams({

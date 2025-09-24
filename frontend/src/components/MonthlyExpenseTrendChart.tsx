@@ -5,6 +5,7 @@ import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { MonthlyExpenseTrendResponse, DailyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
+import { useNavigate } from 'react-router-dom';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -20,11 +21,13 @@ const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseTrendChart: React.FC = () => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams } = useBillsStore();
   const [data, setData] = useState<DailyExpenseItem[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
@@ -130,6 +133,28 @@ const MonthlyExpenseTrendChart: React.FC = () => {
     };
   }, [data, chartType, monthlyChartYear, monthlyChartMonth]);
 
+  // 新增：图表点击交互，点击某一天跳转到账单总览并预设日期与支出筛选
+  const handleChartClick = (param: any) => {
+    try {
+      const dayVal = Number(param?.name ?? param?.axisValue ?? (typeof param?.dataIndex === 'number' ? param.dataIndex + 1 : NaN));
+      if (!dayVal || Number.isNaN(dayVal)) return;
+      const y = monthlyChartYear;
+      const m = monthlyChartMonth;
+      const date = dayjs(`${y}-${String(m).padStart(2, '0')}-${String(dayVal).padStart(2, '0')}`);
+
+      setQueryParams({
+        start_date: date.format('YYYY-MM-DD'),
+        end_date: date.format('YYYY-MM-DD'),
+        transaction_type: 'expense',
+        page: 1,
+        size: 10,
+      });
+      navigate('/bills');
+    } catch (err) {
+      console.error('处理日点击交互失败: ', err);
+    }
+  };
+
   return (
     <Card style={{ marginTop: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -159,7 +184,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       ) : error ? (
         <Alert message="错误" description={error} type="error" showIcon />
       ) : (
-        <ReactECharts option={option} style={{ height: 300 }} notMerge lazyUpdate />
+        <ReactECharts option={option} style={{ height: 300 }} notMerge lazyUpdate onEvents={{ click: handleChartClick }} />
       )}
     </Card>
   );
