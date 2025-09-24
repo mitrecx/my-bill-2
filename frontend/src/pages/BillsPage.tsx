@@ -68,7 +68,7 @@ const BillsPage: React.FC = () => {
         transaction_type: editingBill.transaction_type,
         transaction_desc: editingBill.transaction_desc,
         category_id: Number.isFinite(categoryIdNormalized as number) ? categoryIdNormalized : undefined,
-        remark: editingBill.raw_data?.remark || '',
+        remark: editingBill.remark ?? editingBill.raw_data?.remark ?? '',
       });
     }
   }, [isModalVisible, editingBill, form]);
@@ -232,6 +232,15 @@ const BillsPage: React.FC = () => {
       dataIndex: 'transaction_desc',
       key: 'transaction_desc',
       ellipsis: true,
+    },
+    {
+      title: '备注',
+      dataIndex: 'remark',
+      key: 'remark',
+      ellipsis: true,
+      render: (remark: string | undefined) => (
+        <span style={{ color: '#666' }}>{remark || ''}</span>
+      ),
     },
     {
       title: '金额',
@@ -514,7 +523,7 @@ const BillsPage: React.FC = () => {
               const n = typeof raw === 'string' ? Number(raw) : raw;
               return Number.isFinite(n as number) ? n : undefined;
             })(),
-            remark: editingBill.raw_data?.remark || '',
+            remark: editingBill.remark ?? editingBill.raw_data?.remark ?? '',
           } : {
             transaction_time: new Date(),
             source_type: 'manual',

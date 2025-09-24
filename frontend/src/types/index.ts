@@ -69,6 +69,7 @@ export interface Bill {
   updated_at: string;
   category?: BillCategory;
   user?: User;
+  remark?: string;
 }
 
 export interface BillCategory {

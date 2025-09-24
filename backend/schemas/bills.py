@@ -120,6 +120,7 @@ class BillResponse(BaseModel):
     family: Optional[FamilySimpleResponse] = None
     user: Optional[UserSimpleResponse] = None
     raw_data: Optional[Dict[str, Any]] = None
+    remark: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -152,6 +153,7 @@ class BillResponse(BaseModel):
             family=None,  # 暂时设为None，后续可以通过用户的家庭关系获取
             user=UserSimpleResponse.from_user(bill.user) if bill.user else None,
             raw_data=bill.raw_data,
+            remark=getattr(bill, 'remark', None),
             created_at=created_at,
             updated_at=bill.updated_at
         )
