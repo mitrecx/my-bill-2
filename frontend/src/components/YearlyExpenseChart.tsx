@@ -151,11 +151,11 @@ const YearlyExpenseChart: React.FC = () => {
       const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
       const end = start.endOf('month');
 
-      // 写入全局查询参数：仅限定日期范围，不限制交易类型（显示收入+支出）
+      // 写入全局查询参数：限定日期范围，并预选“收入 + 支出”类型
       setQueryParams({
         start_date: start.format('YYYY-MM-DD'),
         end_date: end.format('YYYY-MM-DD'),
-        transaction_type: undefined,
+        transaction_type: ['income', 'expense'],
         page: 1,
         size: 10,
       });

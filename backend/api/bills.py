@@ -61,7 +61,9 @@ async def get_bills(
     # 支持多选分类：同时兼容 category_id=1&category_id=2 以及 category_id[]=1&category_id[]=2 两种形式
     category_id: Optional[List[int]] = Query(None, description="分类ID筛选（可多选）"),
     category_id_brackets: Optional[List[int]] = Query(None, alias="category_id[]", description="分类ID筛选（可多选，方括号数组形式）"),
-    transaction_type: Optional[str] = Query(None, description="交易类型筛选"),
+    # 支持多选交易类型：同时兼容 transaction_type=income&transaction_type=expense 以及 transaction_type[]=income&transaction_type[]=expense 两种形式
+    transaction_type: Optional[List[str]] = Query(None, description="交易类型筛选（可多选）"),
+    transaction_type_brackets: Optional[List[str]] = Query(None, alias="transaction_type[]", description="交易类型筛选（可多选，方括号数组形式）"),
     # 支持多选来源：同时兼容 source_type=a&source_type=b 以及 source_type[]=a&source_type[]=b 两种形式
     source_type: Optional[List[str]] = Query(None, description="来源类型筛选（可多选）"),
     source_type_brackets: Optional[List[str]] = Query(None, alias="source_type[]", description="来源类型筛选（可多选，方括号数组形式）"),
@@ -97,15 +99,21 @@ async def get_bills(
         if merged_category_ids:
             query = query.filter(Bill.category_id.in_(merged_category_ids))
         
+        # 合并两种形式的交易类型参数，并支持多选
+        merged_tx_types: Optional[List[str]] = None
         if transaction_type:
+            merged_tx_types = transaction_type
+        if transaction_type_brackets:
+            merged_tx_types = (merged_tx_types or []) + transaction_type_brackets
+        if merged_tx_types:
             # 将英文交易类型转换为中文进行数据库查询
             transaction_type_map = {
                 "income": "收入",
                 "expense": "支出",
-                "transfer": "不计收支"  # 添加不计收支类型
+                "transfer": "不计收支",
             }
-            db_transaction_type = transaction_type_map.get(transaction_type, transaction_type)
-            query = query.filter(Bill.transaction_type == db_transaction_type)
+            db_tx_types = [transaction_type_map.get(t, t) for t in merged_tx_types]
+            query = query.filter(Bill.transaction_type.in_(db_tx_types))
         
         # 合并两种形式的来源参数，并支持多选
         merged_source_types: Optional[List[str]] = None

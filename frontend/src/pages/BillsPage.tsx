@@ -321,11 +321,15 @@ const BillsPage: React.FC = () => {
             <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易类型：</Text>
             <Select
               placeholder="请选择"
-              style={{ width: 120 }}
+              style={{ width: 240 }}
+              mode="multiple"
               allowClear
+              maxTagCount={2}
               size="small"
-              onChange={(value) => handleFilter('transaction_type', value)}
-              value={queryParams.transaction_type}
+              onChange={(values) => handleFilter('transaction_type', values)}
+              value={Array.isArray(queryParams.transaction_type)
+                ? queryParams.transaction_type
+                : (typeof queryParams.transaction_type === 'string' ? [queryParams.transaction_type] : undefined)}
             >
               <Option value="income">收入</Option>
               <Option value="expense">支出</Option>

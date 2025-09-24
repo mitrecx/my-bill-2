@@ -61,7 +61,7 @@ export interface Bill {
   category_id?: number;
   transaction_date: string;
   amount: number;
-  transaction_type: 'income' | 'expense';
+  transaction_type: 'income' | 'expense' | 'transfer';
   transaction_desc: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat';
   raw_data: Record<string, any>;
@@ -119,7 +119,8 @@ export interface BillListQueryParams {
   user_id?: number;
   // 支持单选或多选分类
   category_id?: number | number[];
-  transaction_type?: 'income' | 'expense' | 'transfer';
+  // 支持单选或多选交易类型
+  transaction_type?: ('income' | 'expense' | 'transfer') | ('income' | 'expense' | 'transfer')[];
   // 改为支持单选或多选来源
   source_type?: ('alipay' | 'jd' | 'cmb' | 'wechat') | ('alipay' | 'jd' | 'cmb' | 'wechat')[];
   start_date?: string;
