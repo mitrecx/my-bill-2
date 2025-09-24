@@ -203,6 +203,7 @@ class BillFilter(BaseModel):
 class BillCategoryCreate(BaseModel):
     """创建账单分类请求模型"""
     name: str = Field(..., max_length=100, description="分类名称")
+    category_type: Optional[str] = Field("expense", description="分类类型：income 或 expense，默认 expense")
     description: Optional[str] = Field(None, max_length=500, description="分类描述")
     icon: Optional[str] = Field(None, max_length=50, description="图标")
     color: Optional[str] = Field(None, max_length=20, description="颜色")
@@ -211,6 +212,7 @@ class BillCategoryCreate(BaseModel):
 class BillCategoryUpdate(BaseModel):
     """更新账单分类请求模型"""
     name: Optional[str] = Field(None, max_length=100, description="分类名称")
+    category_type: Optional[str] = Field(None, description="分类类型：income 或 expense")
     description: Optional[str] = Field(None, max_length=500, description="分类描述")
     icon: Optional[str] = Field(None, max_length=50, description="图标")
     color: Optional[str] = Field(None, max_length=20, description="颜色")
@@ -226,6 +228,7 @@ class BillCategoryResponse(BaseModel):
     category_type: str  # income 或 expense
     bills_count: Optional[int] = 0
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -243,7 +246,8 @@ class BillCategoryResponse(BaseModel):
             color=category.color,
             category_type=category.category_type,  # 添加分类类型
             bills_count=getattr(category, 'bills_count', 0),
-            created_at=category.created_at
+            created_at=category.created_at,
+            updated_at=getattr(category, 'updated_at', getattr(category, 'created_at', None))
         )
 
 

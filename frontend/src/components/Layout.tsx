@@ -52,16 +52,23 @@ const Layout: React.FC = () => {
       icon: <DashboardOutlined />,
       label: '仪表板',
     },
+    // 将“账单总览”提升为一级目录，位于“仪表板”下方
+    {
+      key: '/bills',
+      icon: <FileTextOutlined />,
+      label: '账单总览',
+    },
     {
       key: 'bills-group',
       icon: <FileTextOutlined />,
       label: '账单管理',
       children: [
-        {
-          key: '/bills',
-          icon: <FileTextOutlined />,
-          label: '账单总览',
-        },
+        // 移除原先的“账单总览”子项
+        // {
+        //   key: '/bills',
+        //   icon: <FileTextOutlined />,
+        //   label: '账单总览',
+        // },
         {
           key: '/upload',
           icon: <UploadOutlined />,

@@ -740,3 +740,60 @@ async def get_monthly_expense_trend(
     except Exception as e:
         logger.error(f"获取月度支出趋势失败: {e}")
         raise HTTPException(status_code=500, detail="获取月度支出趋势失败")
+
+
+@router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])
+async def list_bill_categories(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取账单分类列表"""
+    try:
+        categories = db.query(BillCategory).order_by(BillCategory.id.asc()).all()
+        data = [BillCategoryResponse.from_orm(c) for c in categories]
+        return ApiResponse[List[BillCategoryResponse]](
+            data=data,
+            success=True,
+            message="获取分类列表成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取分类列表失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="获取分类列表失败")
+
+
+@router.post("/categories", response_model=ApiResponse[BillCategoryResponse])
+async def create_bill_category(
+    payload: BillCategoryCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建账单分类"""
+    try:
+        # 简单校验分类类型
+        if payload.category_type and payload.category_type not in ("income", "expense"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类类型无效")
+        new_category = BillCategory(
+            category_name=payload.name,
+            description=payload.description,
+            icon=payload.icon,
+            color=payload.color,
+            category_type=payload.category_type or "expense",
+        )
+        db.add(new_category)
+        db.commit()
+        db.refresh(new_category)
+        resp = BillCategoryResponse.from_orm(new_category)
+        return ApiResponse[BillCategoryResponse](
+            data=resp,
+            success=True,
+            message="创建分类成功"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"创建分类失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="创建分类失败")
