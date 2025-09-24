@@ -85,7 +85,7 @@ const YearlyProfitChart: React.FC = () => {
             smooth: false,
             symbol: 'none',
             lineStyle: { opacity: 0 },
-            areaStyle: { color: 'rgba(82, 196, 26, 0.25)' },
+            areaStyle: undefined,
             tooltip: { show: false },
             z: 1,
           },
@@ -97,7 +97,7 @@ const YearlyProfitChart: React.FC = () => {
             smooth: false,
             symbol: 'none',
             lineStyle: { opacity: 0 },
-            areaStyle: { color: 'rgba(255, 77, 79, 0.25)' },
+            areaStyle: undefined,
             tooltip: { show: false },
             z: 1,
           },
@@ -111,7 +111,7 @@ const YearlyProfitChart: React.FC = () => {
             itemStyle: {
               color: (params: any) => (params.value >= 0 ? '#009612' : '#C72600'),
             },
-            lineStyle: { color: '#666' },
+            lineStyle: { color: '#722ED1' },
             z: 3,
             markLine: {
               data: [
