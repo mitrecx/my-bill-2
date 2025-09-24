@@ -146,6 +146,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
         start_date: date.format('YYYY-MM-DD'),
         end_date: date.format('YYYY-MM-DD'),
         transaction_type: 'expense',
+        category_id: undefined,
         page: 1,
         size: 10,
       });

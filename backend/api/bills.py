@@ -805,3 +805,59 @@ async def create_bill_category(
         db.rollback()
         logger.error(f"创建分类失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="创建分类失败")
+
+
+@router.put("/{bill_id}", response_model=ApiResponse[BillResponse])
+async def update_bill(
+    bill_id: int,
+    payload: BillUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """更新账单信息。前端提交英文交易类型，需转换为中文后入库。"""
+    try:
+        # 校验账单归属：仅允许更新当前用户家庭成员的账单
+        family_user_ids = await get_user_family_members(current_user, db)
+        bill: Bill = db.query(Bill).filter(
+            Bill.id == bill_id,
+            Bill.user_id.in_(family_user_ids)
+        ).first()
+        if not bill:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账单不存在或无权限访问")
+
+        # 英文到中文的交易类型映射
+        type_map = {
+            "income": "收入",
+            "expense": "支出",
+            "transfer": "不计收支",
+        }
+
+        # 按需更新字段（仅对传入的字段进行更新）
+        if payload.amount is not None:
+            bill.amount = payload.amount
+        if payload.transaction_type is not None:
+            bill.transaction_type = type_map.get(payload.transaction_type, payload.transaction_type)
+        if payload.transaction_desc is not None:
+            bill.transaction_desc = payload.transaction_desc
+        if payload.category_id is not None:
+            bill.category_id = payload.category_id
+        if payload.remark is not None:
+            bill.remark = payload.remark
+
+        db.add(bill)
+        db.commit()
+        db.refresh(bill)
+
+        return ApiResponse[BillResponse](
+            data=BillResponse.from_bill(bill),
+            success=True,
+            message="更新账单成功"
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"更新账单失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新账单失败")

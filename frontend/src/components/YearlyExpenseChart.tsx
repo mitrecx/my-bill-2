@@ -156,6 +156,7 @@ const YearlyExpenseChart: React.FC = () => {
         start_date: start.format('YYYY-MM-DD'),
         end_date: end.format('YYYY-MM-DD'),
         transaction_type: ['income', 'expense'],
+        category_id: undefined,
         page: 1,
         size: 10,
       });

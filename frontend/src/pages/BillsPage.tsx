@@ -55,6 +55,23 @@ const BillsPage: React.FC = () => {
   const [sourceTypeOptions, setSourceTypeOptions] = useState<SourceTypeOption[]>([]);
   const [loadingSourceTypes, setLoadingSourceTypes] = useState<boolean>(false);
 
+  // 当编辑弹窗打开且存在当前账单时，同步表单字段，确保分类等字段正常显示
+  useEffect(() => {
+    if (isModalVisible && editingBill) {
+      const rawCategoryId = editingBill.category_id ?? editingBill.category?.id;
+      const categoryIdNormalized = typeof rawCategoryId === 'string'
+        ? Number(rawCategoryId)
+        : rawCategoryId;
+
+      form.setFieldsValue({
+        amount: editingBill.amount,
+        transaction_type: editingBill.transaction_type,
+        transaction_desc: editingBill.transaction_desc,
+        category_id: Number.isFinite(categoryIdNormalized as number) ? categoryIdNormalized : undefined,
+        remark: editingBill.raw_data?.remark || '',
+      });
+    }
+  }, [isModalVisible, editingBill, form]);
   // 获取来源类型中文名（优先从动态选项，其次回退到内置映射，最后原值）
   const getSourceTypeLabel = (value: string) => {
     const found = sourceTypeOptions.find(opt => opt.value === value)?.label;
@@ -492,7 +509,11 @@ const BillsPage: React.FC = () => {
             amount: editingBill.amount,
             transaction_type: editingBill.transaction_type,
             transaction_desc: editingBill.transaction_desc,
-            category_id: editingBill.category_id,
+            category_id: (() => {
+              const raw = editingBill.category_id ?? editingBill.category?.id;
+              const n = typeof raw === 'string' ? Number(raw) : raw;
+              return Number.isFinite(n as number) ? n : undefined;
+            })(),
             remark: editingBill.raw_data?.remark || '',
           } : {
             transaction_time: new Date(),
