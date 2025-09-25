@@ -21,7 +21,7 @@ const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseTrendChart: React.FC = () => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams } = useBillsStore();
   const [data, setData] = useState<DailyExpenseItem[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -142,6 +142,8 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       const m = monthlyChartMonth;
       const date = dayjs(`${y}-${String(m).padStart(2, '0')}-${String(dayVal).padStart(2, '0')}`);
 
+      // 先清空所有与当前查询无关的条件，仅保留本次跳转相关参数
+      resetQueryParams();
       setQueryParams({
         start_date: date.format('YYYY-MM-DD'),
         end_date: date.format('YYYY-MM-DD'),

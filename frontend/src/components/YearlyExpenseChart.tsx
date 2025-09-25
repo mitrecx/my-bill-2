@@ -30,6 +30,7 @@ const YearlyExpenseChart: React.FC = () => {
   const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
   const setQueryParams = useBillsStore(s => s.setQueryParams);
+  const resetQueryParams = useBillsStore(s => s.resetQueryParams);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
@@ -151,6 +152,8 @@ const YearlyExpenseChart: React.FC = () => {
       const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
       const end = start.endOf('month');
 
+      // 清空与当前查询无关的条件，仅保留本次跳转相关参数
+      resetQueryParams();
       // 写入全局查询参数：限定日期范围，并预选“收入 + 支出”类型
       setQueryParams({
         start_date: start.format('YYYY-MM-DD'),

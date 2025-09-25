@@ -126,6 +126,9 @@ export interface BillListQueryParams {
   source_type?: ('alipay' | 'jd' | 'cmb' | 'wechat') | ('alipay' | 'jd' | 'cmb' | 'wechat')[];
   start_date?: string;
   end_date?: string;
+  // 新增：金额区间筛选
+  min_amount?: number;
+  max_amount?: number;
   search?: string;
   sort_by?: string;
   sort_order?: 'asc' | 'desc';

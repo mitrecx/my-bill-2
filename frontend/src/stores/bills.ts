@@ -71,6 +71,9 @@ const initialQueryParams: BillListQueryParams = {
   size: 10,
   sort_by: 'transaction_time',
   sort_order: 'desc',
+  // 金额区间默认未设置
+  min_amount: undefined,
+  max_amount: undefined,
 };
 
 export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({

@@ -203,11 +203,25 @@ const BillsPage: React.FC = () => {
       category_id: undefined,
       start_date: undefined,
       end_date: undefined,
+      min_amount: undefined,
+      max_amount: undefined,
     });
   };
 
   // 查询按钮 - 触发搜索
   const handleQuery = () => {
+    // 金额区间校验（若两者都填）
+    const minAmt = queryParams.min_amount;
+    const maxAmt = queryParams.max_amount;
+    if (
+      typeof minAmt === 'number' && typeof maxAmt === 'number' &&
+      !Number.isNaN(minAmt) && !Number.isNaN(maxAmt) &&
+      minAmt > maxAmt
+    ) {
+      message.error('最小金额不能大于最大金额');
+      return;
+    }
+
     const nextParams = { ...queryParams, page: 1, size: 10 } as BillListQueryParams;
     setQueryParams(nextParams);
     fetchBills(nextParams);
@@ -431,6 +445,32 @@ const BillsPage: React.FC = () => {
                   });
                 }
               }}
+            />
+          </Space>
+
+          {/* 新增：金额区间 */}
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>最小金额：</Text>
+            <InputNumber
+              placeholder="最小金额"
+              style={{ width: 120 }}
+              min={0}
+              precision={2}
+              size="small"
+              value={queryParams.min_amount}
+              onChange={(val) => handleFilter('min_amount', typeof val === 'number' ? val : undefined)}
+            />
+          </Space>
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>最大金额：</Text>
+            <InputNumber
+              placeholder="最大金额"
+              style={{ width: 120 }}
+              min={0}
+              precision={2}
+              size="small"
+              value={queryParams.max_amount}
+              onChange={(val) => handleFilter('max_amount', typeof val === 'number' ? val : undefined)}
             />
           </Space>
         </Space>

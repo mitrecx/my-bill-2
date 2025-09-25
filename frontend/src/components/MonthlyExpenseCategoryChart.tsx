@@ -20,8 +20,8 @@ const generateYearOptions = () => {
 const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseCategoryChart: React.FC = () => {
-  const [chartType, setChartType] = useState<'pie' | 'bar'>('pie');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams } = useBillsStore();
+  const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams } = useBillsStore();
   const [data, setData] = useState<CategoryStats[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -136,24 +136,38 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
 
   // 点击分类 -> 跳转到账单总览并预填查询条件（该月份、该分类、支出类型）
   const handleChartClick = (params: any) => {
-    const clickedName: string | undefined = params?.name;
-    if (!clickedName) return;
-    const item = data.find(d => d.category_name === clickedName);
-    if (!item) return;
+    try {
+      const clickedName: string | undefined = params?.name;
+      let item: CategoryStats | undefined;
 
-    const start = dayjs(`${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}-01`);
-    const end = start.endOf('month');
+      if (clickedName) {
+        item = data.find(d => d.category_name === clickedName);
+      } else if (typeof params?.dataIndex === 'number') {
+        const idx = params.dataIndex;
+        item = data[idx];
+      }
 
-    setQueryParams({
-      category_id: item.category_id,
-      transaction_type: 'expense',
-      start_date: start.format('YYYY-MM-DD'),
-      end_date: end.format('YYYY-MM-DD'),
-      page: 1,
-      size: 10,
-    });
-    navigate('/bills');
+      if (!item) return;
+
+      const start = dayjs(`${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}-01`);
+      const end = start.endOf('month');
+
+      // 清空无关查询条件，避免带入之前的筛选
+      resetQueryParams();
+      setQueryParams({
+        category_id: item.category_id,
+        transaction_type: 'expense',
+        start_date: start.format('YYYY-MM-DD'),
+        end_date: end.format('YYYY-MM-DD'),
+        page: 1,
+        size: 10,
+      });
+      navigate('/bills');
+    } catch (err) {
+      console.error('处理类别图点击失败: ', err);
+    }
   };
+
 
   return (
     <Card style={{ marginTop: 16 }}>
@@ -165,11 +179,11 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
             <Radio.Button value="bar">直方图</Radio.Button>
           </Radio.Group>
           <Select value={monthlyChartYear} onChange={setMonthlyChartYear} style={{ width: 120 }}>
-            {yearOptions.map(y => <Option key={y} value={y}>{y}年</Option>)}
-          </Select>
+             {yearOptions.map(y => <Option key={y} value={y}>{y}年</Option>)}
+           </Select>
           <Select value={monthlyChartMonth} onChange={setMonthlyChartMonth} style={{ width: 100 }}>
-            {monthOptions.map(m => <Option key={m} value={m}>{m}月</Option>)}
-          </Select>
+             {monthOptions.map(m => <Option key={m} value={m}>{m}月</Option>)}
+           </Select>
           <div>
             <Text>本月分类总支出: </Text>
             <Text type="danger" strong>¥{total.toFixed(2)}</Text>
