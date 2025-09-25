@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Set, Tuple
 import logging
 import os
 import tempfile
@@ -173,6 +173,126 @@ def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: S
         logger.error(f"检查支付宝文件重复失败: {e}")
         return False
 
+
+def check_duplicate_cmb_record(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> bool:
+    """
+    招商银行账单重复数据判定（严格匹配）
+    满足以下条件即视为重复：
+      - 仅比较交易日期（忽略时间）：func.date(transaction_time) == record.transaction_time.date()
+      - 金额相等（amount）
+      - 原始数据中的 counter_party 完全一致（raw_data->>'counter_party'）
+    匹配范围限定在当前用户家庭成员（family_user_ids）并且来源为 cmb。
+    """
+    try:
+        transaction_time = record.get("transaction_time")
+        amount = record.get("amount")
+        # 从解析后的标准化记录中读取原始对手方
+        raw_data = record.get("raw_data", {}) or {}
+        counter_party = raw_data.get("counter_party")
+
+        if transaction_time is None or amount is None:
+            return False
+
+        # 仅比较日期部分
+        record_date = transaction_time.date()
+
+        query = db.query(Bill).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.source_type == "cmb",
+            func.date(Bill.transaction_time) == record_date,
+            Bill.amount == float(amount)
+        )
+
+        # 严格匹配 counter_party：必须完全一致（当上传记录有该字段时）
+        if counter_party is not None:
+            query = query.filter(Bill.raw_data.op('->>')('counter_party') == str(counter_party))
+        else:
+            # 上传记录未提供对手方时，同样要求库中该字段为空（严格一致）
+            query = query.filter(Bill.raw_data.op('->>')('counter_party') == None)  # noqa: E711
+
+        existing_bill = query.first()
+        if existing_bill:
+            logger.info(
+                f"发现CMB重复记录: 日期={record_date}, 金额={amount}, 对手方={counter_party}"
+            )
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"检查CMB重复记录失败: {e}")
+        return False
+
+
+def check_duplicate_alipay_record(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> bool:
+    """
+    支付宝账单重复数据判定（严格匹配）
+    满足以下三个条件完全相同即视为重复：
+      - 交易时间相同（transaction_time）
+      - 交易金额相同（amount）
+      - 交易备注相同（transaction_desc）
+    匹配范围限定在当前用户家庭成员（family_user_ids）并且来源为 alipay。
+    """
+    try:
+        transaction_time = record.get("transaction_time")
+        amount = record.get("amount")
+        transaction_desc = record.get("transaction_desc") or ""
+
+        if transaction_time is None or amount is None:
+            return False
+
+        existing_bill = db.query(Bill).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.source_type == "alipay",
+            Bill.transaction_time == transaction_time,
+            Bill.amount == amount,
+            Bill.transaction_desc == transaction_desc
+        ).first()
+
+        is_dup = existing_bill is not None
+        if is_dup:
+            logger.info(
+                f"发现支付宝重复记录: 时间={transaction_time}, 金额={amount}, 备注={transaction_desc}"
+            )
+        return is_dup
+    except Exception as e:
+        logger.error(f"检查支付宝重复记录失败: {e}")
+        return False
+
+
+def check_duplicate_wechat_record(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> bool:
+    """
+    微信账单重复数据判定（严格匹配）
+    满足以下两个条件完全相同即视为重复：
+      - 交易时间相同（transaction_time，精确匹配到秒）
+      - 原始数据中的交易单号完全一致（raw_data->>'transaction_id'）
+    匹配范围限定在当前用户家庭成员（family_user_ids）并且来源为 wechat。
+    """
+    try:
+        transaction_time = record.get("transaction_time")
+        raw_data = record.get("raw_data", {}) or {}
+        transaction_id = raw_data.get("transaction_id")
+
+        # 严格匹配：时间和交易单号必须同时存在
+        if transaction_time is None:
+            return False
+        if not transaction_id or str(transaction_id).strip() in ["", "/"]:
+            return False
+
+        existing_bill = db.query(Bill).filter(
+            Bill.user_id.in_(family_user_ids),
+            Bill.source_type == "wechat",
+            Bill.transaction_time == transaction_time,
+            Bill.raw_data.op('->>')('transaction_id') == str(transaction_id).strip()
+        ).first()
+
+        is_dup = existing_bill is not None
+        if is_dup:
+            logger.info(
+                f"发现微信重复记录: 时间={transaction_time}, 交易单号={transaction_id}"
+            )
+        return is_dup
+    except Exception as e:
+        logger.error(f"检查微信重复记录失败: {e}")
+        return False
 
 
 def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], family_user_ids: List[int], db: Session) -> int:
@@ -477,6 +597,7 @@ def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: 
 
 
 @router.get("/parsers")
+@router.get("/parsers/")
 async def get_parsers():
     """获取可用的解析器列表"""
     return {
@@ -486,6 +607,7 @@ async def get_parsers():
 
 
 @router.post("/", response_model=UploadResponse)
+@router.post("", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
     source_type: Optional[str] = Form(None),
@@ -546,60 +668,132 @@ async def upload_file(
             # CMB、JD、支付宝和微信账单：处理时间范围重叠覆盖逻辑
             deleted_count = 0
             if source_type == "cmb":
-                deleted_count = handle_cmb_bill_overlap(
-                    file.filename, 
-                    parse_result.success_records, 
-                    family_user_ids, 
-                    db
-                )
+                # 新规则：不进行按日期覆盖删除，保留数据库中现有记录
+                deleted_count = 0
             elif source_type == "jd":
-                deleted_count = handle_jd_bill_overlap(
-                    file.filename, 
-                    parse_result.success_records, 
-                    family_user_ids, 
-                    db
-                )
+                # 新规则：不进行按日期覆盖删除，保留数据库中现有记录
+                deleted_count = 0
             elif source_type == "alipay":
-                deleted_count = handle_alipay_bill_overlap(
-                    file.filename, 
-                    parse_result.success_records, 
-                    family_user_ids, 
-                    db
-                )
+                # 新规则：不进行按日期覆盖删除，保留数据库中现有记录
+                deleted_count = 0
             elif source_type == "wechat":
-                deleted_count = handle_wechat_bill_overlap(
-                    file.filename, 
-                    parse_result.success_records, 
-                    family_user_ids, 
-                    db
-                )
-            
+                # 新规则：不进行按日期覆盖删除，保留数据库中现有记录
+                deleted_count = 0
+            # 移除旧的按日期覆盖删除逻辑
+            # elif source_type == "wechat":
+            #     deleted_count = handle_wechat_bill_overlap(
+            #         file.filename, 
+            #         parse_result.success_records, 
+            #         family_user_ids, 
+            #         db
+            #     )
+
             success_count = 0
             failed_count = 0
             updated_count = 0  # 新增：更新记录数
             created_bills = []
-            
+
             # 用于批次内去重的集合
             batch_records = set()
-            
+
+            # 微信账单：预取现有记录以优化去重性能
+            wechat_existing_pairs: Set[Tuple[datetime, str]] = set()
+            if source_type == "wechat":
+                try:
+                    import_ids: Set[str] = set()
+                    for r in parse_result.success_records:
+                        tid = (r.get('raw_data') or {}).get('transaction_id')
+                        if tid is not None:
+                            tid_str = str(tid).strip()
+                            if tid_str and tid_str != '/':
+                                import_ids.add(tid_str)
+                    if import_ids:
+                        rows = db.query(Bill.transaction_time, Bill.raw_data.op('->>')('transaction_id')).filter(
+                            Bill.user_id.in_(family_user_ids),
+                            Bill.source_type == "wechat",
+                            Bill.raw_data.op('->>')('transaction_id').in_(list(import_ids))
+                        ).all()
+                        wechat_existing_pairs = {(row[0], str(row[1])) for row in rows}
+                        logger.info(f"微信预取去重集合大小: {len(wechat_existing_pairs)}")
+                except Exception as e:
+                    logger.error(f"微信预取去重失败: {e}")
+
+            # 京东账单：预取现有记录以优化去重性能
+            jd_existing_pairs: Set[Tuple[datetime, str]] = set()
+            if source_type == "jd":
+                try:
+                    import_order_ids: Set[str] = set()
+                    for r in parse_result.success_records:
+                        oid = (r.get('raw_data') or {}).get('order_id')
+                        if oid is not None:
+                            oid_str = str(oid).strip()
+                            if oid_str and oid_str != '/':
+                                import_order_ids.add(oid_str)
+                    if import_order_ids:
+                        rows = db.query(Bill.transaction_time, Bill.raw_data.op('->>')('order_id')).filter(
+                            Bill.user_id.in_(family_user_ids),
+                            Bill.source_type == "jd",
+                            Bill.raw_data.op('->>')('order_id').in_(list(import_order_ids))
+                        ).all()
+                        jd_existing_pairs = {(row[0], str(row[1])) for row in rows}
+                        logger.info(f"京东预取去重集合大小: {len(jd_existing_pairs)}")
+                except Exception as e:
+                    logger.error(f"京东预取去重失败: {e}")
+
             # 处理成功解析的记录
             for i, record in enumerate(parse_result.success_records):
                 try:
                     # 检查必需字段
                     required_fields = ["amount", "transaction_time", "transaction_type"]
                     missing_fields = [field for field in required_fields if field not in record or record[field] is None]
-                    
+
                     if missing_fields:
                         logger.warning(f"记录 {i+1} 缺少必需字段: {missing_fields}, 记录内容: {record}")
                         failed_count += 1
                         continue
-                    
+
+                    # 招商银行：严格去重（按日期、金额、对手方）
+                    if source_type == "cmb":
+                        if check_duplicate_cmb_record(record, family_user_ids, db):
+                            logger.info(f"跳过CMB重复记录 (记录 {i+1})")
+                            continue
+
+                    # 支付宝：严格按三字段去重（时间、金额、备注）
+                    if source_type == "alipay":
+                        if check_duplicate_alipay_record(record, family_user_ids, db):
+                            logger.info(f"跳过支付宝重复记录 (记录 {i+1})")
+                            continue
+
+                    # 微信：严格去重（交易时间、交易单号），优先使用预取集合
+                    if source_type == "wechat":
+                        tx_time = record.get("transaction_time")
+                        tx_id = str((record.get("raw_data") or {}).get("transaction_id") or "").strip()
+                        if tx_id and tx_id != "/" and tx_time is not None:
+                            if (tx_time, tx_id) in wechat_existing_pairs:
+                                logger.info(f"跳过微信重复记录 (记录 {i+1})：时间={tx_time}, 交易单号={tx_id}")
+                                continue
+                        else:
+                            # 当交易单号缺失或为'/'时，不进行去重
+                            pass
+
+                    # 京东：严格去重（交易时间、订单号），优先使用预取集合
+                    if source_type == "jd":
+                        tx_time = record.get("transaction_time")
+                        order_id = str((record.get("raw_data") or {}).get("order_id") or "").strip()
+                        if order_id and order_id != "/" and tx_time is not None:
+                            if (tx_time, order_id) in jd_existing_pairs:
+                                logger.info(f"跳过京东重复记录 (记录 {i+1})：时间={tx_time}, 订单号={order_id}")
+                                continue
+                        else:
+                            # 当订单号缺失或为'/'时，不进行去重
+                            pass
+
                     # 其他来源：检查重复
-                    if source_type not in ["cmb", "jd", "alipay", "wechat"]:  # 招商银行、京东、支付宝和微信账单已在文件级别检测重复
+                    if source_type not in ["cmb", "jd", "alipay", "wechat"]:  # 招商银行、京东、支付宝和微信账单已在文件级别检测/处理
                         if check_duplicate_bill_other_sources(record, family_user_ids, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue
-                    
+
                     # 分类处理：只查找现有分类，不自动创建
                     category = None
                     if auto_categorize and record.get("category"):
@@ -612,7 +806,7 @@ async def upload_file(
                         category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
                     # 使用交易描述字段
                     combined_description = record.get("transaction_desc", '')
-                    
+
                     # 创建新的账单记录
                     bill = Bill(
                         user_id=current_user.id,
@@ -626,16 +820,16 @@ async def upload_file(
                         currency=record.get("currency"),
                         raw_data=record.get("raw_data", {})
                     )
-                    
+
                     db.add(bill)
                     created_bills.append(bill)
                     success_count += 1
-                    
+
                 except Exception as e:
                     logger.error(f"创建账单记录失败 (记录 {i+1}): {e}")
                     logger.error(f"问题记录内容: {record}")
                     failed_count += 1
-            
+
             # 最终提交所有成功的记录
             try:
                 db.commit()
@@ -777,6 +971,7 @@ async def upload_file(
 
 
 @router.get("/history", response_model=List[UploadHistoryResponse])
+@router.get("/history/", response_model=List[UploadHistoryResponse])
 async def get_upload_history(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -817,6 +1012,7 @@ async def get_upload_history(
 
 
 @router.get("/stats", response_model=UploadStatsResponse)
+@router.get("/stats/", response_model=UploadStatsResponse)
 async def get_upload_stats(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -862,6 +1058,7 @@ async def get_upload_stats(
 
 
 @router.delete("/{upload_id}")
+@router.delete("/{upload_id}/")
 async def delete_upload_record(
     upload_id: int,
     delete_bills: bool = False,
