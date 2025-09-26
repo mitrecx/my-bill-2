@@ -15,7 +15,6 @@ import type {
   UploadRecord,
   UploadResponse,
   ApiResponse, // 新增ApiResponse类型导入
-  SystemConfigCreate,
   SystemConfigUpdate,
   DefaultPasswordConfig,
   SystemConfigResponse,
@@ -28,7 +27,6 @@ import type {
 } from '../types';
 import type { MonthlyExpenseTrendResponse } from '../types/bills';
 import type {
-  Message,
   MessageListResponse,
   MessageUpdate,
   MessageActionCreate,
@@ -244,6 +242,17 @@ export const SystemConfigService = {
 
   async updateDefaultPasswordConfig(data: SystemConfigUpdate): Promise<ApiResponse<SystemConfigResponse>> {
     const response = await ApiClient.put<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD, data);
+    return response;
+  },
+
+  // 兼容 SettingsPage 旧方法名
+  async getDefaultPassword(): Promise<ApiResponse<DefaultPasswordConfig>> {
+    const response = await ApiClient.get<DefaultPasswordConfig>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD);
+    return response;
+  },
+
+  async setDefaultPassword(defaultPassword: string): Promise<ApiResponse<SystemConfigResponse>> {
+    const response = await ApiClient.put<SystemConfigResponse>(API_ENDPOINTS.SYSTEM_CONFIG.DEFAULT_PASSWORD, { default_password: defaultPassword });
     return response;
   },
 };

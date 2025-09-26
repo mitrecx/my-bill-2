@@ -7,7 +7,7 @@ import type { LoginRequest } from '../types';
 import japanroad from '../assets/japanroad.jpeg';
 import japanroad2 from '../assets/japanroad2.jpeg';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();

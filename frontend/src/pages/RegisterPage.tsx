@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import type { RegisterRequest } from '../types';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();

@@ -18,7 +18,7 @@ import { useBillsStore } from '../stores/bills';
 import { UploadService } from '../api/services';
 import type { UploadFile, UploadProps } from 'antd/es/upload';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { Dragger } = Upload;
 
 const UploadPage: React.FC = () => {

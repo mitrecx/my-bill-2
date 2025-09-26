@@ -23,7 +23,7 @@ import {
 import { useMessageStore } from '../stores/message';
 import type { Message } from '../types/message';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 const { confirm } = Modal;
 
 const MessagesPage: React.FC = () => {

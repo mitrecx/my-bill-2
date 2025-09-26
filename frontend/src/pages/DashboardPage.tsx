@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Row, Col, Card, Statistic, Typography, Alert } from 'antd';
+import { Row, Col, Card, Statistic, Alert } from 'antd';
 import { 
   DollarOutlined, 
   ShoppingOutlined, 
@@ -12,7 +12,7 @@ import YearlyProfitChart from '../components/YearlyProfitChart';
 import MonthlyExpenseTrendChart from '../components/MonthlyExpenseTrendChart';
 import MonthlyExpenseCategoryChart from '../components/MonthlyExpenseCategoryChart';
 
-const { Title } = Typography;
+// const { Title } = Typography;
 
 const DashboardPage: React.FC = () => {
   const { 
