@@ -27,7 +27,8 @@ from schemas.bills import (
     YearlyExpenseChartResponse,
     MonthlyExpenseItem,
     DailyExpenseItem,            # 新增
-    MonthlyExpenseTrendResponse  # 新增
+    MonthlyExpenseTrendResponse, # 新增
+    BillBatchUpdateRequest       # 新增：批量更新请求模型
 )
 from services.ai_classification_service import ai_classification_service
 
@@ -805,6 +806,72 @@ async def create_bill_category(
         db.rollback()
         logger.error(f"创建分类失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="创建分类失败")
+
+
+@router.post("/batch", response_model=ApiResponse[List[BillResponse]])
+async def update_bills_batch(
+    payload: BillBatchUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """批量更新账单信息。前端提交英文交易类型，需转换为中文后入库。"""
+    try:
+        family_user_ids = await get_user_family_members(current_user, db)
+
+        updated_bills: List[Bill] = []
+        errors: List[str] = []
+
+        type_map = {
+            "income": "收入",
+            "expense": "支出",
+            "transfer": "不计收支",
+        }
+
+        for idx, item in enumerate(payload.items):
+            bill: Bill = db.query(Bill).filter(
+                Bill.id == item.bill_id,
+                Bill.user_id.in_(family_user_ids)
+            ).first()
+
+            if not bill:
+                errors.append(f"第{idx + 1}条: 账单不存在或无权限访问 (ID: {item.bill_id})")
+                continue
+
+            if item.amount is not None:
+                bill.amount = item.amount
+            if item.transaction_type is not None:
+                bill.transaction_type = type_map.get(item.transaction_type, item.transaction_type)
+            if item.transaction_desc is not None:
+                bill.transaction_desc = item.transaction_desc
+            if item.category_id is not None:
+                bill.category_id = item.category_id
+            if item.remark is not None:
+                bill.remark = item.remark
+
+            db.add(bill)
+            db.flush()
+            updated_bills.append(bill)
+
+        if errors:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="批量更新失败:\n" + "\n".join(errors))
+
+        db.commit()
+        for b in updated_bills:
+            db.refresh(b)
+
+        return ApiResponse[List[BillResponse]](
+            data=[BillResponse.from_bill(b) for b in updated_bills],
+            success=True,
+            message=f"成功更新 {len(updated_bills)} 条账单"
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"批量更新账单失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="批量更新账单失败")
 
 
 @router.put("/{bill_id}", response_model=ApiResponse[BillResponse])

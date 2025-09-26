@@ -150,6 +150,12 @@ export const BillService = {
     return response;
   },
 
+  async updateBillsBatch(items: Array<{ id: number; amount?: number; transaction_type?: 'income' | 'expense' | 'transfer'; transaction_desc?: string; category_id?: number; remark?: string }>) {
+    const payload = { items: items.map(({ id, ...rest }) => ({ bill_id: id, ...rest })) };
+    const response = await ApiClient.post<Bill[]>(API_ENDPOINTS.BILLS.BATCH, payload);
+    return response;
+  },
+
   // 新增：创建分类
   async createCategory(category: { name: string; category_type: 'income' | 'expense'; description?: string; icon?: string; color?: string }) {
     // 后端 BillCategoryCreate 仅接收: name, description, icon, color

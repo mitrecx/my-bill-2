@@ -40,7 +40,7 @@ interface BillsActions {
   createBill: (billData: Partial<Bill>) => Promise<void>;
   updateBill: (id: number, billData: Partial<Bill>) => Promise<void>;
   deleteBill: (id: number) => Promise<void>;
-  
+  batchUpdateBills: (ids: number[], updateData: { amount?: number; transaction_type?: 'income' | 'expense' | 'transfer'; transaction_desc?: string; category_id?: number; remark?: string }) => Promise<void>;
   // 分类操作
   fetchCategories: () => Promise<void>;
   createCategory: (categoryData: { name: string; category_type: 'income' | 'expense'; description?: string }) => Promise<void>;
@@ -353,4 +353,17 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => set({ monthlyChartYear: year }),
   setMonthlyChartMonth: (month: number) => set({ monthlyChartMonth: month }),
+
+  batchUpdateBills: async (ids: number[], updateData: { amount?: number; transaction_type?: 'income' | 'expense' | 'transfer'; transaction_desc?: string; category_id?: number; remark?: string }) => {
+    try {
+      set({ isLoading: true, error: null });
+      await BillService.updateBillsBatch(ids.map(id => ({ id, ...updateData })));
+      await get().fetchBills();
+      set({ isLoading: false, lastUpdatedAt: Date.now() });
+    } catch (error: any) {
+      const errorMessage = error?.friendlyMessage || error?.response?.data?.message || error?.response?.data?.detail || '批量更新账单失败';
+      set({ error: errorMessage, isLoading: false });
+      throw error;
+    }
+  },
 }));

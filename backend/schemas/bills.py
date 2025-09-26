@@ -37,6 +37,19 @@ class BillUpdate(BaseModel):
     category_id: Optional[int] = Field(None, description="分类ID")
     remark: Optional[str] = Field(None, max_length=1000, description="备注")
 
+class BillBatchUpdateItem(BaseModel):
+    """批量更新单项请求模型"""
+    bill_id: int = Field(..., description="账单ID")
+    amount: Optional[float] = Field(None, ge=0, description="金额")
+    transaction_type: Optional[str] = Field(None, description="交易类型（income/expense/transfer）")
+    transaction_desc: Optional[str] = Field(None, max_length=500, description="交易描述")
+    category_id: Optional[int] = Field(None, description="分类ID")
+    remark: Optional[str] = Field(None, max_length=1000, description="备注")
+
+class BillBatchUpdateRequest(BaseModel):
+    """批量更新请求模型"""
+    items: List[BillBatchUpdateItem] = Field(..., description="批量更新项列表")
+
 
 class CategoryResponse(BaseModel):
     """分类响应模型"""

@@ -44,6 +44,7 @@ const BillsPage: React.FC = () => {
     createBill,
     updateBill,
     setQueryParams,
+    batchUpdateBills,
   } = useBillsStore();
 
   const [searchText, setSearchText] = useState('');
@@ -54,6 +55,10 @@ const BillsPage: React.FC = () => {
   // 来源选项状态
   const [sourceTypeOptions, setSourceTypeOptions] = useState<SourceTypeOption[]>([]);
   const [loadingSourceTypes, setLoadingSourceTypes] = useState<boolean>(false);
+  // 新增：批量选择与批量更新弹窗
+  const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
+  const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
+  const [batchForm] = Form.useForm();
 
   // 当编辑弹窗打开且存在当前账单时，同步表单字段，确保分类等字段正常显示
   useEffect(() => {
@@ -332,7 +337,7 @@ const BillsPage: React.FC = () => {
     },
   ];
 
-  return (
+  return (<>
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'none' }} />
 
@@ -492,6 +497,14 @@ const BillsPage: React.FC = () => {
             >
               新增账单
             </Button>
+            {/* 新增：批量更新按钮 */}
+            <Button
+              size="small"
+              disabled={selectedRowKeys.length === 0}
+              onClick={() => setIsBatchModalVisible(true)}
+            >
+              批量更新
+            </Button>
           </Space>
         </div>
       </Card>
@@ -504,6 +517,10 @@ const BillsPage: React.FC = () => {
           rowKey="id"
           loading={isLoading}
           size="small"
+          rowSelection={{
+            selectedRowKeys,
+            onChange: (keys) => setSelectedRowKeys(keys as number[]),
+          }}
           pagination={{
             current: pagination.page,
             pageSize: pagination.size,
@@ -637,7 +654,63 @@ const BillsPage: React.FC = () => {
           </Form.Item>
         </Form>
       </Modal>
+      {/* 批量更新模态框 */}
+      <Modal
+        title={'批量更新账单'}
+        open={isBatchModalVisible}
+        onCancel={() => {
+          setIsBatchModalVisible(false);
+          batchForm.resetFields();
+        }}
+        footer={[
+          <Button key="cancel" onClick={() => {
+            setIsBatchModalVisible(false);
+            batchForm.resetFields();
+          }}>
+            取消
+          </Button>,
+          <Button key="submit" type="primary" onClick={async () => {
+            try {
+              const values = await batchForm.validateFields();
+              await batchUpdateBills(selectedRowKeys, values);
+              message.success('批量更新成功');
+              setIsBatchModalVisible(false);
+              batchForm.resetFields();
+              setSelectedRowKeys([]);
+            } catch (err: any) {
+              if (err?.errorFields) return;
+              message.error(err?.message || '批量更新失败');
+            }
+          }} loading={isLoading}>
+            更新
+          </Button>,
+        ]}
+        width={520}
+      >
+        <Form form={batchForm} layout="vertical">
+          <Form.Item label="交易类型" name="transaction_type">
+            <Select placeholder="请选择交易类型" allowClear>
+              <Option value="income">收入</Option>
+              <Option value="expense">支出</Option>
+              <Option value="transfer">不计收支</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item label="分类" name="category_id">
+            <Select placeholder="请选择分类" allowClear>
+              {categories.map(category => (
+                <Option key={category.id} value={category.id}>
+                  {category.name}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item label="备注" name="remark">
+            <Input.TextArea placeholder="请输入备注" rows={3} />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
+    </>
   );
 };
 
