@@ -39,7 +39,7 @@ class AIClassificationService:
     def get_categories_context(self, db: Session) -> str:
         """获取分类上下文信息"""
         try:
-            categories = db.query(BillCategory).all()
+            categories = db.query(BillCategory).filter(BillCategory.is_deleted == False).all()
             
             income_categories = []
             expense_categories = []
@@ -189,7 +189,7 @@ class AIClassificationService:
                 # 解析AI响应，支持多种格式
                 try:
                     # 获取所有可用的分类，创建ID到名称的映射
-                    all_categories = db.query(BillCategory).all()
+                    all_categories = db.query(BillCategory).filter(BillCategory.is_deleted == False).all()
                     category_id_to_name = {cat.id: cat.category_name for cat in all_categories}
                     
                     # 尝试从响应中提取分类ID
@@ -413,7 +413,7 @@ class AIClassificationService:
         results = []
         
         # 获取所有可用的分类，创建ID到名称的映射
-        all_categories = db.query(BillCategory).all()
+        all_categories = db.query(BillCategory).filter(BillCategory.is_deleted == False).all()
         category_id_to_name = {cat.id: cat.category_name for cat in all_categories}
         
         # 创建账单ID到账单数据的映射

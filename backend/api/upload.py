@@ -50,7 +50,8 @@ async def get_existing_category(
     """获取现有的账单分类（不创建新分类）"""
     # 尝试精确匹配现有分类
     category = db.query(BillCategory).filter(
-        BillCategory.category_name == name
+        BillCategory.category_name == name,
+        BillCategory.is_deleted == False
     ).first()
     
     return category
@@ -803,7 +804,7 @@ async def upload_file(
                         )
                     # fallback: 如果没有找到匹配的分类，使用"其他"分类
                     if not category:
-                        category = db.query(BillCategory).filter(BillCategory.category_name == "其他").first()
+                        category = db.query(BillCategory).filter(BillCategory.category_name == "其他", BillCategory.is_deleted == False).first()
                     # 使用交易描述字段
                     combined_description = record.get("transaction_desc", '')
 
@@ -895,7 +896,8 @@ async def upload_file(
                                 # 查找对应的账单和分类
                                 bill = db.query(Bill).filter(Bill.id == bill_id).first()
                                 category = db.query(BillCategory).filter(
-                                    BillCategory.category_name == category_name
+                                    BillCategory.category_name == category_name,
+                                    BillCategory.is_deleted == False
                                 ).first()
                                 
                                 if bill and category:

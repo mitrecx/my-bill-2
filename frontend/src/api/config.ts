@@ -57,6 +57,9 @@ export const API_ENDPOINTS = {
     FINANCE_SUMMARY: '/api/v1/bills/finance-summary',
     FINANCE_SUMMARY_BATCH: '/api/v1/bills/finance-summary/batch',
     CATEGORIES: '/api/v1/bills/categories',
+    CATEGORIES_BY_ID: (id: number) => `/api/v1/bills/categories/${id}`,
+    CATEGORIES_DELETE: (id: number) => `/api/v1/bills/categories/${id}/delete`,
+    CATEGORIES_RESTORE: (id: number) => `/api/v1/bills/categories/${id}/restore`,
     YEARLY_EXPENSE_CHART: '/api/v1/bills/yearly-expense-chart',
     MONTHLY_EXPENSE_TREND: '/api/v1/bills/monthly-expense-trend', // 新增
     BY_ID: (id: number) => `/api/v1/bills/${id}`,

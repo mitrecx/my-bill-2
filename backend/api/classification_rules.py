@@ -5,6 +5,7 @@ from sqlalchemy import and_, or_, desc
 
 from config.database import get_db
 from models import ClassificationRule, User
+from models.bill import BillCategory
 from schemas import (
     ClassificationRuleCreate,
     ClassificationRuleUpdate,
@@ -20,7 +21,7 @@ from api.auth import get_current_user
 router = APIRouter(prefix="/classification-rules", tags=["classification-rules"])
 
 
-@router.get("/", response_model=ApiResponse[ClassificationRuleListResponse])
+@router.get("", response_model=ApiResponse[ClassificationRuleListResponse])
 async def get_classification_rules(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -74,7 +75,7 @@ async def get_classification_rules(
     return ApiResponse(success=True, data=data, message="获取分类规则列表成功")
 
 
-@router.post("/", response_model=ApiResponse[ClassificationRuleResponse])
+@router.post("", response_model=ApiResponse[ClassificationRuleResponse])
 async def create_classification_rule(
     rule_data: ClassificationRuleCreate,
     db: Session = Depends(get_db),
@@ -96,6 +97,16 @@ async def create_classification_rule(
             status_code=400,
             detail=f"相同的规则已存在 (ID: {existing_rule.id})"
         )
+    
+    # 校验目标分类存在且未被删除
+    category = db.query(BillCategory).filter(
+        and_(
+            BillCategory.category_name == rule_data.target_category,
+            BillCategory.is_deleted == False
+        )
+    ).first()
+    if not category:
+        raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
     
     # 创建新规则
     rule = ClassificationRule(
@@ -134,6 +145,17 @@ async def create_classification_rules_batch(
             
             if existing_rule:
                 errors.append(f"规则 {i+1}: 相同的规则已存在 (ID: {existing_rule.id})")
+                continue
+            
+            # 校验目标分类存在且未被删除
+            category = db.query(BillCategory).filter(
+                and_(
+                    BillCategory.category_name == rule_data.target_category,
+                    BillCategory.is_deleted == False
+                )
+            ).first()
+            if not category:
+                errors.append(f"规则 {i+1}: 目标分类不存在或已被删除")
                 continue
             
             # 创建新规则
@@ -226,6 +248,18 @@ async def update_classification_rule(
                 detail=f"相同的规则已存在 (ID: {existing_rule.id})"
             )
     
+    # 如果目标分类被更新或最终目标分类无效，需要校验目标分类有效性
+    new_target_category = rule_data.target_category if rule_data.target_category is not None else rule.target_category
+    if new_target_category:
+        category = db.query(BillCategory).filter(
+            and_(
+                BillCategory.category_name == new_target_category,
+                BillCategory.is_deleted == False
+            )
+        ).first()
+        if not category:
+            raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
+    
     # 更新规则
     update_data = rule_data.dict(exclude_unset=True)
     for field, value in update_data.items():
@@ -278,6 +312,18 @@ async def toggle_classification_rule_status(
     
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")
+    
+    # 如果将要启用规则，校验目标分类有效性
+    will_enable = not rule.is_active
+    if will_enable:
+        category = db.query(BillCategory).filter(
+            and_(
+                BillCategory.category_name == rule.target_category,
+                BillCategory.is_deleted == False
+            )
+        ).first()
+        if not category:
+            raise HTTPException(status_code=400, detail="目标分类不存在或已被删除，无法启用该规则")
     
     # 切换状态
     rule.is_active = not rule.is_active

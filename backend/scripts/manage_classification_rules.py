@@ -62,13 +62,14 @@ def add_rule(rule_text, source_type, target_category, priority=5):
     try:
         # 检查目标分类是否存在
         category = db.query(BillCategory).filter(
-            BillCategory.category_name == target_category
+            BillCategory.category_name == target_category,
+            BillCategory.is_deleted == False
         ).first()
         
         if not category:
             print(f"错误: 分类 '{target_category}' 不存在")
             print("可用分类:")
-            categories = db.query(BillCategory).all()
+            categories = db.query(BillCategory).filter(BillCategory.is_deleted == False).all()
             for cat in categories:
                 print(f"  - {cat.category_name} ({cat.category_type})")
             return

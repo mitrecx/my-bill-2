@@ -167,6 +167,23 @@ export const BillService = {
     return response;
   },
 
+  // 新增：更新分类
+  async updateCategory(id: number, category: { name?: string; description?: string; icon?: string; color?: string; category_type?: 'income' | 'expense' }) {
+    const response = await ApiClient.put<BillCategory>(API_ENDPOINTS.BILLS.CATEGORIES_BY_ID(id), category);
+    return response;
+  },
+
+  // 新增：逻辑删除分类
+  async deleteCategory(id: number) {
+    const response = await ApiClient.patch<boolean>(API_ENDPOINTS.BILLS.CATEGORIES_DELETE(id));
+    return response;
+  },
+
+  // 新增：恢复已删除分类
+  async restoreCategory(id: number) {
+    const response = await ApiClient.patch<BillCategory>(API_ENDPOINTS.BILLS.CATEGORIES_RESTORE(id));
+    return response;
+  },
   async deleteBill(id: number) {
     const response = await ApiClient.delete(API_ENDPOINTS.BILLS.BY_ID(id));
     return response;

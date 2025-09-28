@@ -540,7 +540,8 @@ async def get_category_stats(
         
         q = q.filter(
             Bill.user_id.in_(family_user_ids),
-            Bill.transaction_type == "支出"
+            Bill.transaction_type == "支出",
+            BillCategory.is_deleted == False
         )
 
         if start_date:
@@ -758,7 +759,7 @@ async def list_bill_categories(
 ):
     """获取账单分类列表"""
     try:
-        categories = db.query(BillCategory).order_by(BillCategory.id.asc()).all()
+        categories = db.query(BillCategory).filter(BillCategory.is_deleted == False).order_by(BillCategory.id.asc()).all()
         data = [BillCategoryResponse.from_orm(c) for c in categories]
         return ApiResponse[List[BillCategoryResponse]](
             data=data,
@@ -844,6 +845,14 @@ async def update_bills_batch(
             if item.transaction_desc is not None:
                 bill.transaction_desc = item.transaction_desc
             if item.category_id is not None:
+                # 验证分类未被删除
+                valid_category = db.query(BillCategory).filter(
+                    BillCategory.id == item.category_id,
+                    BillCategory.is_deleted == False
+                ).first()
+                if not valid_category:
+                    errors.append(f"第{idx + 1}条: 分类不存在或已删除 (ID: {item.category_id})")
+                    continue
                 bill.category_id = item.category_id
             if item.remark is not None:
                 bill.remark = item.remark
@@ -872,6 +881,113 @@ async def update_bills_batch(
         db.rollback()
         logger.error(f"批量更新账单失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="批量更新账单失败")
+
+
+@router.put("/categories/{category_id}", response_model=ApiResponse[BillCategoryResponse])
+async def update_bill_category(
+    category_id: int,
+    payload: BillCategoryUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """更新账单分类（仅允许更新未删除的分类）"""
+    try:
+        category = db.query(BillCategory).filter(BillCategory.id == category_id).first()
+        if not category:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
+        if getattr(category, "is_deleted", False):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类已删除，无法更新，请先恢复该分类")
+
+        # 校验并更新字段
+        update_data = payload.dict(exclude_unset=True)
+        if "category_type" in update_data and update_data["category_type"] not in ("income", "expense"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类类型无效")
+
+        if "name" in update_data:
+            category.category_name = update_data["name"]
+        if "description" in update_data:
+            category.description = update_data["description"]
+        if "icon" in update_data:
+            category.icon = update_data["icon"]
+        if "color" in update_data:
+            category.color = update_data["color"]
+        if "category_type" in update_data:
+            category.category_type = update_data["category_type"]
+
+        db.add(category)
+        db.commit()
+        db.refresh(category)
+
+        return ApiResponse[BillCategoryResponse](
+            data=BillCategoryResponse.from_orm(category),
+            success=True,
+            message="更新分类成功"
+        )
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"更新分类失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新分类失败")
+
+
+@router.patch("/categories/{category_id}/delete", response_model=ApiResponse[bool])
+async def logically_delete_bill_category(
+    category_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """逻辑删除账单分类（设置 is_deleted = True）"""
+    try:
+        category = db.query(BillCategory).filter(BillCategory.id == category_id).first()
+        if not category:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
+
+        if getattr(category, "is_deleted", False):
+            return ApiResponse[bool](data=True, success=True, message="分类已处于删除状态")
+
+        category.is_deleted = True
+        db.add(category)
+        db.commit()
+
+        return ApiResponse[bool](data=True, success=True, message="分类删除成功")
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"删除分类失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="删除分类失败")
+
+
+@router.patch("/categories/{category_id}/restore", response_model=ApiResponse[BillCategoryResponse])
+async def restore_bill_category(
+    category_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """恢复已逻辑删除的账单分类（设置 is_deleted = False）"""
+    try:
+        category = db.query(BillCategory).filter(BillCategory.id == category_id).first()
+        if not category:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分类不存在")
+
+        if getattr(category, "is_deleted", False):
+            category.is_deleted = False
+            db.add(category)
+            db.commit()
+            db.refresh(category)
+            return ApiResponse[BillCategoryResponse](data=BillCategoryResponse.from_orm(category), success=True, message="分类恢复成功")
+        else:
+            return ApiResponse[BillCategoryResponse](data=BillCategoryResponse.from_orm(category), success=True, message="分类未删除，无需恢复")
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"恢复分类失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="恢复分类失败")
 
 
 @router.put("/{bill_id}", response_model=ApiResponse[BillResponse])
@@ -907,6 +1023,13 @@ async def update_bill(
         if payload.transaction_desc is not None:
             bill.transaction_desc = payload.transaction_desc
         if payload.category_id is not None:
+            # 验证分类未被删除
+            valid_category = db.query(BillCategory).filter(
+                BillCategory.id == payload.category_id,
+                BillCategory.is_deleted == False
+            ).first()
+            if not valid_category:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类不存在或已删除")
             bill.category_id = payload.category_id
         if payload.remark is not None:
             bill.remark = payload.remark
