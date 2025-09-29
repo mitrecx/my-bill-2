@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   Typography,
   Table,
@@ -73,6 +73,8 @@ const BillsPage: React.FC = () => {
   // 新增：批量选择与批量更新弹窗
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
+  // 账单表格滚动容器，用于 Table sticky 绑定
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [batchForm] = Form.useForm();
 
   // 当编辑弹窗打开且存在当前账单时，同步表单字段，确保分类等字段正常显示
@@ -361,6 +363,30 @@ const BillsPage: React.FC = () => {
       {/* 筛选区域 */}
       <Card style={{ marginBottom: 8 }} bodyStyle={{ padding: 12 }}>
         <Space wrap align="center" size={8}>
+          {/* 家庭成员筛选：调整为首位 */}
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>家庭成员：</Text>
+            <Select
+              placeholder="请选择"
+              style={{ width: 240 }}
+              mode="multiple"
+              allowClear
+              maxTagCount={2}
+              size="small"
+              loading={familyLoading}
+              value={Array.isArray(queryParams.user_id)
+                ? queryParams.user_id
+                : (typeof queryParams.user_id === 'number' ? [queryParams.user_id] : undefined)}
+              onChange={(values) => handleFilter('user_id', values)}
+              notFoundContent={familyLoading ? '加载中...' : '暂无成员'}
+            >
+              {members.map(m => (
+                <Option key={m.user_id} value={m.user_id}>
+                  {m.user?.full_name || m.user?.username || `用户#${m.user_id}`}
+                </Option>
+              ))}
+            </Select>
+          </Space>
           <Space align="center">
             <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易描述：</Text>
             <Input
@@ -443,30 +469,7 @@ const BillsPage: React.FC = () => {
             </Select>
           </Space>
 
-          {/* 新增：家庭成员筛选 */}
-          <Space align="center">
-            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>家庭成员：</Text>
-            <Select
-              placeholder="请选择"
-              style={{ width: 240 }}
-              mode="multiple"
-              allowClear
-              maxTagCount={2}
-              size="small"
-              loading={familyLoading}
-              value={Array.isArray(queryParams.user_id)
-                ? queryParams.user_id
-                : (typeof queryParams.user_id === 'number' ? [queryParams.user_id] : undefined)}
-              onChange={(values) => handleFilter('user_id', values)}
-              notFoundContent={familyLoading ? '加载中...' : '暂无成员'}
-            >
-              {members.map(m => (
-                <Option key={m.user_id} value={m.user_id}>
-                  {m.user?.full_name || m.user?.username || `用户#${m.user_id}`}
-                </Option>
-              ))}
-            </Select>
-          </Space>
+          {/* 家庭成员筛选已调整至首位 */}
 
           <Space align="center">
             <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>日期范围：</Text>
@@ -521,8 +524,8 @@ const BillsPage: React.FC = () => {
             />
           </Space>
         </Space>
-        <div style={{ marginTop: 8 }}>
-          <Space>
+        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+          <Space size="middle">
             <Button type="primary" size="small" onClick={handleQuery}>
               查询
             </Button>
@@ -552,13 +555,14 @@ const BillsPage: React.FC = () => {
       </Card>
 
       {/* 账单表格 */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }} ref={scrollContainerRef}>
         <Table
           columns={columns}
           dataSource={bills}
           rowKey="id"
           loading={isLoading}
           size="small"
+          sticky={{ getContainer: () => scrollContainerRef?.current || document.body }}
           rowSelection={{
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys as number[]),
