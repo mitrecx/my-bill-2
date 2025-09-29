@@ -284,6 +284,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   fetchStats: async (params) => {
     try {
+      set({ isLoading: true, error: null });
       const scope = params?.scope ?? get().dashboardScope;
       const raw = await BillService.getBillStats({ ...(params || {}), scope });
 
@@ -302,13 +303,13 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
         period,
       };
 
-      set({ stats: mapped });
+      set({ stats: mapped, isLoading: false });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
                           error.response?.data?.message || 
                           error.response?.data?.detail || 
                           '获取统计数据失败';
-      set({ error: errorMessage });
+      set({ error: errorMessage, isLoading: false });
     }
   },
 

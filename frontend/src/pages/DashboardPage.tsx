@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Row, Col, Card, Statistic, Alert } from 'antd';
+import { Row, Col, Card, Statistic, Alert, Spin } from 'antd';
 import { 
   DollarOutlined, 
   ShoppingOutlined, 
@@ -23,6 +23,7 @@ const DashboardPage: React.FC = () => {
     error,
     setDashboardScope,
     dashboardScope,
+    isLoading,
   } = useBillsStore();
   const location = useLocation();
 
@@ -55,8 +56,10 @@ const DashboardPage: React.FC = () => {
         />
       )}
 
-      {/* 统计卡片 */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      {/* 加载遮罩层 */}
+      <Spin spinning={isLoading} tip="数据加载中...">
+        {/* 统计卡片 */}
+        <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
@@ -131,13 +134,13 @@ const DashboardPage: React.FC = () => {
         </Col>
       </Row>
 
-      {/* 新增：月度支出分类图表，位于“月度支出趋势”下方 */}
+      {/* 新增：月度支出分类图表，位于"月度支出趋势"下方 */}
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         <Col xs={24}>
           <MonthlyExpenseCategoryChart />
         </Col>
       </Row>
-
+      </Spin>
     </div>
   );
 };
