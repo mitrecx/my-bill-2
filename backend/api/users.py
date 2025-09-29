@@ -9,10 +9,92 @@ from models.user import User
 from models.family import FamilyMember, Family
 from schemas.user import UserCreate, UserUpdate, UserResponse, UserListResponse
 from schemas.common import ApiResponse
-from api.auth import get_password_hash, is_admin
+from api.auth import get_password_hash, is_admin, get_current_user
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/users", tags=["users"]) 
+
+# --- Moved earlier to ensure static '/profile' routes match before '/{user_id}' dynamic routes ---
+@router.get("/profile", response_model=ApiResponse[UserResponse])
+async def get_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    获取当前登录用户的资料。
+    """
+    try:
+        family_member = db.query(FamilyMember).filter(FamilyMember.user_id == current_user.id).first()
+        user_response = UserResponse(
+            id=current_user.id,
+            username=current_user.username,
+            full_name=current_user.full_name,
+            email=current_user.email,
+            is_active=current_user.is_active,
+            is_admin=current_user.is_admin,
+            created_at=current_user.created_at,
+            family_name=family_member.family.family_name if family_member and family_member.family else None,
+            family_role=family_member.role if family_member else None
+        )
+        return ApiResponse(success=True, data=user_response, message="获取个人资料成功")
+    except Exception as e:
+        logger.error(f"获取个人资料失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="获取个人资料失败")
+
+
+@router.put("/profile", response_model=ApiResponse[UserResponse])
+async def update_profile(
+    user_in: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    更新当前登录用户的个人资料。
+    允许更新: full_name, email, password；忽略 is_active。
+    """
+    try:
+        user = db.query(User).filter(User.id == current_user.id).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="用户不存在")
+
+        # 更新姓名
+        if user_in.full_name is not None:
+            user.full_name = user_in.full_name
+
+        # 更新邮箱（需唯一）
+        if user_in.email is not None:
+            if user.email != user_in.email and db.query(User).filter(User.email == user_in.email).first():
+                raise HTTPException(status_code=400, detail="该邮箱已被其他用户使用")
+            user.email = user_in.email
+
+        # 更新密码（如果提供）
+        if user_in.password:
+            user.password_hash = get_password_hash(user_in.password)
+
+        # is_active 仅管理员可改，这里忽略
+
+        db.commit()
+        db.refresh(user)
+
+        family_member = db.query(FamilyMember).filter(FamilyMember.user_id == user.id).first()
+        user_response = UserResponse(
+            id=user.id,
+            username=user.username,
+            full_name=user.full_name,
+            email=user.email,
+            is_active=user.is_active,
+            is_admin=user.is_admin,
+            created_at=user.created_at,
+            family_name=family_member.family.family_name if family_member and family_member.family else None,
+            family_role=family_member.role if family_member else None
+        )
+        return ApiResponse(success=True, data=user_response, message="个人资料更新成功")
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"更新个人资料失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="更新个人资料失败")
 
 
 @router.get("", response_model=ApiResponse[UserListResponse])
@@ -250,3 +332,20 @@ async def get_user(
     except Exception as e:
         logger.error(f"获取用户 {user_id} 失败: {e}")
         raise HTTPException(status_code=500, detail="获取用户失败")
+
+
+# 注：下面原先定义的 '/profile' 路由已上移，为避免重复注册，这里进行注释处理
+# @router.get("/profile", response_model=ApiResponse[UserResponse])
+# async def get_profile(
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     ...
+# 
+# @router.put("/profile", response_model=ApiResponse[UserResponse])
+# async def update_profile(
+#     user_in: UserUpdate,
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db)
+# ):
+#     ...

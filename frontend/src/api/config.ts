@@ -18,11 +18,10 @@ export const API_CONFIG = {
 
 // 获取当前API基础URL
 export const getApiBaseUrl = (): string => {
-  // 在生产环境或者配置了生产服务器时使用生产URL
-  if (import.meta.env.PROD || import.meta.env.VITE_USE_PROD_API === 'true') {
+  // 仅当显式开启使用生产API时，才返回生产URL；否则统一使用本地开发URL，避免预览环境误连生产导致权限不一致
+  if (import.meta.env.VITE_USE_PROD_API === 'true') {
     return API_CONFIG.PROD_BASE_URL;
   }
-  // 开发环境使用开发环境URL
   return API_CONFIG.BASE_URL;
 }
 

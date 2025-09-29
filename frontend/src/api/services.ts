@@ -49,8 +49,16 @@ export const AuthService = {
   },
 
   async getCurrentUser(): Promise<ApiResponse<User>> {
-    const response = await ApiClient.get<User>(API_ENDPOINTS.AUTH.ME);
-    return response;
+    // 后端 /auth/me 返回的是裸 UserResponse，而非 ApiResponse 包裹；此处做兼容处理
+    const raw = await ApiClient.get<any>(API_ENDPOINTS.AUTH.ME);
+    if (raw && typeof raw === 'object' && 'success' in raw && 'data' in raw) {
+      return raw as ApiResponse<User>;
+    }
+    return {
+      success: true,
+      message: 'OK',
+      data: raw as User,
+    };
   },
 
   async refreshToken(): Promise<ApiResponse<AuthResponse['data']>> {

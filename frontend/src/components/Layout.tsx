@@ -52,7 +52,6 @@ const Layout: React.FC = () => {
       icon: <DashboardOutlined />,
       label: '仪表板',
     },
-    // 将“账单总览”提升为一级目录，位于“仪表板”下方
     {
       key: '/bills',
       icon: <FileTextOutlined />,
@@ -63,12 +62,6 @@ const Layout: React.FC = () => {
       icon: <FileTextOutlined />,
       label: '账单管理',
       children: [
-        // 移除原先的“账单总览”子项
-        // {
-        //   key: '/bills',
-        //   icon: <FileTextOutlined />,
-        //   label: '账单总览',
-        // },
         {
           key: '/upload',
           icon: <UploadOutlined />,
@@ -101,19 +94,19 @@ const Layout: React.FC = () => {
       icon: <SettingOutlined />,
       label: '设置',
     },
-  ];
-
-  // 用户下拉菜单
-  const userMenuItems: MenuProps['items'] = [
     {
-      key: 'profile',
+      key: '/profile',
       icon: <UserOutlined />,
       label: '个人资料',
-      onClick: () => navigate('/settings'),
     },
-    {
-      type: 'divider',
-    },
+  ];
+
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    navigate(key);
+  };
+
+  // 用户头像下拉菜单，仅包含退出登录
+  const userMenuItems: MenuProps['items'] = [
     {
       key: 'logout',
       icon: <LogoutOutlined />,
@@ -125,10 +118,6 @@ const Layout: React.FC = () => {
     },
   ];
 
-  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
-    navigate(key);
-  };
-
   return (
     <AntdLayout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed}>
@@ -139,19 +128,20 @@ const Layout: React.FC = () => {
           justifyContent: collapsed ? 'center' : 'flex-start',
           gap: 12,
         }}>
-          <Dropdown menu={{ items: userMenuItems }} placement="bottomLeft">
-            <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-              <Avatar style={{ backgroundColor: '#1890ff' }}>
-                {user?.full_name?.[0] || user?.username?.[0] || 'U'}
-              </Avatar>
-              {!collapsed && (
-                <div style={{ marginLeft: 8, color: '#fff', display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-                  <span style={{ fontWeight: 600 }}>{user?.full_name || user?.username || '用户'}</span>
-                  <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)' }}>个人中心</span>
-                </div>
-              )}
-            </div>
-          </Dropdown>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <Dropdown menu={{ items: userMenuItems }} placement="bottomLeft">
+              <div style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                <Avatar style={{ backgroundColor: '#1890ff' }}>
+                  {user?.full_name?.[0] || user?.username?.[0] || 'U'}
+                </Avatar>
+                {!collapsed && (
+                  <div style={{ marginLeft: 8, color: '#fff', display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+                    <span style={{ fontWeight: 600 }}>{user?.full_name || user?.username || '用户'}</span>
+                  </div>
+                )}
+              </div>
+            </Dropdown>
+          </div>
         </div>
         <div style={{
           padding: collapsed ? '8px' : '8px 16px',
@@ -187,7 +177,6 @@ const Layout: React.FC = () => {
       </Sider>
       
       <AntdLayout style={{ height: '100vh', overflow: 'hidden' }}>
-        {/* 移除顶部 Header，避免空白占位 */}
         <Content
           style={{
             margin: '0 16px 16px 16px',

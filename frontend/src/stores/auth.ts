@@ -18,6 +18,8 @@ interface AuthActions {
   loadUser: () => Promise<void>;
   clearError: () => void;
   setLoading: (loading: boolean) => void;
+  // 新增：允许手动设置当前用户，便于资料更新后立即刷新 UI
+  setUser: (user: User | null) => void;
 }
 
 export const useAuthStore = create<AuthState & AuthActions>()(
@@ -111,6 +113,7 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             return;
           }
           set({ isLoading: true });
+          // 使用 /auth/me，避免在登录阶段触发管理员依赖的接口
           const response = await AuthService.getCurrentUser();
           const user = response.data;
           UserManager.setUser(user);
@@ -119,12 +122,21 @@ export const useAuthStore = create<AuthState & AuthActions>()(
             isAuthenticated: true,
             isLoading: false,
           });
-          console.log('[loadUser] user loaded', user);
+          console.log('[loadUser] user loaded from /auth/me', user);
         } catch (error: any) {
-          // Token可能已过期
-          get().logout();
+          // 仅在 401 时登出并跳转登录，其它错误保留会话，避免登录后闪退
+          const status = error?.response?.status;
+          if (status === 401) {
+            get().logout();
+          } else {
+            const errorMessage = error.friendlyMessage || 
+                                 error.response?.data?.message || 
+                                 error.response?.data?.detail || 
+                                 '获取用户信息失败，请稍后重试';
+            set({ error: errorMessage });
+          }
           set({ isLoading: false });
-          console.log('[loadUser] error, logout');
+          console.log('[loadUser] error', status, error?.response?.data);
         }
       },
 
@@ -134,6 +146,18 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       setLoading: (loading: boolean) => {
         set({ isLoading: loading });
+      },
+
+      // 新增：手动设置当前用户（会同步到本地缓存），用于个人资料更新后立即刷新展示
+      setUser: (nextUser: User | null) => {
+        if (nextUser) {
+          UserManager.setUser(nextUser);
+          set({ user: nextUser });
+        } else {
+          // 不清除 token，仅更新用户信息为空；真正退出登录应调用 logout()
+          UserManager.setUser(null as any);
+          set({ user: null });
+        }
       },
     }),
     {
