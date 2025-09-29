@@ -117,7 +117,7 @@ export interface BillListQueryParams {
   page?: number;
   size?: number;
   family_id?: number;
-  user_id?: number;
+  user_id?: number | number[];
   // 支持单选或多选分类
   category_id?: number | number[];
   // 支持单选或多选交易类型

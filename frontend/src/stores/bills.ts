@@ -25,6 +25,8 @@ interface BillsState {
   isLoading: boolean;
   error: string | null;
   lastUpdatedAt: number; // 新增：数据最后更新时间戳
+  // --- 新增：仪表板范围（个人/家庭） ---
+  dashboardScope: 'personal' | 'family';
   // --- 新增：年度图表共享控制 ---
   yearlyChartYear: number;
   yearlyChartType: 'line' | 'bar';
@@ -45,9 +47,9 @@ interface BillsActions {
   fetchCategories: () => Promise<void>;
   createCategory: (categoryData: { name: string; category_type: 'income' | 'expense'; description?: string }) => Promise<void>;
   
-  // 统计操作
-  fetchStats: (params?: { family_id?: number; start_date?: string; end_date?: string }) => Promise<void>;
-  fetchCategoryStats: (params?: { family_id?: number; start_date?: string; end_date?: string }) => Promise<void>;
+  // 统计操作（增加 scope）
+  fetchStats: (params?: { family_id?: number; start_date?: string; end_date?: string; scope?: 'personal' | 'family' }) => Promise<void>;
+  fetchCategoryStats: (params?: { family_id?: number; start_date?: string; end_date?: string; scope?: 'personal' | 'family' }) => Promise<void>;
   
   // 查询参数管理
   setQueryParams: (params: Partial<BillListQueryParams>) => void;
@@ -58,6 +60,8 @@ interface BillsActions {
   setLoading: (loading: boolean) => void;
   resetState: () => void;
   
+  // --- 新增：仪表板范围设置 ---
+  setDashboardScope: (scope: 'personal' | 'family') => void;
   // --- 新增：年度图表共享控制 ---
   setYearlyChartYear: (year: number) => void;
   setYearlyChartType: (type: 'line' | 'bar') => void;
@@ -93,6 +97,8 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   isLoading: false,
   error: null,
   lastUpdatedAt: Date.now(),
+  // --- 新增：仪表板范围（默认个人） ---
+  dashboardScope: 'personal',
   // --- 新增：年度图表共享控制 ---
   yearlyChartYear: new Date().getFullYear(),
   yearlyChartType: 'line',
@@ -278,9 +284,9 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   fetchStats: async (params) => {
     try {
-      const raw = await BillService.getBillStats(params);
+      const scope = params?.scope ?? get().dashboardScope;
+      const raw = await BillService.getBillStats({ ...(params || {}), scope });
 
-      // 计算 period 字符串
       const period = (() => {
         if (params?.start_date && params?.end_date) return `${params.start_date} ~ ${params.end_date}`;
         if (params?.start_date) return `${params.start_date} ~ 今`;
@@ -308,7 +314,8 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   fetchCategoryStats: async (params) => {
     try {
-      const response = await BillService.getCategoryStats(params);
+      const scope = params?.scope ?? get().dashboardScope;
+      const response = await BillService.getCategoryStats({ ...(params || {}), scope });
       set({ categoryStats: response.data });
     } catch (error: any) {
       const errorMessage = error.friendlyMessage || 
@@ -321,39 +328,39 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   setQueryParams: (params: Partial<BillListQueryParams>) => {
     const currentParams = get().queryParams;
-    const newParams = { ...currentParams, ...params };
-    set({ queryParams: newParams });
+    set({ queryParams: { ...currentParams, ...params } });
   },
-
   resetQueryParams: () => {
     set({ queryParams: initialQueryParams });
   },
 
-  clearError: () => {
-    set({ error: null });
-  },
-
-  setLoading: (loading: boolean) => {
-    set({ isLoading: loading });
-  },
-
+  clearError: () => set({ error: null }),
+  setLoading: (loading: boolean) => set({ isLoading: loading }),
   resetState: () => set({
     bills: [],
-    currentBill: null,
+    categories: [],
     stats: null,
     categoryStats: [],
-    pagination: { page: 1, size: 10, total: 0, pages: 0 },
+    currentBill: null,
+    pagination: { total: 0, page: 1, size: 10, pages: 0 },
     queryParams: initialQueryParams,
+    isLoading: false,
     error: null,
+    lastUpdatedAt: Date.now(),
   }),
+
+  // --- 新增：仪表板范围设置 ---
+  setDashboardScope: (scope) => set({ dashboardScope: scope }),
 
   // --- 新增：年度图表共享控制 ---
   setYearlyChartYear: (year: number) => set({ yearlyChartYear: year }),
   setYearlyChartType: (type: 'line' | 'bar') => set({ yearlyChartType: type }),
+
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => set({ monthlyChartYear: year }),
   setMonthlyChartMonth: (month: number) => set({ monthlyChartMonth: month }),
 
+  // 批量更新账单（补回）
   batchUpdateBills: async (ids: number[], updateData: { amount?: number; transaction_type?: 'income' | 'expense' | 'transfer'; transaction_desc?: string; category_id?: number; remark?: string }) => {
     try {
       set({ isLoading: true, error: null });

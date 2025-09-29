@@ -106,6 +106,8 @@ const App: React.FC = () => {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
+              {/* 新增家庭仪表板路由 */}
+              <Route path="family-dashboard" element={<DashboardPage />} />
               <Route path="bills" element={<BillsPage />} />
               <Route path="upload" element={<UploadPage />} />
               {/* 统计分析页面已移除 */}

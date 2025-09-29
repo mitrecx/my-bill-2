@@ -6,6 +6,7 @@ import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bi
 import { useBillsStore } from '../stores/bills';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
+import { useAuthStore } from '../stores/auth';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -31,6 +32,7 @@ const YearlyExpenseChart: React.FC = () => {
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
   const setQueryParams = useBillsStore(s => s.setQueryParams);
   const resetQueryParams = useBillsStore(s => s.resetQueryParams);
+  const dashboardScope = useBillsStore(s => s.dashboardScope);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
@@ -39,13 +41,14 @@ const YearlyExpenseChart: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const loadChartData = async (year: number) => {
       setLoading(true);
       setError(null);
       try {
-        const response = await BillService.getYearlyExpenseChart(year);
+        const response = await BillService.getYearlyExpenseChart(year, dashboardScope);
         if (response.success && response.data) {
           const data = response.data as YearlyExpenseChartResponse;
           // ECharts可以很好地处理null/undefined，但我们最好还是做一下清洗
@@ -72,7 +75,7 @@ const YearlyExpenseChart: React.FC = () => {
     };
 
     loadChartData(selectedYear);
-  }, [selectedYear]);
+  }, [selectedYear, dashboardScope]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
@@ -160,6 +163,8 @@ const YearlyExpenseChart: React.FC = () => {
         end_date: end.format('YYYY-MM-DD'),
         transaction_type: ['income', 'expense'],
         category_id: undefined,
+        // 若为个人仪表盘，自动限定为当前用户
+        user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
         page: 1,
         size: 10,
       });

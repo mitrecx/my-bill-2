@@ -68,6 +68,9 @@ async def get_bills(
     # 支持多选来源：同时兼容 source_type=a&source_type=b 以及 source_type[]=a&source_type[]=b 两种形式
     source_type: Optional[List[str]] = Query(None, description="来源类型筛选（可多选）"),
     source_type_brackets: Optional[List[str]] = Query(None, alias="source_type[]", description="来源类型筛选（可多选，方括号数组形式）"),
+    # 新增：支持多选家庭成员用户ID：兼容 user_id=1&user_id=2 以及 user_id[]=1&user_id[]=2 两种形式
+    user_id: Optional[List[int]] = Query(None, description="成员用户ID筛选（可多选）"),
+    user_id_brackets: Optional[List[int]] = Query(None, alias="user_id[]", description="成员用户ID筛选（可多选，方括号数组形式）"),
 
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
@@ -89,6 +92,21 @@ async def get_bills(
             joinedload(Bill.category),
             joinedload(Bill.user)
         ).filter(Bill.user_id.in_(family_user_ids))
+
+        # 新增：按选择的成员进一步过滤（限家庭范围）
+        merged_user_ids: Optional[List[int]] = None
+        if user_id:
+            merged_user_ids = user_id
+        if user_id_brackets:
+            merged_user_ids = (merged_user_ids or []) + user_id_brackets
+        if merged_user_ids is not None:
+            # 仅允许筛选家庭范围内的用户ID
+            selected_ids = [uid for uid in merged_user_ids if uid in family_user_ids]
+            if selected_ids:
+                query = query.filter(Bill.user_id.in_(selected_ids))
+            else:
+                # 若选择的成员均不在家庭范围，则返回空集
+                query = query.filter(Bill.user_id.in_([]))
         
         # 应用筛选条件
         # 合并两种形式的分类参数
@@ -462,16 +480,17 @@ async def get_finance_summary_batch(
 async def get_bill_stats(
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
+    scope: str = Query("family", regex="^(personal|family)$", description="统计范围：personal|family"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取账单统计数据"""
     try:
-        # 获取家庭成员用户ID集合
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 根据 scope 选择目标用户ID集合
+        target_user_ids = [current_user.id] if scope == "personal" else await get_user_family_members(current_user, db)
 
         # 基础查询
-        q = db.query(Bill).filter(Bill.user_id.in_(family_user_ids))
+        q = db.query(Bill).filter(Bill.user_id.in_(target_user_ids))
 
         if start_date:
             q = q.filter(Bill.transaction_time >= start_date)
@@ -522,13 +541,14 @@ async def get_bill_stats(
 async def get_category_stats(
     start_date: Optional[date] = Query(None, description="开始日期"),
     end_date: Optional[date] = Query(None, description="结束日期"),
+    scope: str = Query("family", regex="^(personal|family)$", description="统计范围：personal|family"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取支出分类统计（用于分类饼图）"""
     try:
-        # 获取家庭成员用户ID集合
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 根据 scope 选择目标用户ID集合
+        target_user_ids = [current_user.id] if scope == "personal" else await get_user_family_members(current_user, db)
 
         # 基础查询：仅统计支出
         q = db.query(
@@ -539,7 +559,7 @@ async def get_category_stats(
         ).join(Bill, Bill.category_id == BillCategory.id)
         
         q = q.filter(
-            Bill.user_id.in_(family_user_ids),
+            Bill.user_id.in_(target_user_ids),
             Bill.transaction_type == "支出",
             BillCategory.is_deleted == False
         )
@@ -587,6 +607,7 @@ async def get_category_stats(
 @router.get("/yearly-expense-chart", response_model=ApiResponse[YearlyExpenseChartResponse])
 async def get_yearly_expense_chart(
     year: Optional[int] = Query(None, description="年份，默认为当前年份"),
+    scope: str = Query("family", regex="^(personal|family)$", description="统计范围：personal|family"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -602,14 +623,15 @@ async def get_yearly_expense_chart(
                 detail=f"年份必须在2000到{current_year + 1}之间"
             )
         
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 根据 scope 选择目标用户ID集合
+        target_user_ids = [current_user.id] if scope == "personal" else await get_user_family_members(current_user, db)
         
         # 查询月度支出
         monthly_expense_data = db.query(
             func.extract('month', Bill.transaction_time).label('month'),
             func.sum(Bill.amount).label('total_amount')
         ).filter(
-            Bill.user_id.in_(family_user_ids),
+            Bill.user_id.in_(target_user_ids),
             Bill.transaction_type == "支出",
             func.extract('year', Bill.transaction_time) == year
         ).group_by(func.extract('month', Bill.transaction_time)).all()
@@ -619,7 +641,7 @@ async def get_yearly_expense_chart(
             func.extract('month', Bill.transaction_time).label('month'),
             func.sum(Bill.amount).label('total_amount')
         ).filter(
-            Bill.user_id.in_(family_user_ids),
+            Bill.user_id.in_(target_user_ids),
             Bill.transaction_type == "收入",
             func.extract('year', Bill.transaction_time) == year
         ).group_by(func.extract('month', Bill.transaction_time)).all()
@@ -679,6 +701,7 @@ async def get_yearly_expense_chart(
 async def get_monthly_expense_trend(
     year: Optional[int] = Query(None, description="年份，默认为当前年"),
     month: Optional[int] = Query(None, description="月份(1-12)，默认当前月"),
+    scope: str = Query("family", regex="^(personal|family)$", description="统计范围：personal|family"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -700,7 +723,8 @@ async def get_monthly_expense_trend(
         else:
             end_dt = date(year, month + 1, 1)
 
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 根据 scope 选择目标用户ID集合
+        target_user_ids = [current_user.id] if scope == "personal" else await get_user_family_members(current_user, db)
 
         # 按日聚合支出金额
         day_expr = func.date_trunc('day', Bill.transaction_time).label('day_start')
@@ -712,7 +736,7 @@ async def get_monthly_expense_trend(
             day_expr,
             amount_expr,
         ).filter(
-            Bill.user_id.in_(family_user_ids),
+            Bill.user_id.in_(target_user_ids),
             Bill.transaction_time >= start_dt,
             Bill.transaction_time < end_dt,
         ).group_by(day_expr).order_by(day_expr.asc()).all()
@@ -743,13 +767,20 @@ async def get_monthly_expense_trend(
             total_month_expense=float(total_dec.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
         )
 
-        return ApiResponse[MonthlyExpenseTrendResponse](data=resp, success=True, message="获取月度支出趋势成功")
+        return ApiResponse[MonthlyExpenseTrendResponse](
+            data=resp,
+            success=True,
+            message="获取月度支出趋势成功"
+        )
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"获取月度支出趋势失败: {e}")
-        raise HTTPException(status_code=500, detail="获取月度支出趋势失败")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取月度支出趋势失败"
+        )
 
 
 @router.get("/categories", response_model=ApiResponse[List[BillCategoryResponse]])

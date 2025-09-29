@@ -4,6 +4,9 @@ import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
+import { useNavigate } from 'react-router-dom'
+import dayjs from 'dayjs'
+import { useAuthStore } from '../stores/auth'
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -27,6 +30,7 @@ const YearlyProfitChart: React.FC = () => {
   const selectedYear = useBillsStore(s => s.yearlyChartYear);
   const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
+  const dashboardScope = useBillsStore(s => s.dashboardScope);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalProfit, setTotalProfit] = useState<number>(0);
@@ -38,7 +42,7 @@ const YearlyProfitChart: React.FC = () => {
       setLoading(true);
       setError(null);
       try {
-        const response = await BillService.getYearlyExpenseChart(year);
+        const response = await BillService.getYearlyExpenseChart(year, dashboardScope);
         if (response.success && response.data) {
           const data = response.data as YearlyExpenseChartResponse;
           // 计算净收益数据
@@ -66,7 +70,7 @@ const YearlyProfitChart: React.FC = () => {
     };
 
     loadChartData(selectedYear);
-  }, [selectedYear]);
+  }, [selectedYear, dashboardScope]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
 
@@ -177,6 +181,42 @@ const YearlyProfitChart: React.FC = () => {
     };
   }, [chartData, chartType]);
 
+  // 在组件内部，补充导航与筛选参数设置
+  const setQueryParams = useBillsStore(s => s.setQueryParams);
+  const resetQueryParams = useBillsStore(s => s.resetQueryParams);
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+
+  const handleChartClick = (params: any) => {
+    try {
+      const index: number | undefined = params?.dataIndex;
+      if (index === undefined || index === null) return;
+      const item = chartData[index];
+      if (!item) return;
+      const month = item.month; // 1-12
+      const year = selectedYear;
+      const start = dayjs(`${year}-${String(month).padStart(2, '0')}-01`);
+      const end = start.endOf('month');
+
+      // 清空与当前查询无关的条件，仅保留本次跳转相关参数
+      resetQueryParams();
+      setQueryParams({
+        start_date: start.format('YYYY-MM-DD'),
+        end_date: end.format('YYYY-MM-DD'),
+        transaction_type: ['income', 'expense'],
+        category_id: undefined,
+        // 若为个人仪表盘，自动限定为当前用户
+        user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
+        page: 1,
+        size: 10,
+      });
+
+      navigate('/bills');
+    } catch (err) {
+      console.error('处理年度收益图点击失败: ', err);
+    }
+  };
+
   return (
     <Card>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -206,7 +246,7 @@ const YearlyProfitChart: React.FC = () => {
       ) : error ? (
         <Alert message="错误" description={error} type="error" showIcon />
       ) : (
-        <ReactECharts option={getChartOption} style={{ height: 300 }} notMerge={true} lazyUpdate={true} />
+        <ReactECharts option={getChartOption} style={{ height: 300 }} notMerge={true} lazyUpdate={true} onEvents={{ click: handleChartClick }} />
       )}
     </Card>
   );

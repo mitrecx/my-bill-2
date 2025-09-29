@@ -6,6 +6,7 @@ import { BillService } from '../api/services';
 import type { CategoryStats } from '../types';
 import { useBillsStore } from '../stores/bills';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/auth';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -21,12 +22,13 @@ const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseCategoryChart: React.FC = () => {
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams, dashboardScope } = useBillsStore();
   const [data, setData] = useState<CategoryStats[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const load = async () => {
@@ -38,6 +40,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
         const resp = await BillService.getCategoryStats({
           start_date: start.format('YYYY-MM-DD'),
           end_date: end.format('YYYY-MM-DD'),
+          scope: dashboardScope,
         });
         if (resp.success && Array.isArray(resp.data)) {
           const list = (resp.data as CategoryStats[]) || [];
@@ -58,7 +61,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
       }
     };
     load();
-  }, [monthlyChartYear, monthlyChartMonth]);
+  }, [monthlyChartYear, monthlyChartMonth, dashboardScope]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
@@ -159,6 +162,8 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
         transaction_type: 'expense',
         start_date: start.format('YYYY-MM-DD'),
         end_date: end.format('YYYY-MM-DD'),
+        // 若为个人仪表盘，自动限定为当前用户
+        user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
         page: 1,
         size: 10,
       });

@@ -11,27 +11,39 @@ import YearlyExpenseChart from '../components/YearlyExpenseChart';
 import YearlyProfitChart from '../components/YearlyProfitChart';
 import MonthlyExpenseTrendChart from '../components/MonthlyExpenseTrendChart';
 import MonthlyExpenseCategoryChart from '../components/MonthlyExpenseCategoryChart';
+import { useLocation } from 'react-router-dom';
+import { Typography } from 'antd';
 
-// const { Title } = Typography;
+const { Title } = Typography;
 
 const DashboardPage: React.FC = () => {
   const { 
     stats, 
     fetchStats, 
-    error 
+    error,
+    setDashboardScope,
+    dashboardScope,
   } = useBillsStore();
-
-
+  const location = useLocation();
 
   useEffect(() => {
-    // 加载统计数据
-    fetchStats();
-  }, [fetchStats]);
+    // 根据路由设置 scope
+    const isFamily = location.pathname.includes('family-dashboard');
+    setDashboardScope(isFamily ? 'family' : 'personal');
+  }, [location.pathname, setDashboardScope]);
 
-
+  useEffect(() => {
+    // 加载统计数据（跟随 scope 变化）
+    fetchStats({ scope: dashboardScope });
+  }, [fetchStats, dashboardScope]);
 
   return (
     <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>
+          {dashboardScope === 'personal' ? '个人仪表板' : '家庭仪表板'}
+        </Title>
+      </div>
 
       {error && (
         <Alert

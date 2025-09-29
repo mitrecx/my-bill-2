@@ -6,6 +6,7 @@ import { BillService } from '../api/services';
 import type { MonthlyExpenseTrendResponse, DailyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/auth';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -21,20 +22,21 @@ const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseTrendChart: React.FC = () => {
   const [chartType, setChartType] = useState<'line' | 'bar'>('line');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams, dashboardScope } = useBillsStore();
   const [data, setData] = useState<DailyExpenseItem[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const resp = await BillService.getMonthlyExpenseTrend({ year: monthlyChartYear, month: monthlyChartMonth });
+        const resp = await BillService.getMonthlyExpenseTrend({ year: monthlyChartYear, month: monthlyChartMonth, scope: dashboardScope });
         if (resp.success && resp.data) {
           const payload = resp.data as MonthlyExpenseTrendResponse;
           setData(payload.days || []);
@@ -52,7 +54,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       }
     };
     load();
-  }, [monthlyChartYear, monthlyChartMonth]);
+  }, [monthlyChartYear, monthlyChartMonth, dashboardScope]);
 
   const yearOptions = useMemo(() => generateYearOptions(), []);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
@@ -149,6 +151,8 @@ const MonthlyExpenseTrendChart: React.FC = () => {
         end_date: date.format('YYYY-MM-DD'),
         transaction_type: 'expense',
         category_id: undefined,
+        // 若为个人仪表盘，自动限定为当前用户
+        user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
         page: 1,
         size: 10,
       });

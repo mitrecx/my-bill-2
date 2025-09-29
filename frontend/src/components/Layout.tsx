@@ -50,7 +50,13 @@ const Layout: React.FC = () => {
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
-      label: '仪表板',
+      label: '个人仪表板',
+    },
+    // 新增：家庭仪表板入口
+    {
+      key: '/family-dashboard',
+      icon: <DashboardOutlined />,
+      label: '家庭仪表板',
     },
     {
       key: '/bills',

@@ -26,6 +26,7 @@ import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import { ClassificationRuleService } from '../api/services';
 import type { SourceTypeOption } from '../types';
+import { useFamilyStore } from '../stores/family';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -46,6 +47,20 @@ const BillsPage: React.FC = () => {
     setQueryParams,
     batchUpdateBills,
   } = useBillsStore();
+  // 新增：家庭成员 store
+  const { members, currentFamily, fetchFamilyMembers, loading: familyLoading, fetchFamilies } = useFamilyStore();
+  // 页面初始化：如无当前家庭，主动加载家庭列表
+  useEffect(() => {
+    if (!currentFamily) {
+      fetchFamilies();
+    }
+  }, [currentFamily, fetchFamilies]);
+  // 当当前家庭变化时，加载成员列表
+  useEffect(() => {
+    if (currentFamily?.id) {
+      fetchFamilyMembers(currentFamily.id);
+    }
+  }, [currentFamily?.id, fetchFamilyMembers]);
 
   const [searchText, setSearchText] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
@@ -210,6 +225,8 @@ const BillsPage: React.FC = () => {
       end_date: undefined,
       min_amount: undefined,
       max_amount: undefined,
+      // 新增：重置成员筛选
+      user_id: undefined,
     });
   };
 
@@ -421,6 +438,31 @@ const BillsPage: React.FC = () => {
               {categories.map(category => (
                 <Option key={category.id} value={category.id}>
                   {category.name}
+                </Option>
+              ))}
+            </Select>
+          </Space>
+
+          {/* 新增：家庭成员筛选 */}
+          <Space align="center">
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>家庭成员：</Text>
+            <Select
+              placeholder="请选择"
+              style={{ width: 240 }}
+              mode="multiple"
+              allowClear
+              maxTagCount={2}
+              size="small"
+              loading={familyLoading}
+              value={Array.isArray(queryParams.user_id)
+                ? queryParams.user_id
+                : (typeof queryParams.user_id === 'number' ? [queryParams.user_id] : undefined)}
+              onChange={(values) => handleFilter('user_id', values)}
+              notFoundContent={familyLoading ? '加载中...' : '暂无成员'}
+            >
+              {members.map(m => (
+                <Option key={m.user_id} value={m.user_id}>
+                  {m.user?.full_name || m.user?.username || `用户#${m.user_id}`}
                 </Option>
               ))}
             </Select>

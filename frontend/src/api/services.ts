@@ -199,13 +199,15 @@ export const BillService = {
 
   // NOTE: 后端 /bills/stats 返回的是裸 BillStatsResponse，而非 ApiResponse 包裹
   // 返回 any 以便在 store 中进行字段映射到 BillStats
-  async getBillStats(params?: { family_id?: number; start_date?: string; end_date?: string }): Promise<any> {
-    const resp = await ApiClient.get<any>(API_ENDPOINTS.BILLS.STATS, { params });
+  async getBillStats(params?: { family_id?: number; start_date?: string; end_date?: string; scope?: 'personal' | 'family' }): Promise<any> {
+    const finalParams = { scope: 'family', ...(params || {}) };
+    const resp = await ApiClient.get<any>(API_ENDPOINTS.BILLS.STATS, { params: finalParams });
     return resp; // 返回原始数据供前端映射
   },
 
-  async getCategoryStats(params?: { family_id?: number; start_date?: string; end_date?: string }) {
-    const response = await ApiClient.get<CategoryStats[]>(`${API_ENDPOINTS.BILLS.STATS}/categories`, { params });
+  async getCategoryStats(params?: { family_id?: number; start_date?: string; end_date?: string; scope?: 'personal' | 'family' }) {
+    const finalParams = { scope: 'family', ...(params || {}) };
+    const response = await ApiClient.get<CategoryStats[]>(`${API_ENDPOINTS.BILLS.STATS}/categories`, { params: finalParams });
     return response;
   },
 
@@ -227,15 +229,16 @@ export const BillService = {
   },
 
   // 获取年度支出图表数据
-  async getYearlyExpenseChart(year?: number) {
-    const params = year ? { year } : {};
+  async getYearlyExpenseChart(year?: number, scope: 'personal' | 'family' = 'family') {
+    const params = { ...(year ? { year } : {}), scope };
     const response = await ApiClient.get<any>(API_ENDPOINTS.BILLS.YEARLY_EXPENSE_CHART, { params });
     return response;
   },
 
   // 获取月度支出趋势（按日）
-  async getMonthlyExpenseTrend(params?: { year?: number; month?: number }) {
-    const response = await ApiClient.get<MonthlyExpenseTrendResponse>(API_ENDPOINTS.BILLS.MONTHLY_EXPENSE_TREND, { params });
+  async getMonthlyExpenseTrend(params?: { year?: number; month?: number; scope?: 'personal' | 'family' }) {
+    const finalParams = { scope: 'family', ...(params || {}) };
+    const response = await ApiClient.get<MonthlyExpenseTrendResponse>(API_ENDPOINTS.BILLS.MONTHLY_EXPENSE_TREND, { params: finalParams });
     return response;
   },
 };
