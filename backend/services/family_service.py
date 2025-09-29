@@ -43,6 +43,11 @@ class FamilyService:
 
         return family
 
+    # 新增：兼容 API 层的 create_family 调用
+    def create_family(self, family_data: FamilyCreate, creator_id: int) -> Family:
+        invite_usernames = getattr(family_data, "invite_usernames", None)
+        return self.create_family_with_invites(family_data, creator_id, invite_usernames)
+
     def send_family_invites(self, family_id: int, inviter_id: int, usernames: List[str]):
         """发送家庭邀请"""
         family = self.db.query(Family).filter(Family.id == family_id).first()
@@ -178,7 +183,7 @@ class FamilyService:
             and_(FamilyMember.family_id == family_id, FamilyMember.user_id == user_id)
         ).first()
         
-        return member and member.role == "admin"
+        return bool(member and member.role == "admin")
 
     def get_user_families(self, user_id: int) -> List[Family]:
         """获取用户所属的所有家庭"""
@@ -193,3 +198,59 @@ class FamilyService:
         # 查询所有相关的家庭实体
         families = self.db.query(Family).filter(Family.id.in_(family_ids)).all()
         return families
+
+    # 新增：获取指定家庭的成员列表（带权限检查）
+    def get_family_members(self, family_id: int, user_id: int) -> Optional[List[FamilyMember]]:
+        """获取家庭成员列表，只有家庭成员才有权限查看"""
+        # 检查当前用户是否属于该家庭
+        membership = self.db.query(FamilyMember).filter(
+            and_(FamilyMember.family_id == family_id, FamilyMember.user_id == user_id)
+        ).first()
+        if not membership:
+            return None
+
+        members = (
+            self.db.query(FamilyMember)
+            .filter(FamilyMember.family_id == family_id)
+            .all()
+        )
+        return members
+
+    # 新增：更新家庭信息（仅管理员或创建者）
+    def update_family(self, family_id: int, family_data, user_id: int) -> Optional[Family]:
+        family = self.db.query(Family).filter(Family.id == family_id).first()
+        if not family:
+            return None
+        # 权限：管理员或创建者
+        is_admin = self.is_family_admin(family_id, user_id)
+        if not is_admin and family.created_by != user_id:
+            return None
+
+        # 兼容 Pydantic 模型与 dict 两种输入
+        if hasattr(family_data, "model_dump"):
+            update_data = family_data.model_dump(exclude_unset=True)
+        elif isinstance(family_data, dict):
+            update_data = {k: v for k, v in family_data.items() if v is not None}
+        else:
+            update_data = {}
+
+        if "family_name" in update_data and update_data["family_name"] is not None:
+            family.family_name = update_data["family_name"]
+        if "description" in update_data and update_data["description"] is not None:
+            family.description = update_data["description"]
+        self.db.commit()
+        self.db.refresh(family)
+        return family
+
+    # 新增：删除家庭（仅创建者或管理员）
+    def delete_family(self, family_id: int, user_id: int) -> bool:
+        family = self.db.query(Family).filter(Family.id == family_id).first()
+        if not family:
+            return False
+        is_admin = self.is_family_admin(family_id, user_id)
+        if not is_admin and family.created_by != user_id:
+            return False
+        # 删除家庭将级联删除成员
+        self.db.delete(family)
+        self.db.commit()
+        return True

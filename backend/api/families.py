@@ -84,7 +84,20 @@ async def list_family_members(
             id=member.id,
             user_id=member.user_id,
             role=member.role,
-            username=member.user.username if member.user else "未知用户"
+            joined_at=member.joined_at,
+            user=(
+                UserResponse(
+                    id=member.user.id,
+                    username=member.user.username,
+                    full_name=member.user.full_name,
+                    email=member.user.email,
+                    is_active=member.user.is_active,
+                    is_admin=member.user.is_admin,
+                    created_at=member.user.created_at,
+                    family_name=None,
+                    family_role=member.role,
+                ) if member.user else None
+            ),
         )
         for member in members
     ]

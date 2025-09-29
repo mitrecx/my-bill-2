@@ -12,12 +12,12 @@ export interface FamilyMember {
   family_id: number;
   user_id: number;
   role: 'admin' | 'member';
-  created_at: string;
-  user: {
+  joined_at: string; // 对应后端 FamilyMemberResponse.joined_at
+  user?: {
     id: number;
     username: string;
     full_name?: string;
-    email: string;
+    email?: string;
   };
 }
 

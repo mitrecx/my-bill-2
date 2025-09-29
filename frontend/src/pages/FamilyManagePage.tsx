@@ -231,6 +231,7 @@ const FamilyManagePage: React.FC = () => {
       title: '用户名',
       dataIndex: ['user', 'username'],
       key: 'username',
+      render: (text: string) => text || '-',
     },
     {
       title: '姓名',
@@ -250,9 +251,9 @@ const FamilyManagePage: React.FC = () => {
     },
     {
       title: '加入时间',
-      dataIndex: 'created_at',
-      key: 'created_at',
-      render: (date: string) => new Date(date).toLocaleDateString(),
+      dataIndex: 'joined_at',
+      key: 'joined_at',
+      render: (date: string) => (date ? new Date(date).toLocaleDateString() : '-'),
     },
   ];
 

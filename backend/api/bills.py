@@ -21,16 +21,16 @@ from schemas.bills import (
     BillCategoryCreate,
     BillCategoryUpdate,
     BillCategoryResponse,
-    ApiResponse,
     FinanceSummaryResponse,
     CategoryStatsItem,
     YearlyExpenseChartResponse,
     MonthlyExpenseItem,
-    DailyExpenseItem,            # 新增
-    MonthlyExpenseTrendResponse, # 新增
-    BillBatchUpdateRequest       # 新增：批量更新请求模型
+    DailyExpenseItem,
+    MonthlyExpenseTrendResponse,
+    BillBatchUpdateRequest
 )
 from services.ai_classification_service import ai_classification_service
+from schemas.common import ApiResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bills", tags=["bills"])
