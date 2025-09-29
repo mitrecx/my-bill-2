@@ -191,7 +191,10 @@ const BillsPage: React.FC = () => {
         // 创建账单 - 添加必要字段
         const createData = {
           ...values,
-          transaction_time: values.transaction_time || new Date(),
+          // DatePicker 返回 Dayjs；转换为 ISO 字符串以兼容后端 datetime
+          transaction_time: values.transaction_time
+            ? values.transaction_time.toDate().toISOString()
+            : new Date().toISOString(),
           source_type: values.source_type || 'manual',
         };
         await createBill(createData);
@@ -628,7 +631,8 @@ const BillsPage: React.FC = () => {
             })(),
             remark: editingBill.remark ?? editingBill.raw_data?.remark ?? '',
           } : {
-            transaction_time: new Date(),
+            // AntD v5 使用 Dayjs：默认值改为 dayjs()
+            transaction_time: dayjs(),
             source_type: 'manual',
           }}
         >
