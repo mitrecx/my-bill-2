@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
+import { SOFT_RED, SOFT_RED_AREA, SOFT_GREEN, SOFT_GREEN_AREA } from '../utils/colors';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
@@ -121,10 +122,10 @@ const YearlyExpenseChart: React.FC = () => {
           data: chartData.map(item => item.amount),
           smooth: false,
           itemStyle: {
-            color: '#C72600' // 支出使用红色
+            color: SOFT_RED // 支出使用柔和红
           },
           areaStyle: chartType === 'line' ? {
-            color: 'rgba(242, 46, 49, 0.2)'
+            color: SOFT_RED_AREA
           } : undefined,
         },
         {
@@ -133,10 +134,10 @@ const YearlyExpenseChart: React.FC = () => {
           data: chartData.map(item => item.income),
           smooth: false,
           itemStyle: {
-            color: '#009612' // 收入使用绿色
+            color: SOFT_GREEN // 收入使用柔和绿
           },
           areaStyle: chartType === 'line' ? {
-            color: 'rgba(78, 255, 54, 0.2)'
+            color: SOFT_GREEN_AREA
           } : undefined,
         }
       ]

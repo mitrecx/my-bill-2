@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
+import { SOFT_RED, SOFT_RED_AREA } from '../utils/colors';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { MonthlyExpenseTrendResponse, DailyExpenseItem } from '../types/bills';
@@ -78,15 +79,15 @@ const MonthlyExpenseTrendChart: React.FC = () => {
           smooth: false,
           symbol: 'circle',
           connectNulls: true,
-          lineStyle: { color: '#cf1322' },
-          itemStyle: { color: '#cf1322' },
-          areaStyle: { color: 'rgba(207, 19, 34, 0.15)' },
+          lineStyle: { color: SOFT_RED },
+          itemStyle: { color: SOFT_RED },
+          areaStyle: { color: SOFT_RED_AREA },
         }]
       : [{
           name: '日支出',
           type: 'bar',
           data: y,
-          itemStyle: { color: '#cf1322' },
+          itemStyle: { color: SOFT_RED },
         }];
 
     const monthStr = `${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}`;

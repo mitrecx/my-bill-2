@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
+import { SOFT_RED } from '../utils/colors';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { CategoryStats } from '../types';
@@ -76,7 +77,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
           trigger: 'item',
           formatter: (p: any) => {
             const amt = typeof p.value === 'number' ? p.value.toFixed(2) : p.value;
-            return `${p.name}<br/>金额：<strong style="color:#cf1322">¥${amt}</strong><br/>占比：${p.percent}%`;
+            return `${p.name}<br/>金额：<strong style="color:${SOFT_RED}">¥${amt}</strong><br/>占比：${p.percent}%`;
           },
         },
         legend: {
@@ -130,7 +131,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
           name: '支出金额',
           type: 'bar',
           data: values,
-          itemStyle: { color: '#cf1322' },
+          itemStyle: { color: SOFT_RED },
           barMaxWidth: 36,
         },
       ],

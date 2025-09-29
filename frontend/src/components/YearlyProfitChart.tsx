@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
+import { SOFT_RED, SOFT_GREEN, SOFT_RED_AREA, SOFT_GREEN_AREA } from '../utils/colors';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
@@ -113,7 +114,7 @@ const YearlyProfitChart: React.FC = () => {
             smooth: false,
             symbol: 'circle',
             itemStyle: {
-              color: (params: any) => (params.value >= 0 ? '#009612' : '#C72600'),
+              color: (params: any) => (params.value >= 0 ? SOFT_GREEN : SOFT_RED),
             },
             lineStyle: { color: '#722ED1' },
             z: 3,
@@ -134,7 +135,7 @@ const YearlyProfitChart: React.FC = () => {
             type: 'bar',
             data: profits,
             itemStyle: {
-              color: (params: any) => (params.value >= 0 ? '#009612' : '#C72600'),
+              color: (params: any) => (params.value >= 0 ? SOFT_GREEN : SOFT_RED),
             },
             markLine: {
               data: [
@@ -154,7 +155,7 @@ const YearlyProfitChart: React.FC = () => {
         formatter: (params: any[]) => {
           const p = Array.isArray(params) ? params.find((x: any) => x.seriesName === '净收益') || params[0] : params;
           const value = typeof p.value === 'number' ? p.value.toFixed(2) : '0.00';
-          const color = (p.value ?? 0) >= 0 ? '#009612' : '#C72600';
+          const color = (p.value ?? 0) >= 0 ? SOFT_GREEN : SOFT_RED;
           return `${p.name}<br/>净收益: <strong style="color: ${color}">¥${value}</strong>`;
         },
       },

@@ -106,7 +106,7 @@ const Layout: React.FC = () => {
     {
       key: '/settings',
       icon: <SettingOutlined />,
-      label: '设置',
+      label: '系统设置',
     },
   ];
 
