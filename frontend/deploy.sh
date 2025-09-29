@@ -71,7 +71,8 @@ else
 fi
 
 echo "2. 构建前端项目..."
-npm run build
+# 注入生产环境变量，确保前端指向生产API
+VITE_USE_PROD_API=true npm run build
 
 echo "3. 压缩构建文件..."
 cd dist
