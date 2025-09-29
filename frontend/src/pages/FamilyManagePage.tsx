@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { useFamilyStore } from '../stores/family';
 import type { Family } from '../types';
+import { useAuthStore } from '../stores/auth';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -63,6 +64,7 @@ const FamilyManagePage: React.FC = () => {
     leaveFamily,
     searchUsers,
   } = useFamilyStore();
+  const { user } = useAuthStore();
 
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -100,6 +102,11 @@ const FamilyManagePage: React.FC = () => {
 
   const handleEditFamily = async (values: any) => {
     if (!editingFamily) return;
+    // 再次校验权限，防止通过其他方式触发更新
+    if (!canManageFamily(editingFamily)) {
+      message.warning('无权限更新该家庭信息');
+      return;
+    }
     
     try {
       await updateFamily(editingFamily.id, values);
@@ -107,8 +114,12 @@ const FamilyManagePage: React.FC = () => {
       setEditModalVisible(false);
       setEditingFamily(null);
       editForm.resetFields();
-    } catch (error) {
-      message.error('更新失败');
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const errMsg = status === 404
+        ? '更新失败：家庭不存在或无权限'
+        : (error?.friendlyMessage || error?.response?.data?.message || error?.response?.data?.detail || '更新失败');
+      message.error(errMsg);
     }
   };
 
@@ -171,6 +182,19 @@ const FamilyManagePage: React.FC = () => {
     setEditModalVisible(true);
   };
 
+  // 仅家庭创建者或该家庭管理员可编辑/删除
+  const canManageFamily = (family: Family): boolean => {
+    if (!user) return false;
+    // 创建者可管理
+    if (family.created_by === user.id) return true;
+    // 当前家庭且用户为管理员
+    if (currentFamily && currentFamily.id === family.id) {
+      const me = members.find(m => m.user_id === user.id);
+      if (me && me.role === 'admin') return true;
+    }
+    return false;
+  };
+
   const familyColumns = [
     {
       title: '家庭名称',
@@ -194,13 +218,15 @@ const FamilyManagePage: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Family) => (
         <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => openEditModal(record)}
-          >
-            编辑
-          </Button>
+          {canManageFamily(record) && (
+            <Button
+              type="link"
+              icon={<EditOutlined />}
+              onClick={() => openEditModal(record)}
+            >
+              编辑
+            </Button>
+          )}
           <Popconfirm
             title="确定要退出这个家庭吗？"
             onConfirm={() => handleLeaveFamily(record.id)}
@@ -211,16 +237,18 @@ const FamilyManagePage: React.FC = () => {
               退出
             </Button>
           </Popconfirm>
-          <Popconfirm
-            title="确定要删除这个家庭吗？此操作不可恢复！"
-            onConfirm={() => handleDeleteFamily(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button type="link" icon={<DeleteOutlined />} danger>
-              删除
-            </Button>
-          </Popconfirm>
+          {canManageFamily(record) && (
+            <Popconfirm
+              title="确定要删除这个家庭吗？此操作不可恢复！"
+              onConfirm={() => handleDeleteFamily(record.id)}
+              okText="确定"
+              cancelText="取消"
+            >
+              <Button type="link" icon={<DeleteOutlined />} danger>
+                删除
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },

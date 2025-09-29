@@ -45,8 +45,8 @@ const Layout: React.FC = () => {
     }
   }, [user, loadUser, isAuthenticated]);
 
-  // 菜单项
-  const menuItems: MenuProps['items'] = [
+  // 菜单项（根据是否为管理员动态显示“用户管理”和“设置”）
+  const baseMenuItems: MenuProps['items'] = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
@@ -80,19 +80,9 @@ const Layout: React.FC = () => {
       label: '消息中心',
     },
     {
-      key: '/users',
-      icon: <UserOutlined />,
-      label: '用户管理',
-    },
-    {
       key: '/family',
       icon: <TeamOutlined />,
       label: '家庭管理',
-    },
-    {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: '设置',
     },
     {
       key: '/profile',
@@ -100,6 +90,21 @@ const Layout: React.FC = () => {
       label: '个人资料',
     },
   ];
+
+  const adminExtraItems: MenuProps['items'] = [
+    {
+      key: '/users',
+      icon: <UserOutlined />,
+      label: '用户管理',
+    },
+    {
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: '设置',
+    },
+  ];
+
+  const menuItems: MenuProps['items'] = user?.is_admin ? [...baseMenuItems, ...adminExtraItems] : baseMenuItems;
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     navigate(key);
