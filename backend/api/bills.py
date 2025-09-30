@@ -203,6 +203,65 @@ async def get_bills(
         )
 
 
+@router.post("", response_model=ApiResponse[BillResponse])
+async def create_bill(
+    payload: BillCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """创建账单。前端提交英文交易类型，需转换为中文后入库。"""
+    try:
+        # 验证分类是否存在且未删除（如果提供了分类）
+        if payload.category_id is not None:
+            valid_category = db.query(BillCategory).filter(
+                BillCategory.id == payload.category_id,
+                BillCategory.is_deleted == False
+            ).first()
+            if not valid_category:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类不存在或已删除")
+
+        # 英文到中文的交易类型映射
+        type_map = {
+            "income": "收入",
+            "expense": "支出",
+            "transfer": "不计收支",
+        }
+        transaction_type_cn = type_map.get(payload.transaction_type, payload.transaction_type)
+
+        # 创建账单记录（字段名称与模型对齐）
+        bill = Bill(
+            user_id=current_user.id,
+            category_id=payload.category_id,
+            transaction_time=payload.transaction_time,
+            amount=payload.amount,
+            transaction_type=transaction_type_cn,
+            # 优先采用前端传入的 transaction_desc，其次回退到 description
+            transaction_desc=payload.transaction_desc or payload.description,
+            source_type=payload.source_type,
+            # 优先采用前端传入的 remark，其次回退到 notes
+            remark=payload.remark or payload.notes,
+            raw_data=payload.raw_data,
+        )
+
+        db.add(bill)
+        db.commit()
+        db.refresh(bill)
+
+        return ApiResponse[BillResponse](
+            data=BillResponse.from_bill(bill),
+            success=True,
+            message="创建账单成功"
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"创建账单失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="创建账单失败")
+
+
 @router.get("/ai-classification/status", response_model=ApiResponse[Dict[str, Any]])
 async def get_ai_classification_status(
     current_user: User = Depends(get_current_user)
@@ -1082,3 +1141,65 @@ async def update_bill(
         db.rollback()
         logger.error(f"更新账单失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新账单失败")
+
+
+@router.get("/{bill_id}", response_model=ApiResponse[BillResponse])
+async def get_bill_by_id(
+    bill_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取单条账单详情（限定当前用户所在家庭范围）。"""
+    try:
+        family_user_ids = await get_user_family_members(current_user, db)
+        bill: Bill = db.query(Bill).options(
+            joinedload(Bill.category),
+            joinedload(Bill.user)
+        ).filter(
+            Bill.id == bill_id,
+            Bill.user_id.in_(family_user_ids)
+        ).first()
+
+        if not bill:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账单不存在或无权限访问")
+
+        return ApiResponse[BillResponse](
+            data=BillResponse.from_bill(bill),
+            success=True,
+            message="获取账单成功"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"获取账单失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="获取账单失败")
+
+
+@router.delete("/{bill_id}", response_model=ApiResponse[bool])
+async def delete_bill(
+    bill_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """删除账单（限定当前用户所在家庭范围）。"""
+    try:
+        family_user_ids = await get_user_family_members(current_user, db)
+        bill: Bill = db.query(Bill).filter(
+            Bill.id == bill_id,
+            Bill.user_id.in_(family_user_ids)
+        ).first()
+
+        if not bill:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账单不存在或无权限访问")
+
+        db.delete(bill)
+        db.commit()
+
+        return ApiResponse[bool](data=True, success=True, message="删除账单成功")
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"删除账单失败: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="删除账单失败")

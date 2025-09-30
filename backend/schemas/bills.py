@@ -27,6 +27,9 @@ class BillCreate(BillBase):
     transaction_time: datetime = Field(..., description="交易时间")
     source_type: str = Field(..., description="来源类型")
     raw_data: Optional[Dict[str, Any]] = Field(None, description="原始数据")
+    # 兼容前端字段命名：transaction_desc 与 remark
+    transaction_desc: Optional[str] = Field(None, max_length=500, description="交易描述")
+    remark: Optional[str] = Field(None, max_length=1000, description="备注")
 
 
 class BillUpdate(BaseModel):
