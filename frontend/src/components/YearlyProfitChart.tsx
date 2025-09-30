@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
-import { SOFT_RED, SOFT_GREEN, SOFT_RED_AREA, SOFT_GREEN_AREA } from '../utils/colors';
+import { SOFT_RED, SOFT_GREEN } from '../utils/colors';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
