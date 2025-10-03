@@ -63,6 +63,8 @@ def detect_file_source_type(filename: str, content_preview: str = "") -> Optiona
         return "cmb"
     elif "微信" in filename or "wechat" in filename_lower or "微信支付账单" in filename:
         return "wechat"
+    elif "美团" in filename or "meituan" in filename_lower or "美团账单" in filename:
+        return "meituan"
     
     # 根据内容预览判断
     if content_preview:
@@ -74,6 +76,8 @@ def detect_file_source_type(filename: str, content_preview: str = "") -> Optiona
             return "cmb"
         elif "交易时间" in content_preview and "交易对方" in content_preview and "微信" in content_preview:
             return "wechat"
+        elif "【美团交易账单明细列表】" in content_preview or ("交易创建时间" in content_preview and "订单标题" in content_preview):
+            return "meituan"
     
     return None
 

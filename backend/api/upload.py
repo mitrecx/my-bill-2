@@ -524,6 +524,53 @@ def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family
         return 0
 
 
+def check_duplicate_meituan_record(record: Dict[str, Any], family_user_ids: List[int], db: Session) -> bool:
+    """
+    检查美团账单记录是否重复
+    使用交易单号和交易时间进行去重
+    """
+    try:
+        transaction_time = record.get("transaction_time")
+        raw_data = record.get("raw_data", {})
+        transaction_id = raw_data.get("transaction_id")
+        
+        # 如果有交易单号，优先使用交易单号和时间进行匹配
+        if transaction_id and transaction_id.strip() and transaction_time:
+            existing_bill = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "meituan",
+                Bill.transaction_time == transaction_time,
+                Bill.raw_data.op('->>')('transaction_id') == transaction_id.strip()
+            ).first()
+            
+            if existing_bill:
+                logger.info(f"发现美团重复记录（交易单号+时间匹配）: 时间={transaction_time}, 交易单号={transaction_id}")
+                return True
+        
+        # 如果没有交易单号，使用时间+金额+订单标题进行匹配
+        amount = record.get("amount")
+        order_title = raw_data.get("order_title", "")
+        
+        if transaction_time and amount is not None and order_title:
+            existing_bill = db.query(Bill).filter(
+                Bill.user_id.in_(family_user_ids),
+                Bill.source_type == "meituan",
+                Bill.transaction_time == transaction_time,
+                Bill.amount == amount,
+                Bill.raw_data.op('->>')('order_title') == order_title
+            ).first()
+            
+            if existing_bill:
+                logger.info(f"发现美团重复记录（时间+金额+订单标题匹配）: 时间={transaction_time}, 金额={amount}, 订单={order_title}")
+                return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"检查美团重复记录时出错: {e}")
+        return False
+
+
 def check_duplicate_bill_other_sources(record: Dict[str, Any], family_user_ids: List[int], source_type: str, db: Session) -> bool:
     """
     检查非京东账单记录是否重复
@@ -680,6 +727,9 @@ async def upload_file(
             elif source_type == "wechat":
                 # 新规则：不进行按日期覆盖删除，保留数据库中现有记录
                 deleted_count = 0
+            elif source_type == "meituan":
+                # 美团账单：不进行按日期覆盖删除，保留数据库中现有记录
+                deleted_count = 0
             # 移除旧的按日期覆盖删除逻辑
             # elif source_type == "wechat":
             #     deleted_count = handle_wechat_bill_overlap(
@@ -789,8 +839,14 @@ async def upload_file(
                             # 当订单号缺失或为'/'时，不进行去重
                             pass
 
+                    # 美团：严格去重（交易时间、交易单号或订单标题）
+                    if source_type == "meituan":
+                        if check_duplicate_meituan_record(record, family_user_ids, db):
+                            logger.info(f"跳过美团重复记录 (记录 {i+1})")
+                            continue
+
                     # 其他来源：检查重复
-                    if source_type not in ["cmb", "jd", "alipay", "wechat"]:  # 招商银行、京东、支付宝和微信账单已在文件级别检测/处理
+                    if source_type not in ["cmb", "jd", "alipay", "wechat", "meituan"]:  # 招商银行、京东、支付宝、微信和美团账单已在文件级别检测/处理
                         if check_duplicate_bill_other_sources(record, family_user_ids, source_type, db):
                             logger.info(f"跳过重复记录 (记录 {i+1})")
                             continue

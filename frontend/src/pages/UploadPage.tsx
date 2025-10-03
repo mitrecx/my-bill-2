@@ -80,6 +80,12 @@ const UploadPage: React.FC = () => {
       description: '从微信APP导出的账单流水Excel文件',
       icon: '💬',
     },
+    {
+      type: '美团账单',
+      format: 'CSV文件',
+      description: '从美团APP导出的交易账单CSV文件',
+      icon: '🍔',
+    },
   ];
 
   // 文件上传配置
@@ -218,7 +224,7 @@ const UploadPage: React.FC = () => {
     <div>
       
       <Paragraph type="secondary">
-        支持上传支付宝、京东、招商银行、微信的账单文件，系统会自动解析并导入账单数据。
+        支持上传支付宝、京东、招商银行、微信、美团的账单文件，系统会自动解析并导入账单数据。
       </Paragraph>
 
       {/* 支持的文件类型说明 */}

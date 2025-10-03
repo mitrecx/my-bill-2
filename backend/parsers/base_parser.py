@@ -70,6 +70,7 @@ class BaseParser(ABC):
                 "currency": raw_record.get("currency", "CNY"),
                 "transaction_type": self._clean_string(raw_record.get("transaction_type")),
                 "category": self._clean_string(raw_record.get("category")),  # 添加分类字段
+                "income_expense": self._clean_string(raw_record.get("income_expense")),  # 添加收支类型字段
                 "remark": self._clean_string(raw_record.get("remark")),
                 "raw_data": custom_raw_data if custom_raw_data is not None else raw_record  # 使用自定义原始数据或默认原始数据
             }
