@@ -5,8 +5,51 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from config.logging import get_logger
 from api.health import increment_request_count, increment_error_count
+from utils.security import refresh_token_if_needed
 
 logger = get_logger(__name__)
+
+
+class TokenRefreshMiddleware(BaseHTTPMiddleware):
+    """Token自动刷新中间件"""
+    
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        # 获取Authorization头
+        auth_header = request.headers.get("Authorization")
+        
+        if auth_header and auth_header.startswith("Bearer "):
+            # 提取token
+            token = auth_header.split(" ")[1]
+            
+            # 尝试刷新token
+            new_token, refreshed = refresh_token_if_needed(token)
+            
+            if refreshed and new_token:
+                # 如果token被刷新，更新请求头中的token
+                # 注意：这里我们不能直接修改request.headers，因为它是只读的
+                # 我们将在响应中返回新的token
+                request.state.new_token = new_token
+                request.state.token_refreshed = True
+            else:
+                request.state.token_refreshed = False
+        else:
+            request.state.token_refreshed = False
+        
+        # 处理请求
+        response = await call_next(request)
+        
+        # 如果token被刷新，在响应头中返回新token
+        if hasattr(request.state, 'token_refreshed') and request.state.token_refreshed:
+            if hasattr(request.state, 'new_token'):
+                response.headers["X-New-Token"] = request.state.new_token
+                logger.info(
+                    "Token已刷新",
+                    request_id=getattr(request.state, 'request_id', 'unknown'),
+                    method=request.method,
+                    url=str(request.url)
+                )
+        
+        return response
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):

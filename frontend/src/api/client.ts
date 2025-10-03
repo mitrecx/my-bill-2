@@ -49,34 +49,37 @@ const createApiClient = (): AxiosInstance => {
     }
   );
 
-  // 响应拦截器 - 处理错误
+  // 响应拦截器
   client.interceptors.response.use(
     (response: AxiosResponse) => {
+      // 检查是否有新的token
+      const newToken = response.headers['x-new-token'];
+      if (newToken) {
+        // 自动更新本地存储的token
+        TokenManager.setToken(newToken);
+        console.log('Token已自动刷新');
+      }
       return response;
     },
     (error) => {
-      // 处理401未授权错误
+      // 处理401错误
       if (error.response?.status === 401) {
-        // 清除本地存储的token和用户信息
-        localStorage.removeItem(API_CONFIG.TOKEN_KEY);
-        localStorage.removeItem(API_CONFIG.USER_KEY);
+        // 清除本地token和用户信息
+        TokenManager.removeToken();
+        UserManager.removeUser();
         
-        // 重定向到登录页面
+        // 如果不是在登录页面，跳转到登录页面
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }
-      }
-      
-      // 处理网络错误和服务器错误，提供友好的错误信息
-      if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') {
-        // 网络超时或连接失败
-        error.friendlyMessage = '网络连接失败，请检查网络连接后重试';
-      } else if (error.response?.status === 503 && error.response?.data?.error_code === 'DATABASE_CONNECTION_ERROR') {
-        // 数据库连接错误
-        error.friendlyMessage = error.response.data.message || '数据库服务暂时不可用，请稍后重试';
+        
+        error.friendlyMessage = '登录已过期，请重新登录';
+      } else if (error.response?.status === 403) {
+        // 权限不足
+        error.friendlyMessage = '权限不足，无法访问该资源';
       } else if (error.response?.status >= 500) {
-        // 服务器内部错误
-        error.friendlyMessage = error.response?.data?.message || '服务器内部错误，请稍后重试';
+        // 服务器错误
+        error.friendlyMessage = '服务器内部错误，请稍后重试';
       } else if (error.response?.status >= 400) {
         // 客户端错误
         error.friendlyMessage = error.response?.data?.message || '请求失败，请检查输入信息';

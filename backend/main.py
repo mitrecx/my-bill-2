@@ -13,6 +13,7 @@ from api import api_router
 # 导入异常处理和中间件
 from core.exceptions import setup_exception_handlers
 from core.middleware import (
+    TokenRefreshMiddleware,
     RequestLoggingMiddleware,
     SecurityHeadersMiddleware,
     RateLimitMiddleware
@@ -73,6 +74,7 @@ app.add_middleware(
 
 # 添加其他中间件（注意顺序）
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(TokenRefreshMiddleware)  # Token刷新中间件
 app.add_middleware(RequestLoggingMiddleware)
 
 # 在生产环境启用速率限制

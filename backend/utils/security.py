@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta
-from typing import Optional, Union, Any
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Union, Any, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from config.settings import settings
@@ -26,22 +26,66 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     """创建访问令牌"""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
 
 def verify_token(token: str) -> Optional[dict]:
     """验证并解析令牌"""
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
     except JWTError:
         return None
+
+
+def refresh_token_if_needed(token: str) -> Tuple[Optional[str], bool]:
+    """
+    检查token是否需要刷新，如果需要则返回新token
+    
+    Args:
+        token: 原始token
+        
+    Returns:
+        Tuple[Optional[str], bool]: (新token或None, 是否刷新了token)
+    """
+    try:
+        # 解析token
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        # 获取过期时间
+        exp = payload.get("exp")
+        if not exp:
+            return None, False
+            
+        # 计算剩余时间
+        exp_datetime = datetime.fromtimestamp(exp, tz=timezone.utc)
+        now = datetime.now(timezone.utc)
+        
+        # 如果token已过期，返回None
+        if now >= exp_datetime:
+            return None, False
+            
+        # 创建新的token，重置过期时间为30分钟
+        new_payload = payload.copy()
+        # 移除旧的过期时间
+        new_payload.pop("exp", None)
+        
+        # 创建新token
+        new_token = create_access_token(
+            data=new_payload,
+            expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        )
+        
+        return new_token, True
+        
+    except JWTError:
+        return None, False
 
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
@@ -56,4 +100,4 @@ def validate_password_strength(password: str) -> tuple[bool, str]:
     if not (has_upper and has_lower and has_digit):
         return False, "密码必须包含大小写字母和数字"
     
-    return True, "密码强度符合要求" 
+    return True, "密码强度符合要求"
