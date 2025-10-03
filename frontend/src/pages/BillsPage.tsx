@@ -113,6 +113,7 @@ const BillsPage: React.FC = () => {
       jd: '京东',
       cmb: '招商银行',
       wechat: '微信支付',
+      meituan: '美团',
       manual: '手动录入',
     };
     return fallbackMap[value] || value;
@@ -126,6 +127,8 @@ const BillsPage: React.FC = () => {
       { value: 'jd', label: '京东' },
       { value: 'cmb', label: '招商银行' },
       { value: 'wechat', label: '微信支付' },
+      { value: 'meituan', label: '美团' },
+      { value: 'manual', label: '手动录入' },
     ];
     try {
       const res = await ClassificationRuleService.getSourceTypeOptions();
@@ -168,7 +171,7 @@ const BillsPage: React.FC = () => {
     setQueryParams({
       [key]: value,
       page: 1,
-      size: 10,
+      size: 100,
     });
   };
 
@@ -229,7 +232,7 @@ const BillsPage: React.FC = () => {
     setDateRange(null);
     setQueryParams({
       page: 1,
-      size: 10,
+      size: 100,
       sort_by: 'transaction_date',
       sort_order: 'desc',
       search: undefined,
@@ -259,7 +262,7 @@ const BillsPage: React.FC = () => {
       return;
     }
 
-    const nextParams = { ...queryParams, page: 1, size: 10 } as BillListQueryParams;
+    const nextParams = { ...queryParams, page: 1, size: 100 } as BillListQueryParams;
     setQueryParams(nextParams);
     fetchBills(nextParams);
   };
@@ -411,7 +414,7 @@ const BillsPage: React.FC = () => {
                 setQueryParams({
                   search: e.target.value,
                   page: 1,
-                  size: 10,
+                  size: 100,
                 });
               }}
               style={{ width: 200 }}
@@ -497,14 +500,14 @@ const BillsPage: React.FC = () => {
                     start_date: dates[0].format('YYYY-MM-DD'),
                     end_date: dates[1].format('YYYY-MM-DD'),
                     page: 1,
-                    size: 10,
+                    size: 100,
                   });
                 } else {
                   setQueryParams({
                     start_date: undefined,
                     end_date: undefined,
                     page: 1,
-                    size: 10,
+                    size: 100,
                   });
                 }
               }}
@@ -608,7 +611,7 @@ const BillsPage: React.FC = () => {
                 sort_by: sorter.field as string,
                 sort_order: sorter.order === 'ascend' ? 'asc' : 'desc',
                 page: 1,
-                size: 10,
+                size: 100,
               });
             }
           }}

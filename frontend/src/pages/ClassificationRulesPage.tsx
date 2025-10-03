@@ -38,7 +38,7 @@ const { Option } = Select;
 
 interface RuleFormData {
   rule_text: string;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
   priority: number;
   is_active: boolean;
@@ -53,7 +53,7 @@ const ClassificationRulesPage: React.FC = () => {
   // 分页状态
   const [pagination, setPagination] = useState({
     current: 1,
-    pageSize: 10,
+    pageSize: 100,
     total: 0,
   });
   

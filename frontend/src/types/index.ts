@@ -63,7 +63,7 @@ export interface Bill {
   amount: number;
   transaction_type: 'income' | 'expense' | 'transfer';
   transaction_desc: string;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual';
   raw_data: Record<string, any>;
   created_at: string;
   updated_at: string;
@@ -89,7 +89,7 @@ export interface UploadRecord {
   user_id: number;
   filename: string;
   file_size: number;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual';
   records_count: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error_message?: string;
@@ -123,7 +123,7 @@ export interface BillListQueryParams {
   // 支持单选或多选交易类型
   transaction_type?: ('income' | 'expense' | 'transfer') | ('income' | 'expense' | 'transfer')[];
   // 改为支持单选或多选来源
-  source_type?: ('alipay' | 'jd' | 'cmb' | 'wechat') | ('alipay' | 'jd' | 'cmb' | 'wechat')[];
+  source_type?: ('alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual') | ('alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual')[];
   start_date?: string;
   end_date?: string;
   // 新增：金额区间筛选
@@ -170,7 +170,7 @@ export interface UploadResponse {
 export interface ClassificationRule {
   id: number;
   rule_text: string;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
   priority: number;
   is_active: boolean;
@@ -181,7 +181,7 @@ export interface ClassificationRule {
 
 export interface ClassificationRuleCreate {
   rule_text: string;
-  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
+  source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
   priority?: number;
   is_active?: boolean;
@@ -189,7 +189,7 @@ export interface ClassificationRuleCreate {
 
 export interface ClassificationRuleUpdate {
   rule_text?: string;
-  source_type?: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
+  source_type?: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category?: string;
   priority?: number;
   is_active?: boolean;
@@ -204,7 +204,7 @@ export interface ClassificationRuleListResponse {
 }
 
 export interface SourceTypeOption {
-  value: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'all';
+  value: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   label: string;
 }
 

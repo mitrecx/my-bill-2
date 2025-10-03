@@ -76,7 +76,7 @@ interface BillsActions {
 
 const initialQueryParams: BillListQueryParams = {
   page: 1,
-  size: 10,
+  size: 100,
   sort_by: 'transaction_time',
   sort_order: 'desc',
   // 金额区间默认未设置
@@ -94,7 +94,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   pagination: {
     total: 0,
     page: 1,
-    size: 10,
+    size: 100,
     pages: 0,
   },
   queryParams: initialQueryParams,
@@ -349,7 +349,7 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
     stats: null,
     categoryStats: [],
     currentBill: null,
-    pagination: { total: 0, page: 1, size: 10, pages: 0 },
+    pagination: { total: 0, page: 1, size: 100, pages: 0 },
     queryParams: initialQueryParams,
     isLoading: false,
     error: null,

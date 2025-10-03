@@ -50,7 +50,7 @@ const DashboardPage: React.FC = () => {
       transaction_type: ['income'],
       user_id: user?.id, // 始终限定为当前登录用户
       page: 1,
-      size: 10,
+      size: 100,
     });
     navigate('/bills');
   };
@@ -62,7 +62,7 @@ const DashboardPage: React.FC = () => {
       transaction_type: ['expense'],
       user_id: user?.id, // 始终限定为当前登录用户
       page: 1,
-      size: 10,
+      size: 100,
     });
     navigate('/bills');
   };

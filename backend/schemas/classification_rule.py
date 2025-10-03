@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, validator
 
 class ClassificationRuleBase(BaseModel):
     rule_text: str = Field(..., description="分类规则的自然语言描述")
-    source_type: Literal["alipay", "jd", "cmb", "all"] = Field(..., description="账单来源类型")
+    source_type: Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"] = Field(..., description="账单来源类型")
     target_category: str = Field(..., description="目标分类名称")
     priority: int = Field(default=0, description="规则优先级，数字越大优先级越高")
     is_active: bool = Field(default=True, description="规则是否启用")
@@ -30,7 +30,7 @@ class ClassificationRuleCreate(ClassificationRuleBase):
 class ClassificationRuleUpdate(BaseModel):
     """更新分类规则的请求模型"""
     rule_text: Optional[str] = None
-    source_type: Optional[Literal["alipay", "jd", "cmb", "all"]] = None
+    source_type: Optional[Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"]] = None
     target_category: Optional[str] = None
     priority: Optional[int] = None
     is_active: Optional[bool] = None
@@ -81,7 +81,7 @@ class ClassificationRuleBatchCreate(BaseModel):
 class ClassificationRuleTestRequest(BaseModel):
     """测试分类规则的请求模型"""
     rule_text: str = Field(..., description="要测试的规则")
-    source_type: Literal["alipay", "jd", "cmb", "all"] = Field(..., description="账单来源类型")
+    source_type: Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"] = Field(..., description="账单来源类型")
     test_bills: list[dict] = Field(..., description="用于测试的账单数据")
 
 

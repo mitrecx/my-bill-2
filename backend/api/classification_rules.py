@@ -343,6 +343,8 @@ async def get_source_type_options():
             {"value": "jd", "label": "京东"},
             {"value": "cmb", "label": "招商银行"},
             {"value": "wechat", "label": "微信支付"},
+            {"value": "meituan", "label": "美团"},
+            {"value": "manual", "label": "手动录入"},
             {"value": "all", "label": "所有来源"}
         ]
     }

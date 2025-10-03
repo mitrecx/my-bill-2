@@ -159,7 +159,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
         // 若为个人仪表盘，自动限定为当前用户
         user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
         page: 1,
-        size: 10,
+        size: 100,
       });
       navigate('/bills');
     } catch (err) {

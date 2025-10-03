@@ -185,7 +185,7 @@ const YearlyProfitChart: React.FC = () => {
       end_date: dayjs(`${selectedYear}-12-31`).format('YYYY-MM-DD'),
       user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
       page: 1,
-      size: 10,
+      size: 100,
     });
     navigate('/bills');
   };
@@ -209,9 +209,9 @@ const YearlyProfitChart: React.FC = () => {
         transaction_type: ['income', 'expense'],
         category_id: undefined,
         // 若为个人仪表盘，自动限定为当前用户
-        user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
-        page: 1,
-        size: 10,
+      user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
+      page: 1,
+      size: 100,
       });
 
       navigate('/bills');

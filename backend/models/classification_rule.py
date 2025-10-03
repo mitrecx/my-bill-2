@@ -21,7 +21,7 @@ class ClassificationRule(Base):
     # 添加约束
     __table_args__ = (
         CheckConstraint(
-            "source_type IN ('alipay', 'jd', 'cmb', 'all')",
+            "source_type IN ('alipay', 'jd', 'cmb', 'wechat', 'meituan', 'manual', 'all')",
             name='check_source_type'
         ),
         # 用户隔离的唯一约束
