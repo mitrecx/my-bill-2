@@ -84,12 +84,24 @@ const BillsPage: React.FC = () => {
   const [searchAreaHeight, setSearchAreaHeight] = useState(120); // 动态搜索区域高度
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
 
-  // 滚动监听逻辑 - 添加防抖优化
+  // 滚动监听逻辑 - 添加防抖优化和边界检查
   const handleScroll = useCallback(() => {
     if (!scrollContainerRef.current) return;
     
-    const currentScrollTop = scrollContainerRef.current.scrollTop;
+    const scrollContainer = scrollContainerRef.current;
+    const currentScrollTop = scrollContainer.scrollTop;
+    const scrollHeight = scrollContainer.scrollHeight;
+    const clientHeight = scrollContainer.clientHeight;
     const scrollDiff = currentScrollTop - lastScrollTop;
+    
+    // 防止在滚动到底部时的抖动 - 添加边界检查
+    const isAtBottom = currentScrollTop + clientHeight >= scrollHeight - 10; // 10px 容差
+    
+    // 如果已经滚动到底部，不再处理搜索区域的显示/隐藏
+    if (isAtBottom) {
+      setLastScrollTop(currentScrollTop);
+      return;
+    }
     
     // 使用 requestAnimationFrame 优化性能
     requestAnimationFrame(() => {
@@ -245,7 +257,7 @@ const BillsPage: React.FC = () => {
   // 处理分页
   const handlePageChange = (page: number, size: number) => {
     setQueryParams({ page, size });
-    fetchBills();
+    // 移除重复的 fetchBills() 调用，setQueryParams 已经会触发数据重新获取
   };
 
   // 处理删除
