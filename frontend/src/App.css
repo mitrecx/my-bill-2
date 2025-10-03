@@ -40,3 +40,14 @@
 .read-the-docs {
   color: #888;
 }
+
+/* 移除表格动画 - 立即显示/隐藏 */
+.ant-table-tbody > tr,
+.ant-table-thead > tr > th,
+.ant-table-tbody > tr > td {
+  transform: translateZ(0) !important;
+}
+
+.ant-table-tbody > tr:hover {
+  transform: translateZ(0) scale(1.001) !important;
+}

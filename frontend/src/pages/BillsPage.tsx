@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   Typography,
   Table,
@@ -76,6 +76,73 @@ const BillsPage: React.FC = () => {
   // 账单表格滚动容器，用于 Table sticky 绑定
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const [batchForm] = Form.useForm();
+
+  // 搜索区域显示/隐藏状态
+  const [isSearchVisible, setIsSearchVisible] = useState(true);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
+  const scrollThreshold = 50; // 滚动阈值，超过此距离才触发显示/隐藏
+  const [searchAreaHeight, setSearchAreaHeight] = useState(120); // 动态搜索区域高度
+  const searchAreaRef = useRef<HTMLDivElement | null>(null);
+
+  // 滚动监听逻辑 - 添加防抖优化
+  const handleScroll = useCallback(() => {
+    if (!scrollContainerRef.current) return;
+    
+    const currentScrollTop = scrollContainerRef.current.scrollTop;
+    const scrollDiff = currentScrollTop - lastScrollTop;
+    
+    // 使用 requestAnimationFrame 优化性能
+    requestAnimationFrame(() => {
+      // 向下滚动且超过阈值时隐藏搜索区域
+      if (scrollDiff > scrollThreshold && currentScrollTop > scrollThreshold) {
+        if (isSearchVisible) {
+          setIsSearchVisible(false);
+        }
+      }
+      // 向上滚动且超过阈值时显示搜索区域
+      else if (scrollDiff < -scrollThreshold || currentScrollTop <= scrollThreshold) {
+        if (!isSearchVisible) {
+          setIsSearchVisible(true);
+        }
+      }
+    });
+    
+    setLastScrollTop(currentScrollTop);
+  }, [lastScrollTop, scrollThreshold, isSearchVisible]);
+
+  // 添加滚动监听器
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [handleScroll]);
+
+  // 动态检测搜索区域高度
+  useEffect(() => {
+    const updateSearchAreaHeight = () => {
+      if (searchAreaRef.current) {
+        const height = searchAreaRef.current.offsetHeight;
+        setSearchAreaHeight(height);
+      }
+    };
+
+    // 初始检测
+    updateSearchAreaHeight();
+
+    // 监听窗口大小变化
+    const resizeObserver = new ResizeObserver(updateSearchAreaHeight);
+    if (searchAreaRef.current) {
+      resizeObserver.observe(searchAreaRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
   // 当编辑弹窗打开且存在当前账单时，同步表单字段，确保分类等字段正常显示
   useEffect(() => {
@@ -279,7 +346,11 @@ const BillsPage: React.FC = () => {
           {dayjs(date).format('YYYY-MM-DD HH:mm:ss')}
         </span>
       ),
-      sorter: true,
+      sorter: (a: Bill, b: Bill) => {
+        const dateA = dayjs(a.transaction_date);
+        const dateB = dayjs(b.transaction_date);
+        return dateA.valueOf() - dateB.valueOf();
+      },
     },
     {
       title: '交易描述',
@@ -312,7 +383,7 @@ const BillsPage: React.FC = () => {
           {amount.toFixed(2)}
         </span>
       ),
-      sorter: true,
+      sorter: (a: Bill, b: Bill) => a.amount - b.amount,
     },
     {
       title: '类型',
@@ -373,11 +444,29 @@ const BillsPage: React.FC = () => {
   ];
 
   return (<>
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100%', 
+      position: 'relative',
+    }}>
       <div style={{ display: 'none' }} />
 
       {/* 筛选区域 */}
-      <Card style={{ marginBottom: 8 }} bodyStyle={{ padding: 12 }}>
+      <Card 
+        ref={searchAreaRef}
+        style={{ 
+          marginBottom: isSearchVisible ? 8 : 0,
+          transform: isSearchVisible ? 'translateY(0)' : 'translateY(-100%)',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 10,
+          opacity: isSearchVisible ? 1 : 0,
+        }} 
+        bodyStyle={{ padding: 12 }}
+      >
         <Space wrap align="center" size={8}>
           {/* 家庭成员筛选：调整为首位 */}
           <Space align="center">
@@ -582,7 +671,15 @@ const BillsPage: React.FC = () => {
       </Card>
 
       {/* 账单表格 */}
-      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }} ref={scrollContainerRef}>
+      <div 
+        style={{ 
+          flex: 1, 
+          overflow: 'auto', 
+          minHeight: 0,
+          paddingTop: isSearchVisible ? `${searchAreaHeight}px` : '0px',
+        }} 
+        ref={scrollContainerRef}
+      >
         <Table
           columns={columns}
           dataSource={bills}
@@ -594,29 +691,61 @@ const BillsPage: React.FC = () => {
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys as number[]),
           }}
-          pagination={{
-            current: pagination.page,
-            pageSize: pagination.size,
-            total: pagination.total,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 条记录`,
-            onChange: handlePageChange,
-            onShowSizeChange: handlePageChange,
-          }}
-          onChange={(_paginationInfo, _filters, sorter) => {
-            if (Array.isArray(sorter)) return;
-            if (sorter.field && sorter.order) {
-              setQueryParams({
-                sort_by: sorter.field as string,
-                sort_order: sorter.order === 'ascend' ? 'asc' : 'desc',
-                page: 1,
-                size: 100,
-              });
-            }
+          pagination={false}
+          onChange={(_paginationInfo, _filters, _sorter) => {
+            // 移除排序逻辑，仅保留客户端排序
           }}
           scroll={{ x: 800 }}
         />
+      </div>
+
+      {/* 固定在底部的翻页组件 */}
+      <div style={{ 
+        position: 'sticky', 
+        bottom: 0, 
+        backgroundColor: '#fff', 
+        padding: '12px 0', 
+        borderTop: '1px solid #f0f0f0',
+        display: 'flex',
+        justifyContent: 'center',
+        zIndex: 10,
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '16px',
+          fontSize: '14px'
+        }}>
+          <span>共 {pagination.total} 条记录</span>
+          <Button 
+            size="small" 
+            disabled={pagination.page <= 1}
+            onClick={() => handlePageChange(pagination.page - 1, pagination.size)}
+          >
+            上一页
+          </Button>
+          <span>
+            第 {pagination.page} 页 / 共 {Math.ceil(pagination.total / pagination.size)} 页
+          </span>
+          <Button 
+            size="small" 
+            disabled={pagination.page >= Math.ceil(pagination.total / pagination.size)}
+            onClick={() => handlePageChange(pagination.page + 1, pagination.size)}
+          >
+            下一页
+          </Button>
+          <Select
+            size="small"
+            value={pagination.size}
+            onChange={(size) => handlePageChange(1, size)}
+            style={{ width: 80 }}
+          >
+            <Option value={10}>10条</Option>
+            <Option value={20}>20条</Option>
+            <Option value={50}>50条</Option>
+            <Option value={100}>100条</Option>
+          </Select>
+        </div>
       </div>
 
       {/* 编辑/新增模态框 */}
