@@ -33,6 +33,8 @@ interface BillsState {
   // --- 新增：月度图表共享时间范围 ---
   monthlyChartYear: number;
   monthlyChartMonth: number;
+  // --- 新增：可用年份列表 ---
+  availableYears: number[];
 }
 
 interface BillsActions {
@@ -68,6 +70,8 @@ interface BillsActions {
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => void;
   setMonthlyChartMonth: (month: number) => void;
+  // --- 新增：获取可用年份 ---
+  fetchAvailableYears: () => Promise<void>;
 }
 
 const initialQueryParams: BillListQueryParams = {
@@ -105,6 +109,8 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   // --- 新增：月度图表共享时间范围 ---
   monthlyChartYear: new Date().getFullYear(),
   monthlyChartMonth: new Date().getMonth() + 1,
+  // --- 新增：可用年份列表 ---
+  availableYears: [],
 
   // 操作
   fetchBills: async (params?: BillListQueryParams) => {
@@ -360,6 +366,30 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => set({ monthlyChartYear: year }),
   setMonthlyChartMonth: (month: number) => set({ monthlyChartMonth: month }),
+
+  // --- 新增：获取可用年份 ---
+  fetchAvailableYears: async () => {
+    try {
+      set({ isLoading: true, error: null });
+      
+      const response = await BillService.getAvailableYears();
+      
+      set({
+        availableYears: response.data.years,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          '获取可用年份失败';
+      set({
+        availableYears: [],
+        error: errorMessage,
+        isLoading: false,
+      });
+    }
+  },
 
   // 批量更新账单（补回）
   batchUpdateBills: async (ids: number[], updateData: { amount?: number; transaction_type?: 'income' | 'expense' | 'transfer'; transaction_desc?: string; category_id?: number; remark?: string }) => {

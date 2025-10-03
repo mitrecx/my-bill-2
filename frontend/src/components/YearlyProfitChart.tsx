@@ -12,19 +12,6 @@ import { useAuthStore } from '../stores/auth'
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-/**
- * 生成年份选项
- * @returns 年份列表
- */
-const generateYearOptions = () => {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let i = currentYear; i >= 2020; i--) {
-    years.push(i);
-  }
-  return years;
-};
-
 const YearlyProfitChart: React.FC = () => {
   // 共享：图表类型、年份
   const chartType = useBillsStore(s => s.yearlyChartType);
@@ -32,6 +19,7 @@ const YearlyProfitChart: React.FC = () => {
   const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
   const dashboardScope = useBillsStore(s => s.dashboardScope);
+  const availableYears = useBillsStore(s => s.availableYears);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalProfit, setTotalProfit] = useState<number>(0);
@@ -73,7 +61,7 @@ const YearlyProfitChart: React.FC = () => {
     loadChartData(selectedYear);
   }, [selectedYear, dashboardScope]);
 
-  const yearOptions = useMemo(() => generateYearOptions(), []);
+  const yearOptions = useMemo(() => availableYears, [availableYears]);
 
   const getChartOption = useMemo(() => {
     const profits = chartData.map(item => (item.income ?? 0) - (item.amount ?? 0));
@@ -227,8 +215,8 @@ const YearlyProfitChart: React.FC = () => {
             <Radio.Button value="line">折线图</Radio.Button>
             <Radio.Button value="bar">直方图</Radio.Button>
           </Radio.Group>
-          <Select value={selectedYear} onChange={(value) => setSelectedYear(value)} style={{ width: 120 }}>
-            {yearOptions.map(year => (
+          <Select value={selectedYear} onChange={(value: number) => setSelectedYear(value)} style={{ width: 120 }}>
+            {yearOptions.map((year: number) => (
               <Option key={year} value={year}>{year}年</Option>
             ))}
           </Select>

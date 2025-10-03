@@ -315,3 +315,9 @@ class FinanceSummaryResponse(BaseModel):
     by_category: Dict[str, Dict[str, Any]]
     by_source: Dict[str, Dict[str, Any]]
     by_month: Dict[str, Dict[str, Any]]
+
+
+class AvailableYearsResponse(BaseModel):
+    """可用年份列表响应模型"""
+    years: List[int] = Field(..., description="有账单数据的年份列表，按降序排列")
+    total_count: int = Field(..., description="总年份数量")

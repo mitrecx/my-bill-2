@@ -220,8 +220,14 @@ export * from './system-config';
 // 新增：财务汇总类型（对接后端 /finance-summary）
 export interface FinanceSummary {
   year: number;
-  month?: number | null;
+  month?: number;
   result_type: 'income' | 'expense' | 'surplus';
   amount: number;
   count: number;
+}
+
+// 新增：可用年份响应类型
+export interface AvailableYearsResponse {
+  years: number[];
+  total_count: number;
 }

@@ -24,6 +24,7 @@ const DashboardPage: React.FC = () => {
     setDashboardScope,
     dashboardScope,
     isLoading,
+    fetchAvailableYears,
   } = useBillsStore();
   const location = useLocation();
 
@@ -37,6 +38,11 @@ const DashboardPage: React.FC = () => {
     // 加载统计数据（跟随 scope 变化）
     fetchStats({ scope: dashboardScope });
   }, [fetchStats, dashboardScope]);
+
+  useEffect(() => {
+    // 获取有账单数据的年份列表
+    fetchAvailableYears();
+  }, [fetchAvailableYears]);
 
   return (
     <div>

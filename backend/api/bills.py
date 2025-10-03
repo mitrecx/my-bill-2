@@ -27,7 +27,8 @@ from schemas.bills import (
     MonthlyExpenseItem,
     DailyExpenseItem,
     MonthlyExpenseTrendResponse,
-    BillBatchUpdateRequest
+    BillBatchUpdateRequest,
+    AvailableYearsResponse
 )
 from services.ai_classification_service import ai_classification_service
 from schemas.common import ApiResponse
@@ -1143,6 +1144,62 @@ async def update_bill(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新账单失败")
 
 
+@router.get("/available-years", response_model=ApiResponse[AvailableYearsResponse])
+async def get_available_years(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取有账单数据的年份列表"""
+    try:
+        # 获取用户所属的家庭ID
+        family_member = db.query(FamilyMember).filter(
+            FamilyMember.user_id == current_user.id
+        ).first()
+        
+        if not family_member:
+            # 如果用户不在任何家庭中，返回空列表
+            return ApiResponse(
+                data=AvailableYearsResponse(
+                    years=[],
+                    total_count=0
+                ),
+                success=True
+            )
+        
+        # 获取该家庭所有成员的用户ID
+        family_user_ids = db.query(FamilyMember.user_id).filter(
+            FamilyMember.family_id == family_member.family_id
+        ).all()
+        
+        user_ids = [user_id[0] for user_id in family_user_ids]
+        
+        # 查询该家庭所有成员的账单年份
+        years_query = db.query(
+            func.extract('year', Bill.transaction_time).label('year')
+        ).filter(
+            Bill.user_id.in_(user_ids)
+        ).distinct().order_by(
+            func.extract('year', Bill.transaction_time).desc()
+        )
+        
+        years_result = years_query.all()
+        years = [int(year.year) for year in years_result]
+        
+        logger.info(f"用户 {current_user.username} 获取可用年份列表: {years}")
+        
+        return ApiResponse(
+            data=AvailableYearsResponse(
+                years=years,
+                total_count=len(years)
+            ),
+            success=True
+        )
+        
+    except Exception as e:
+        logger.error(f"获取可用年份列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail="获取可用年份列表失败")
+
+
 @router.get("/{bill_id}", response_model=ApiResponse[BillResponse])
 async def get_bill_by_id(
     bill_id: int,
@@ -1175,31 +1232,37 @@ async def get_bill_by_id(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="获取账单失败")
 
 
-@router.delete("/{bill_id}", response_model=ApiResponse[bool])
+@router.delete("/{bill_id}", response_model=ApiResponse[dict])
 async def delete_bill(
     bill_id: int,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """删除账单（限定当前用户所在家庭范围）。"""
+    """删除账单"""
     try:
-        family_user_ids = await get_user_family_members(current_user, db)
-        bill: Bill = db.query(Bill).filter(
+        # 查找账单
+        bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
+            Bill.family_id == current_user.family_id
         ).first()
-
+        
         if not bill:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账单不存在或无权限访问")
-
+            raise HTTPException(status_code=404, detail="账单不存在")
+        
+        # 删除账单
         db.delete(bill)
         db.commit()
-
-        return ApiResponse[bool](data=True, success=True, message="删除账单成功")
+        
+        logger.info(f"用户 {current_user.username} 删除了账单 {bill_id}")
+        
+        return ApiResponse(
+            data={"message": "账单删除成功"},
+            success=True
+        )
+        
     except HTTPException:
-        db.rollback()
         raise
     except Exception as e:
+        logger.error(f"删除账单失败: {str(e)}")
         db.rollback()
-        logger.error(f"删除账单失败: {e}")
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="删除账单失败")
+        raise HTTPException(status_code=500, detail="删除账单失败")

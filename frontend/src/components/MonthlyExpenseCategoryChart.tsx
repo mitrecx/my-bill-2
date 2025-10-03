@@ -12,18 +12,11 @@ import { useAuthStore } from '../stores/auth';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const generateYearOptions = () => {
-  const currentYear = new Date().getFullYear();
-  const years: number[] = [];
-  for (let i = currentYear; i >= 2020; i--) years.push(i);
-  return years;
-};
-
 const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseCategoryChart: React.FC = () => {
   const [chartType, setChartType] = useState<'bar' | 'pie'>('bar');
-  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams, dashboardScope } = useBillsStore();
+  const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams, dashboardScope, availableYears } = useBillsStore();
   const [data, setData] = useState<CategoryStats[]>([]);
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -64,7 +57,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
     load();
   }, [monthlyChartYear, monthlyChartMonth, dashboardScope]);
 
-  const yearOptions = useMemo(() => generateYearOptions(), []);
+  const yearOptions = useMemo(() => availableYears, [availableYears]);
   const monthOptions = useMemo(() => generateMonthOptions(), []);
 
   const option = useMemo(() => {
@@ -185,7 +178,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
             <Radio.Button value="bar">直方图</Radio.Button>
           </Radio.Group>
           <Select value={monthlyChartYear} onChange={setMonthlyChartYear} style={{ width: 120 }}>
-             {yearOptions.map(y => <Option key={y} value={y}>{y}年</Option>)}
+             {yearOptions.map((y: number) => <Option key={y} value={y}>{y}年</Option>)}
            </Select>
           <Select value={monthlyChartMonth} onChange={setMonthlyChartMonth} style={{ width: 100 }}>
              {monthOptions.map(m => <Option key={m} value={m}>{m}月</Option>)}

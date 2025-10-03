@@ -12,19 +12,6 @@ import { useAuthStore } from '../stores/auth';
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-/**
- * 生成年份选项
- * @returns 年份列表
- */
-const generateYearOptions = () => {
-  const currentYear = new Date().getFullYear();
-  const years = [];
-  for (let i = currentYear; i >= 2020; i--) {
-    years.push(i);
-  }
-  return years;
-};
-
 const YearlyExpenseChart: React.FC = () => {
   // 共享：图表类型、年份
   const chartType = useBillsStore(s => s.yearlyChartType);
@@ -34,6 +21,7 @@ const YearlyExpenseChart: React.FC = () => {
   const setQueryParams = useBillsStore(s => s.setQueryParams);
   const resetQueryParams = useBillsStore(s => s.resetQueryParams);
   const dashboardScope = useBillsStore(s => s.dashboardScope);
+  const availableYears = useBillsStore(s => s.availableYears);
 
   const [chartData, setChartData] = useState<MonthlyExpenseItem[]>([]);
   const [totalExpense, setTotalExpense] = useState<number>(0);
@@ -78,7 +66,7 @@ const YearlyExpenseChart: React.FC = () => {
     loadChartData(selectedYear);
   }, [selectedYear, dashboardScope]);
 
-  const yearOptions = useMemo(() => generateYearOptions(), []);
+  const yearOptions = useMemo(() => availableYears, [availableYears]);
 
   const getChartOption = useMemo(() => {
     return {

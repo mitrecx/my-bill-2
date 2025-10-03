@@ -24,6 +24,7 @@ import type {
   ClassificationRuleListResponse,
   SourceTypeOptionsResponse,
   FinanceSummary,
+  AvailableYearsResponse,
 } from '../types';
 import type { MonthlyExpenseTrendResponse } from '../types/bills';
 import type {
@@ -239,6 +240,12 @@ export const BillService = {
   async getMonthlyExpenseTrend(params?: { year?: number; month?: number; scope?: 'personal' | 'family' }) {
     const finalParams = { scope: 'family', ...(params || {}) };
     const response = await ApiClient.get<MonthlyExpenseTrendResponse>(API_ENDPOINTS.BILLS.MONTHLY_EXPENSE_TREND, { params: finalParams });
+    return response;
+  },
+
+  // 新增：获取有账单数据的年份列表
+  async getAvailableYears() {
+    const response = await ApiClient.get<AvailableYearsResponse>(API_ENDPOINTS.BILLS.AVAILABLE_YEARS);
     return response;
   },
 };
