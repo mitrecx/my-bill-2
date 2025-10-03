@@ -92,6 +92,16 @@ const BillsPage: React.FC = () => {
         category_id: Number.isFinite(categoryIdNormalized as number) ? categoryIdNormalized : undefined,
         remark: editingBill.remark ?? editingBill.raw_data?.remark ?? '',
       });
+    } else if (isModalVisible && !editingBill) {
+      // 新增模式：确保完全重置表单并设置默认值
+      form.resetFields();
+      // 使用 setTimeout 确保重置操作完成后再设置默认值
+      setTimeout(() => {
+        form.setFieldsValue({
+          transaction_time: dayjs(),
+          source_type: 'manual',
+        });
+      }, 0);
     }
   }, [isModalVisible, editingBill, form]);
   // 获取来源类型中文名（优先从动态选项，其次回退到内置映射，最后原值）
@@ -539,8 +549,19 @@ const BillsPage: React.FC = () => {
               icon={<PlusOutlined />}
               size="small"
               onClick={() => {
+                // 新增账单：确保完全清空上一次编辑残留
                 setEditingBill(null);
+                // 先重置表单，确保清空所有字段
+                form.resetFields();
+                // 打开弹框
                 setIsModalVisible(true);
+                // 使用 setTimeout 确保表单重置完成后再设置默认值
+                setTimeout(() => {
+                  form.setFieldsValue({ 
+                    transaction_time: dayjs(), 
+                    source_type: 'manual' 
+                  });
+                }, 0);
               }}
             >
               新增账单
@@ -599,13 +620,21 @@ const BillsPage: React.FC = () => {
       <Modal
         title={editingBill ? '编辑账单' : '新增账单'}
         open={isModalVisible}
+        destroyOnClose
+        afterClose={() => {
+          // 关闭后确保下一次打开为干净状态
+          form.resetFields();
+          setEditingBill(null);
+        }}
         onCancel={() => {
           setIsModalVisible(false);
+          setEditingBill(null);
           form.resetFields();
         }}
         footer={[
           <Button key="cancel" onClick={() => {
             setIsModalVisible(false);
+            setEditingBill(null);
             form.resetFields();
           }}>
             取消
@@ -617,9 +646,11 @@ const BillsPage: React.FC = () => {
         width={600}
       >
         <Form
+          key={editingBill ? String(editingBill.id) : 'create'}
           form={form}
           layout="vertical"
           onFinish={handleSubmit}
+          preserve={false}
           initialValues={editingBill ? {
             amount: editingBill.amount,
             transaction_type: editingBill.transaction_type,
