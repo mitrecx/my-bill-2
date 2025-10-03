@@ -1240,14 +1240,15 @@ async def delete_bill(
 ):
     """删除账单"""
     try:
-        # 查找账单
+        # 校验账单归属：仅允许删除当前用户家庭成员的账单
+        family_user_ids = await get_user_family_members(current_user, db)
         bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.family_id == current_user.family_id
+            Bill.user_id.in_(family_user_ids)
         ).first()
         
         if not bill:
-            raise HTTPException(status_code=404, detail="账单不存在")
+            raise HTTPException(status_code=404, detail="账单不存在或无权限访问")
         
         # 删除账单
         db.delete(bill)

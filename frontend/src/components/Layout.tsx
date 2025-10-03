@@ -190,11 +190,11 @@ const Layout: React.FC = () => {
       <AntdLayout style={{ height: '100vh', overflow: 'hidden' }}>
         <Content
           style={{
-            margin: '0 16px 16px 16px',
-            padding: 16,
+            margin: '0 8px 8px 8px',
+            padding: 8,
             background: colorBgContainer,
             borderRadius: 8,
-            height: 'calc(100vh - 16px)',
+            height: 'calc(100vh - 8px)',
             overflow: 'auto',
             display: 'flex',
             flexDirection: 'column',

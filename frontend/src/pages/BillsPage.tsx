@@ -14,11 +14,14 @@ import {
   message,
   Popconfirm,
   InputNumber,
+  Switch,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  UpOutlined,
+  DownOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
 import type { Bill, BillListQueryParams } from '../types';
@@ -83,6 +86,8 @@ const BillsPage: React.FC = () => {
   const scrollThreshold = 50; // 滚动阈值，超过此距离才触发显示/隐藏
   const [searchAreaHeight, setSearchAreaHeight] = useState(120); // 动态搜索区域高度
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
+  // 新增：自动隐藏开关状态
+  const [autoHideEnabled, setAutoHideEnabled] = useState(false);
 
   // 滚动监听逻辑 - 添加防抖优化和边界检查
   const handleScroll = useCallback(() => {
@@ -99,6 +104,12 @@ const BillsPage: React.FC = () => {
     
     // 如果已经滚动到底部，不再处理搜索区域的显示/隐藏
     if (isAtBottom) {
+      setLastScrollTop(currentScrollTop);
+      return;
+    }
+    
+    // 新增：只有在自动隐藏开关开启时才处理搜索区域的显示/隐藏
+    if (!autoHideEnabled) {
       setLastScrollTop(currentScrollTop);
       return;
     }
@@ -120,7 +131,7 @@ const BillsPage: React.FC = () => {
     });
     
     setLastScrollTop(currentScrollTop);
-  }, [lastScrollTop, scrollThreshold, isSearchVisible]);
+  }, [lastScrollTop, scrollThreshold, isSearchVisible, autoHideEnabled]);
 
   // 添加滚动监听器
   useEffect(() => {
@@ -352,7 +363,7 @@ const BillsPage: React.FC = () => {
       title: '交易时间',
       dataIndex: 'transaction_date',
       key: 'transaction_date',
-      width: 200,
+      width: 150,
       render: (date: string) => (
         <span style={{ whiteSpace: 'nowrap' }}>
           {dayjs(date).format('YYYY-MM-DD HH:mm:ss')}
@@ -368,12 +379,14 @@ const BillsPage: React.FC = () => {
       title: '交易描述',
       dataIndex: 'transaction_desc',
       key: 'transaction_desc',
+      width: 200,
       ellipsis: true,
     },
     {
       title: '备注',
       dataIndex: 'remark',
       key: 'remark',
+      width: 130,
       ellipsis: true,
       render: (remark: string | undefined) => (
         <span style={{ color: '#666' }}>{remark || ''}</span>
@@ -383,7 +396,7 @@ const BillsPage: React.FC = () => {
       title: '金额',
       dataIndex: 'amount',
       key: 'amount',
-      width: 120,
+      width: 80,
       render: (amount: number, record: Bill) => (
         <span style={{
           color: record.transaction_type === 'income' ? '#3f8600' : 
@@ -401,7 +414,7 @@ const BillsPage: React.FC = () => {
       title: '类型',
       dataIndex: 'transaction_type',
       key: 'transaction_type',
-      width: 80,
+      width: 70,
       render: (type: string) => (
         <Tag color={type === 'income' ? 'green' : type === 'expense' ? 'red' : 'blue'}>
           {type === 'income' ? '收入' : type === 'expense' ? '支出' : '不计收支'}
@@ -412,7 +425,7 @@ const BillsPage: React.FC = () => {
       title: '来源',
       dataIndex: 'source_type',
       key: 'source_type',
-      width: 100,
+      width: 80,
       render: (source: string) => getSourceTypeLabel(source),
     },
     {
@@ -423,9 +436,17 @@ const BillsPage: React.FC = () => {
       render: (category: any) => category?.name || '未分类',
     },
     {
+      title: '用户',
+      dataIndex: 'user',
+      key: 'user',
+      width: 100,
+      render: (user: any) => user?.full_name || user?.username || '未知用户',
+    },
+    {
       title: '操作',
       key: 'action',
-      width: 120,
+      width: 80,
+      fixed: 'right',
       render: (_, record: Bill) => (
         <Space size="small">
           <Button
@@ -462,7 +483,30 @@ const BillsPage: React.FC = () => {
       height: '100%', 
       position: 'relative',
     }}>
-      <div style={{ display: 'none' }} />
+      {/* 手动显示按钮 - 向下箭头（搜索区域隐藏时显示） */}
+      {!isSearchVisible && (
+        <Button
+          type="text"
+          size="small"
+          icon={<DownOutlined />}
+          onClick={() => setIsSearchVisible(true)}
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            padding: '2px 4px',
+            height: 'auto',
+            minWidth: 'auto',
+            color: '#999',
+            fontSize: '10px',
+            zIndex: 20,
+            backgroundColor: '#fff',
+            border: '1px solid #d9d9d9',
+            borderRadius: '4px',
+          }}
+          title="显示搜索区域"
+        />
+      )}
 
       {/* 筛选区域 */}
       <Card 
@@ -476,6 +520,8 @@ const BillsPage: React.FC = () => {
           right: 0,
           zIndex: 10,
           opacity: isSearchVisible ? 1 : 0,
+          transition: 'all 0.3s ease-in-out',
+          visibility: isSearchVisible ? 'visible' : 'hidden',
         }} 
         bodyStyle={{ padding: 12 }}
       >
@@ -641,7 +687,17 @@ const BillsPage: React.FC = () => {
             />
           </Space>
         </Space>
-        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center' }}>
+        <div style={{ marginTop: 8, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+          <div style={{ position: 'absolute', left: 0, display: 'flex', alignItems: 'center' }}>
+            <Text style={{ marginRight: 8, fontSize: '12px', color: '#666' }}>自动隐藏：</Text>
+            <Switch
+              size="small"
+              checked={autoHideEnabled}
+              onChange={setAutoHideEnabled}
+              checkedChildren="开"
+              unCheckedChildren="关"
+            />
+          </div>
           <Space size="middle">
             <Button type="primary" size="small" onClick={handleQuery}>
               查询
@@ -680,6 +736,24 @@ const BillsPage: React.FC = () => {
             </Button>
           </Space>
         </div>
+        {/* 手动隐藏按钮 - 向上箭头 */}
+        <Button
+          type="text"
+          size="small"
+          icon={<UpOutlined />}
+          onClick={() => setIsSearchVisible(false)}
+          style={{
+            position: 'absolute',
+            bottom: 4,
+            right: 8,
+            padding: '2px 4px',
+            height: 'auto',
+            minWidth: 'auto',
+            color: '#999',
+            fontSize: '10px',
+          }}
+          title="隐藏搜索区域"
+        />
       </Card>
 
       {/* 账单表格 */}
@@ -689,6 +763,7 @@ const BillsPage: React.FC = () => {
           overflow: 'auto', 
           minHeight: 0,
           paddingTop: isSearchVisible ? `${searchAreaHeight}px` : '0px',
+          transition: 'padding-top 0.3s ease-in-out',
         }} 
         ref={scrollContainerRef}
       >
@@ -707,7 +782,7 @@ const BillsPage: React.FC = () => {
           onChange={(_paginationInfo, _filters, _sorter) => {
             // 移除排序逻辑，仅保留客户端排序
           }}
-          scroll={{ x: 800 }}
+          scroll={{ x: 1200, y: isSearchVisible ? 'calc(100vh - 220px)' : 'calc(100vh - 120px)' }}
         />
       </div>
 
@@ -716,7 +791,7 @@ const BillsPage: React.FC = () => {
         position: 'sticky', 
         bottom: 0, 
         backgroundColor: '#fff', 
-        padding: '12px 0', 
+        padding: '8px 0', 
         borderTop: '1px solid #f0f0f0',
         display: 'flex',
         justifyContent: 'center',
