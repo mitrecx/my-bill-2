@@ -132,6 +132,34 @@ const YearlyExpenseChart: React.FC = () => {
     };
   }, [chartData, chartType]);
 
+  // 处理总收入点击
+  const handleTotalIncomeClick = () => {
+    resetQueryParams();
+    setQueryParams({
+      transaction_type: ['income'],
+      start_date: dayjs(`${selectedYear}-01-01`).format('YYYY-MM-DD'),
+      end_date: dayjs(`${selectedYear}-12-31`).format('YYYY-MM-DD'),
+      user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
+
+  // 处理总支出点击
+  const handleTotalExpenseClick = () => {
+    resetQueryParams();
+    setQueryParams({
+      transaction_type: ['expense'],
+      start_date: dayjs(`${selectedYear}-01-01`).format('YYYY-MM-DD'),
+      end_date: dayjs(`${selectedYear}-12-31`).format('YYYY-MM-DD'),
+      user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
+
   // 新增：图表点击交互，跳转到账单总览并预设月份查询条件
   const handleChartClick = (params: any) => {
     try {
@@ -180,11 +208,11 @@ const YearlyExpenseChart: React.FC = () => {
               <Option key={year} value={year}>{year}年</Option>
             ))}
           </Select>
-          <div>
+          <div style={{ cursor: 'pointer' }} onClick={() => handleTotalExpenseClick()}>
             <Text>全年总支出: </Text>
             <Text type="danger" strong>¥{totalExpense.toFixed(2)}</Text>
           </div>
-          <div style={{ marginLeft: 16 }}>
+          <div style={{ marginLeft: 16, cursor: 'pointer' }} onClick={() => handleTotalIncomeClick()}>
             <Text>全年总收入: </Text>
             <Text type="success" strong>¥{totalIncome.toFixed(2)}</Text>
           </div>

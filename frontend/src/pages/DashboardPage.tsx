@@ -1,18 +1,13 @@
 import React, { useEffect } from 'react';
-import { Row, Col, Card, Statistic, Alert, Spin } from 'antd';
-import { 
-  DollarOutlined, 
-  ShoppingOutlined, 
-  RiseOutlined, 
-  FileTextOutlined 
-} from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Typography, Alert, Spin } from 'antd';
+import { RiseOutlined, ShoppingOutlined, DollarOutlined, FileTextOutlined } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
+import { useLocation, useNavigate } from 'react-router-dom';
 import YearlyExpenseChart from '../components/YearlyExpenseChart';
 import YearlyProfitChart from '../components/YearlyProfitChart';
 import MonthlyExpenseTrendChart from '../components/MonthlyExpenseTrendChart';
 import MonthlyExpenseCategoryChart from '../components/MonthlyExpenseCategoryChart';
-import { useLocation } from 'react-router-dom';
-import { Typography } from 'antd';
+import { useAuthStore } from '../stores/auth';
 
 const { Title } = Typography;
 
@@ -25,8 +20,12 @@ const DashboardPage: React.FC = () => {
     dashboardScope,
     isLoading,
     fetchAvailableYears,
+    setQueryParams,
+    resetQueryParams,
   } = useBillsStore();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     // 根据路由设置 scope
@@ -43,6 +42,30 @@ const DashboardPage: React.FC = () => {
     // 获取有账单数据的年份列表
     fetchAvailableYears();
   }, [fetchAvailableYears]);
+
+  // 处理总收入卡片点击
+  const handleIncomeClick = () => {
+    resetQueryParams();
+    setQueryParams({
+      transaction_type: ['income'],
+      user_id: user?.id, // 始终限定为当前登录用户
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
+
+  // 处理总支出卡片点击
+  const handleExpenseClick = () => {
+    resetQueryParams();
+    setQueryParams({
+      transaction_type: ['expense'],
+      user_id: user?.id, // 始终限定为当前登录用户
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
 
   return (
     <div>
@@ -67,7 +90,7 @@ const DashboardPage: React.FC = () => {
         {/* 统计卡片 */}
         <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card style={{ cursor: 'pointer' }} onClick={handleIncomeClick}>
             <Statistic
               title="总收入"
               value={stats?.total_income || 0}
@@ -80,7 +103,7 @@ const DashboardPage: React.FC = () => {
         </Col>
         
         <Col xs={24} sm={12} lg={6}>
-          <Card>
+          <Card style={{ cursor: 'pointer' }} onClick={handleExpenseClick}>
             <Statistic
               title="总支出"
               value={stats?.total_expense || 0}

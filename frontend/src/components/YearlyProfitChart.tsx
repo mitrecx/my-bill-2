@@ -176,6 +176,20 @@ const YearlyProfitChart: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
+  // 处理总收益点击
+  const handleTotalProfitClick = () => {
+    resetQueryParams();
+    setQueryParams({
+      transaction_type: ['income', 'expense'],
+      start_date: dayjs(`${selectedYear}-01-01`).format('YYYY-MM-DD'),
+      end_date: dayjs(`${selectedYear}-12-31`).format('YYYY-MM-DD'),
+      user_id: dashboardScope === 'personal' && user?.id ? user.id : undefined,
+      page: 1,
+      size: 10,
+    });
+    navigate('/bills');
+  };
+
   const handleChartClick = (params: any) => {
     try {
       const index: number | undefined = params?.dataIndex;
@@ -220,7 +234,7 @@ const YearlyProfitChart: React.FC = () => {
               <Option key={year} value={year}>{year}年</Option>
             ))}
           </Select>
-          <div>
+          <div style={{ cursor: 'pointer' }} onClick={() => handleTotalProfitClick()}>
             <Text>全年净收益: </Text>
             <Text type={totalProfit >= 0 ? "success" : "danger"} strong>
               ¥{totalProfit.toFixed(2)}
