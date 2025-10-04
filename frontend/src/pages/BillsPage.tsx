@@ -24,6 +24,7 @@ import {
   DownOutlined,
 } from '@ant-design/icons';
 import { useBillsStore } from '../stores/bills';
+import { useAuthStore } from '../stores/auth';
 import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -52,6 +53,9 @@ const BillsPage: React.FC = () => {
   } = useBillsStore();
   // 新增：家庭成员 store
   const { members, currentFamily, fetchFamilyMembers, loading: familyLoading, fetchFamilies } = useFamilyStore();
+  // 新增：当前登录用户信息
+  const { user: currentUser } = useAuthStore();
+  
   // 页面初始化：如无当前家庭，主动加载家庭列表
   useEffect(() => {
     if (!currentFamily) {
@@ -276,8 +280,14 @@ const BillsPage: React.FC = () => {
     try {
       await deleteBill(id);
       message.success('删除成功');
-    } catch (error) {
-      message.error('删除失败');
+    } catch (error: any) {
+      // 优先使用后端返回的具体错误信息
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.message || 
+                          '删除失败';
+      message.error(errorMessage);
     }
   };
 
@@ -312,7 +322,13 @@ const BillsPage: React.FC = () => {
         // 表单验证错误
         return;
       }
-      message.error(error.message || '操作失败');
+      // 优先使用后端返回的具体错误信息
+      const errorMessage = error.friendlyMessage || 
+                          error.response?.data?.message || 
+                          error.response?.data?.detail || 
+                          error.message || 
+                          '操作失败';
+      message.error(errorMessage);
     }
   };
 
@@ -447,32 +463,44 @@ const BillsPage: React.FC = () => {
       key: 'action',
       width: 80,
       fixed: 'right',
-      render: (_, record: Bill) => (
-        <Space size="small">
-          <Button
-            type="text"
-            icon={<EditOutlined />}
-            size="small"
-            onClick={() => {
-              setEditingBill(record);
-              setIsModalVisible(true);
-            }}
-          />
-          <Popconfirm
-            title="确定删除这条账单吗？"
-            onConfirm={() => handleDelete(record.id)}
-            okText="确定"
-            cancelText="取消"
-          >
-            <Button
-              type="text"
-              icon={<DeleteOutlined />}
-              size="small"
-              danger
-            />
-          </Popconfirm>
-        </Space>
-      ),
+      render: (_, record: Bill) => {
+          // 判断当前用户是否有权限编辑和删除此账单
+          const canEdit = currentUser && (currentUser.id === record.user_id);
+          
+          return (
+            <Space size="small">
+              {canEdit && (
+                <Button
+                  type="text"
+                  icon={<EditOutlined />}
+                  size="small"
+                  onClick={() => {
+                    setEditingBill(record);
+                    setIsModalVisible(true);
+                  }}
+                />
+              )}
+              {canEdit && (
+                <Popconfirm
+                  title="确定删除这条账单吗？"
+                  onConfirm={() => handleDelete(record.id)}
+                  okText="确定"
+                  cancelText="取消"
+                >
+                  <Button
+                    type="text"
+                    icon={<DeleteOutlined />}
+                    size="small"
+                    danger
+                  />
+                </Popconfirm>
+              )}
+              {!canEdit && (
+                <span style={{ color: '#999', fontSize: '12px' }}>-</span>
+              )}
+            </Space>
+          );
+        },
     },
   ];
 
@@ -979,7 +1007,13 @@ const BillsPage: React.FC = () => {
               setSelectedRowKeys([]);
             } catch (err: any) {
               if (err?.errorFields) return;
-              message.error(err?.message || '批量更新失败');
+              // 优先使用后端返回的具体错误信息
+              const errorMessage = err?.friendlyMessage || 
+                                  err?.response?.data?.message || 
+                                  err?.response?.data?.detail || 
+                                  err?.message || 
+                                  '批量更新失败';
+              message.error(errorMessage);
             }
           }} loading={isLoading}>
             更新

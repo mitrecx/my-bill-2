@@ -1090,14 +1090,13 @@ async def update_bill(
 ):
     """更新账单信息。前端提交英文交易类型，需转换为中文后入库。"""
     try:
-        # 校验账单归属：仅允许更新当前用户家庭成员的账单
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 校验账单归属：仅允许更新当前用户自己的账单
         bill: Bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
+            Bill.user_id == current_user.id
         ).first()
         if not bill:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="账单不存在或无权限访问")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="无法修改他人的账单数据!")
 
         # 英文到中文的交易类型映射
         type_map = {
@@ -1240,15 +1239,14 @@ async def delete_bill(
 ):
     """删除账单"""
     try:
-        # 校验账单归属：仅允许删除当前用户家庭成员的账单
-        family_user_ids = await get_user_family_members(current_user, db)
+        # 校验账单归属：仅允许删除当前用户自己的账单
         bill = db.query(Bill).filter(
             Bill.id == bill_id,
-            Bill.user_id.in_(family_user_ids)
+            Bill.user_id == current_user.id
         ).first()
         
         if not bill:
-            raise HTTPException(status_code=404, detail="账单不存在或无权限访问")
+            raise HTTPException(status_code=404, detail="无法删除他人的账单数据!")
         
         # 删除账单
         db.delete(bill)

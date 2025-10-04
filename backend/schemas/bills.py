@@ -127,6 +127,7 @@ class UserSimpleResponse(BaseModel):
 class BillResponse(BaseModel):
     """账单响应模型"""
     id: int
+    user_id: int  # 添加user_id字段以匹配前端期望
     amount: float
     transaction_date: datetime  # 改为transaction_date以匹配前端期望
     transaction_type: str
@@ -160,6 +161,7 @@ class BillResponse(BaseModel):
         
         return cls(
             id=bill.id,
+            user_id=bill.user_id,  # 添加user_id字段
             amount=bill.amount,
             transaction_date=transaction_date,  # 确保有值
             transaction_type=transaction_type,  # 使用映射后的值
