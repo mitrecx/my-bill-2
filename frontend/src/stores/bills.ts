@@ -335,7 +335,10 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   setQueryParams: (params: Partial<BillListQueryParams>) => {
     const currentParams = get().queryParams;
-    set({ queryParams: { ...currentParams, ...params } });
+    const newParams = { ...currentParams, ...params };
+    set({ queryParams: newParams });
+    // 自动触发数据重新获取
+    get().fetchBills(newParams);
   },
   resetQueryParams: () => {
     set({ queryParams: initialQueryParams });
