@@ -1,10 +1,10 @@
 #!/bin/bash
 
 # 远程日志查看脚本
-# 用于查看 jo.mitrecx.top 服务器上的各种日志
+# 用于查看 bill.mitrecx.top 服务器上的各种日志
 
 REMOTE_USER="josie"
-REMOTE_HOST="jo.mitrecx.top"
+REMOTE_HOST="bill.mitrecx.top"
 APP_PATH="/home/josie/apps/family-bills-backend"
 
 # 显示使用帮助

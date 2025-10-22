@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 后端服务部署脚本
-# 部署到 jo.mitrecx.top 服务器
+# 部署到 bill.mitrecx.top 服务器
 # 使用方法:
 #   ./deploy.sh           # 正常部署，智能检测是否需要安装依赖
 #   ./deploy.sh --deps     # 强制重新安装依赖
@@ -35,7 +35,7 @@ echo "开始部署家庭账单管理系统后端服务..."
 
 # 配置变量
 REMOTE_USER="josie"
-REMOTE_HOST="jo.mitrecx.top"
+REMOTE_HOST="bill.mitrecx.top"
 REMOTE_PATH="/home/josie/apps/family-bills-backend"
 LOCAL_PATH="."
 
@@ -81,7 +81,7 @@ SECRET_KEY=family-bills-production-secret-key-2024-very-long-and-secure
 DEBUG=false
 HOST=0.0.0.0
 PORT=8000
-CORS_ORIGINS=http://jo.mitrecx.top:3000,https://jo.mitrecx.top:3000,http://jo.mitrecx.top,https://jo.mitrecx.top
+CORS_ORIGINS=http://bill.mitrecx.top:3000,https://bill.mitrecx.top:3000,http://bill.mitrecx.top,https://bill.mitrecx.top
 LOG_LEVEL=INFO
 LOG_FILE=logs/production.log
 UPLOAD_DIR=uploads
@@ -147,8 +147,8 @@ ENVEOF
     # 检查服务状态
     if curl -f http://localhost:8000/api/v1/health/ > /dev/null 2>&1; then
         echo "✅ 服务启动成功！"
-        echo "健康检查: https://jo.mitrecx.top/api/v1/health/"
-        echo "API文档: https://jo.mitrecx.top/api/docs"
+        echo "健康检查: https://bill.mitrecx.top/api/v1/health/"
+        echo "API文档: https://bill.mitrecx.top/api/docs"
     else
         echo "❌ 服务启动失败，请检查日志"
         tail -n 20 logs/app.log
@@ -163,6 +163,6 @@ echo "4. 清理本地临时文件..."
 rm -f family-bills-backend.tar.gz
 
 echo "✅ 部署完成！"
-echo "服务地址: https://jo.mitrecx.top"
-echo "健康检查: https://jo.mitrecx.top/api/v1/health"
-echo "API文档: https://jo.mitrecx.top/api/docs"
+echo "服务地址: https://bill.mitrecx.top"
+echo "健康检查: https://bill.mitrecx.top/api/v1/health"
+echo "API文档: https://bill.mitrecx.top/api/docs"

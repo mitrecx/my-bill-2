@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # SSL证书自动部署脚本
-# 用于部署SSL证书到 jo.mitrecx.top 服务器
+# 用于部署SSL证书到 bill.mitrecx.top 服务器
 # 作者: 家庭账单管理系统
 # 日期: $(date +%Y-%m-%d)
 
@@ -15,7 +15,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # 配置变量
-DOMAIN="jo.mitrecx.top"
+DOMAIN="bill.mitrecx.top"
 LOCAL_CERT_DIR="$(dirname "$0")"
 LOCAL_KEY_FILE="${LOCAL_CERT_DIR}/${DOMAIN}.key"
 LOCAL_CERT_FILE="${LOCAL_CERT_DIR}/${DOMAIN}.pem"

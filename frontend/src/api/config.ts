@@ -4,7 +4,7 @@ export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000',
   
   // 生产环境API地址 (部署的服务器)
-  PROD_BASE_URL: 'https://jo.mitrecx.top',
+  PROD_BASE_URL: 'https://bill.mitrecx.top',
   
   // 请求超时时间 (5分钟，支持大文件上传)
   TIMEOUT: 300000,

@@ -2,7 +2,7 @@
 
 # SSL证书申请脚本
 # 使用 Let's Encrypt 申请免费SSL证书
-# 域名: jo.mitrecx.top
+# 域名: bill.mitrecx.top
 
 set -e
 
@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # 配置变量
-DOMAIN="jo.mitrecx.top"
+DOMAIN="bill.mitrecx.top"
 EMAIL="your-email@example.com"  # 请替换为你的邮箱
 WEBROOT="/var/www/family-bills-frontend"
 
@@ -127,10 +127,10 @@ restore_https_config() {
     cat > /etc/nginx/conf.d/family-bills.conf << 'EOF'
 server {
     listen 443 ssl http2;
-    server_name jo.mitrecx.top;
+    server_name bill.mitrecx.top;
 
-    ssl_certificate     /etc/nginx/ssl/jo.mitrecx.top.pem;
-    ssl_certificate_key /etc/nginx/ssl/jo.mitrecx.top.key;
+    ssl_certificate     /etc/nginx/ssl/bill.mitrecx.top.pem;
+    ssl_certificate_key /etc/nginx/ssl/bill.mitrecx.top.key;
     
     # SSL 优化配置
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -176,7 +176,7 @@ server {
 
 server {
     listen 80;
-    server_name jo.mitrecx.top;
+    server_name bill.mitrecx.top;
     return 301 https://$host$request_uri;
 }
 EOF

@@ -248,7 +248,7 @@ export const API_CONFIG = {
   BASE_URL: 'http://localhost:8000/api/v1',
   
   // 生产环境API地址
-  PROD_BASE_URL: 'http://jo.mitrecx.top:8000/api/v1',
+  PROD_BASE_URL: 'http://bill.mitrecx.top:8000/api/v1',
   
   // 请求超时时间
   TIMEOUT: 30000,
@@ -311,7 +311,7 @@ Users (1:N) UploadRecords
 后端提供完整的 OpenAPI/Swagger 文档：
 
 - 开发环境: http://localhost:8000/docs
-- 生产环境: http://jo.mitrecx.top:8000/docs
+- 生产环境: http://bill.mitrecx.top:8000/docs
 
 ### 主要API端点
 

@@ -2,7 +2,7 @@
 
 ## 概述
 
-`deploy.sh` 脚本用于自动化部署前端应用到 `jo.mitrecx.top` 服务器，支持智能依赖管理和自动nginx配置。
+`deploy.sh` 脚本用于自动化部署前端应用到 `bill.mitrecx.top` 服务器，支持智能依赖管理和自动nginx配置。
 
 ## 使用方法
 
@@ -58,9 +58,9 @@
 
 部署完成后，可以通过以下地址访问：
 
-- **前端应用**：http://jo.mitrecx.top
-- **API 接口**：http://jo.mitrecx.top/api
-- **API 文档**：http://jo.mitrecx.top/api/docs
+- **前端应用**：http://bill.mitrecx.top
+- **API 接口**：http://bill.mitrecx.top/api
+- **API 文档**：http://bill.mitrecx.top/api/docs
 
 ## 智能检测机制
 

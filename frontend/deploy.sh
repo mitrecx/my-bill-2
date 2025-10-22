@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 前端部署脚本
-# 部署到 jo.mitrecx.top 服务器
+# 部署到 bill.mitrecx.top 服务器
 # 使用方法:
 #   ./deploy.sh           # 正常部署，智能检测是否需要安装依赖
 #   ./deploy.sh --deps     # 强制重新安装依赖
@@ -35,7 +35,7 @@ echo "开始部署家庭账单管理系统前端..."
 
 # 配置变量
 REMOTE_USER="josie"
-REMOTE_HOST="jo.mitrecx.top"
+REMOTE_HOST="bill.mitrecx.top"
 REMOTE_PATH="/var/www/family-bills-frontend"
 LOCAL_PATH="."
 
@@ -108,10 +108,10 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
     sudo tee /etc/nginx/conf.d/family-bills.conf > /dev/null << 'NGINXEOF'
 server {
     listen 443 ssl http2;
-    server_name jo.mitrecx.top;
+    server_name bill.mitrecx.top;
 
-    ssl_certificate     /etc/nginx/ssl/jo.mitrecx.top.pem;
-    ssl_certificate_key /etc/nginx/ssl/jo.mitrecx.top.key;
+    ssl_certificate     /etc/nginx/ssl/bill.mitrecx.top.pem;
+    ssl_certificate_key /etc/nginx/ssl/bill.mitrecx.top.key;
     
     # SSL 优化配置
     ssl_protocols TLSv1.2 TLSv1.3;
@@ -166,7 +166,7 @@ server {
 
 server {
     listen 80;
-    server_name jo.mitrecx.top;
+    server_name bill.mitrecx.top;
     return 301 https://\$host\$request_uri;
 }
 NGINXEOF
@@ -182,7 +182,7 @@ NGINXEOF
     # 检查nginx状态
     if sudo systemctl is-active --quiet nginx; then
         echo "✅ Nginx重新加载成功！"
-        echo "前端地址: https://jo.mitrecx.top"
+        echo "前端地址: https://bill.mitrecx.top"
     else
         echo "❌ Nginx重新加载失败，请检查配置"
         sudo systemctl status nginx
@@ -197,6 +197,6 @@ echo "6. 清理本地临时文件..."
 rm -f family-bills-frontend.tar.gz
 
 echo "✅ 前端部署完成！"
-echo "网站地址: https://jo.mitrecx.top"
-echo "API地址: https://jo.mitrecx.top/api"
-echo "后端文档: https://jo.mitrecx.top/api/docs"
+echo "网站地址: https://bill.mitrecx.top"
+echo "API地址: https://bill.mitrecx.top/api"
+echo "后端文档: https://bill.mitrecx.top/api/docs"
