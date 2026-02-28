@@ -55,7 +55,7 @@ echo "2. 上传文件到服务器..."
 scp family-bills-backend.tar.gz ${REMOTE_USER}@${REMOTE_HOST}:~/
 
 echo "3. 在远程服务器上部署..."
-ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
+ssh -T ${REMOTE_USER}@${REMOTE_HOST} "FORCE_DEPS=${FORCE_DEPS}" "SKIP_DEPS=${SKIP_DEPS}" << 'EOF'
     # 创建应用目录
     mkdir -p /home/josie/apps/family-bills-backend
     cd /home/josie/apps
