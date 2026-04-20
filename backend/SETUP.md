@@ -1,14 +1,18 @@
 # 后端设置说明
 
+> 配置字段以 **`config/settings.py`** 为准；环境变量加载顺序见该文件（优先 **`backend/.env`**，否则 `config/environments/{ENVIRONMENT}.env`）。仓库根目录的 **`.env.example`** 可复制为 **`backend/.env`** 后修改。
+
 ## 环境要求
 
-- Python 3.8+
+- Python 3.9+（推荐与生产一致）
 - PostgreSQL 12+
-- pip 或 poetry
+- pip
 
 ## 安装步骤
 
 ### 1. 安装依赖
+
+在 `backend/` 目录下：
 
 ```bash
 pip install -r requirements.txt
@@ -16,34 +20,35 @@ pip install -r requirements.txt
 
 ### 2. 环境变量配置
 
-创建 `.env` 文件，包含以下配置：
+在 **`backend/`** 下创建 **`.env`**（或由仓库根目录 `cp ../.env.example .env`），示例字段：
 
 ```bash
-# 数据库配置
-DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
-
-# 安全配置
-SECRET_KEY=your-very-secret-key-here-change-in-production
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-
-# 应用配置
-PROJECT_NAME=多用户家庭账单管理系统
+ENVIRONMENT=development
 DEBUG=true
-HOST=0.0.0.0
+HOST=127.0.0.1
 PORT=8000
 
-# CORS配置（前端域名）
-BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
+# 数据库（必填）
+DATABASE_URL=postgresql://user:password@localhost:5432/bills_db
 
-# 文件上传配置
-MAX_FILE_SIZE=10485760
-ALLOWED_EXTENSIONS=["csv", "pdf"]
+# 安全（SECRET_KEY 至少 32 字符）
+SECRET_KEY=your-very-secret-key-at-least-32-characters-long
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+
+# CORS：逗号分隔多个源
+CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# 上传与日志
 UPLOAD_DIR=uploads
-
-# 日志配置
+MAX_FILE_SIZE=10485760
+ALLOWED_EXTENSIONS=.csv,.xlsx,.xls,.pdf
 LOG_LEVEL=INFO
 LOG_FILE=logs/app.log
+
+# 可选
+# REDIS_URL=redis://localhost:6379/0
+# ZHIPU_API_KEY=
 ```
 
 ### 3. 数据库设置
@@ -82,10 +87,16 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 backend/
-├── api/                    # API路由
+├── api/                    # API 路由（见 api/__init__.py 汇总）
 │   ├── auth.py            # 用户认证
 │   ├── bills.py           # 账单管理
-│   └── upload.py          # 文件上传
+│   ├── upload.py          # 文件上传
+│   ├── families.py        # 家庭
+│   ├── users.py           # 用户管理
+│   ├── messages.py        # 消息
+│   ├── system_config.py   # 系统配置
+│   ├── classification_rules.py  # 分类规则
+│   └── health.py          # 健康检查
 ├── config/                # 配置文件
 │   ├── database.py        # 数据库配置
 │   └── settings.py        # 应用设置
@@ -123,10 +134,8 @@ backend/
 - 数据隔离
 
 ### 3. 文件解析
-- 支付宝CSV文件解析
-- 京东CSV文件解析
-- 招商银行PDF文件解析
-- 自动分类和数据标准化
+- 支付宝 CSV、京东 CSV、招商银行 PDF、微信支付 Excel、美团 CSV 等（见 `parsers/__init__.py`）
+- 分类规则与可选 AI 辅助（`services/ai_classification_service.py`、智谱 API Key）
 
 ### 4. 账单管理
 - 账单CRUD操作

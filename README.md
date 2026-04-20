@@ -1,428 +1,162 @@
-# 多用户家庭账单管理系统
+# 多用户家庭账单管理系统（my-bill-2）
 
-一个基于 React + FastAPI 的现代化家庭账单管理系统，支持多用户协作、自动账单解析、智能分类统计等功能。
+基于 **React + TypeScript + Vite** 与 **FastAPI + PostgreSQL** 的家庭账单管理系统：多用户与家庭协作、账单导入与解析、分类与统计图表、系统消息与可配置分类规则。
 
-## 📋 项目概述
+## 项目概述
 
-本系统专为家庭财务管理设计，支持从支付宝、京东、招商银行等平台导入账单数据，提供直观的数据可视化和统计分析功能，帮助家庭更好地管理财务状况。
+支持从 **支付宝、京东、招商银行、微信支付、美团** 等来源导入账单（CSV / Excel / PDF 等），在仪表盘中查看收支趋势与分类占比，并可通过 **分类规则**（含可选智谱 AI 辅助）将交易归入账单分类。
 
 ### 核心特性
 
-- 🔐 **多用户系统** - 支持用户注册、登录、权限管理
-- 👨‍👩‍👧‍👦 **家庭协作** - 多用户可加入同一家庭，共享账单数据
-- 📄 **智能解析** - 自动解析支付宝CSV、京东CSV、招商银行PDF账单文件
-- 📊 **数据可视化** - 丰富的图表展示收支趋势、分类统计
-- 🔍 **智能搜索** - 支持按时间、金额、类型、来源等多维度筛选
-- 📱 **响应式设计** - 完美支持桌面和移动设备
+- **多用户与家庭**：注册登录、JWT、家庭创建与成员管理、家庭内共享数据视角
+- **账单解析**：`backend/parsers/` 中按 `source_type` 注册解析器（支付宝、京东、招行、微信、美团等）
+- **账单与分类**：账单 CRUD、分类树、上传预览与确认、可选重复检测与覆盖逻辑（见代码与迁移脚本）
+- **统计与图表**：仪表盘、年度支出、月度趋势、分类占比等（Recharts / ECharts）
+- **分类规则**：自定义规则维护、批量与测试接口（`/api/v1/classification-rules`）
+- **消息**：家庭/系统消息相关接口与前端页面
+- **运维**：健康检查与指标（`/api/v1/health`）、结构化日志、可选 Redis、生产环境可关闭 Swagger
 
-## 🛠 技术栈
+## 技术栈
 
-### 前端技术
-- **框架**: React 19 + TypeScript
-- **构建工具**: Vite 7
-- **UI库**: Ant Design 5
-- **状态管理**: Zustand
-- **路由**: React Router Dom 7
-- **图表**: Recharts
-- **HTTP客户端**: Axios
+| 层级 | 选型 |
+|------|------|
+| 前端 | React 18、TypeScript、Vite 7、Ant Design 5、Zustand、React Router 7、Axios、Recharts、ECharts（echarts-for-react） |
+| 后端 | Python 3、FastAPI、SQLAlchemy 2.x、Pydantic v2 / pydantic-settings、Uvicorn |
+| 认证 | JWT（python-jose）、密码 **bcrypt**（passlib） |
+| 数据 | PostgreSQL（`psycopg2-binary` / `asyncpg`），迁移见 `backend/migrations/` |
+| 可选 | 智谱 AI（`ZHIPU_API_KEY`，用于智能分类）、Redis（`REDIS_URL`） |
 
-### 后端技术
-- **框架**: FastAPI (Python)
-- **数据库**: PostgreSQL
-- **ORM**: SQLAlchemy
-- **认证**: JWT Token
-- **文档**: Swagger/OpenAPI
+## 仓库结构
 
-### 部署环境
-- **服务器**: Linux (CentOS/RHEL)
-- **反向代理**: 可配置 Nginx
-- **进程管理**: systemd 或 PM2
-
-## 📁 项目结构
-
-```
-my-bills-2/
-├── frontend/                 # 前端项目
+```text
+my-bill-2/
+├── backend/                 # FastAPI 应用（工作目录常为 backend/）
+│   ├── api/                 # 路由：auth、bills、upload、families、users、messages、system_config、classification_rules、health
+│   ├── config/              # settings、database、logging；environments/*.env 示例
+│   ├── core/                # 中间件、异常
+│   ├── models/              # SQLAlchemy 模型
+│   ├── schemas/             # Pydantic 模型
+│   ├── services/            # 业务服务
+│   ├── parsers/             # 各平台账单解析器
+│   ├── migrations/          # SQL/Python 迁移脚本
+│   ├── main.py              # FastAPI 入口
+│   ├── run.py               # 开发启动（uvicorn）
+│   ├── create_tables.py     # 开发期建表（make db-init）
+│   └── requirements.txt
+├── frontend/
 │   ├── src/
-│   │   ├── api/             # API接口层
-│   │   ├── components/      # 公共组件
-│   │   ├── pages/           # 页面组件
-│   │   ├── stores/          # 状态管理
-│   │   ├── types/           # TypeScript类型定义
-│   │   └── main.tsx         # 入口文件
-│   ├── package.json
-│   └── vite.config.ts
-├── backend/                  # 后端项目
-│   ├── config/              # 配置文件
-│   ├── models/              # 数据模型
-│   ├── api/                 # API路由
-│   ├── core/                # 核心功能
-│   ├── parsers/             # 账单解析器
-│   ├── schemas/             # 数据模式
-│   ├── utils/               # 工具函数
-│   ├── examples/            # 示例代码
-│   ├── main.py              # 应用入口
-│   └── requirements.txt     # Python依赖
-├── tests/                   # 测试文件
-│   ├── conftest.py          # 测试配置
-│   ├── test_*.py            # 各种测试
-│   └── ...
-├── scripts/                 # 工具脚本
-│   ├── reset_password.py    # 密码重置工具
-│   ├── check_db_records.py  # 数据库检查
-│   └── ...
-├── database/                # 数据库相关
-│   └── init.sql             # 数据库结构
-├── bills/                   # 示例账单文件
-├── .env.example             # 环境变量示例
-├── pytest.ini              # 测试配置
-├── Makefile                 # 项目管理命令
-└── README.md                # 项目文档
+│   │   ├── api/             # client、config（API 基址与端点）、services
+│   │   ├── components/      # 布局、图表等
+│   │   ├── pages/           # 登录注册、仪表盘、账单、上传、家庭、消息、用户、分类规则、设置等
+│   │   ├── stores/          # Zustand
+│   │   └── types/
+│   └── package.json
+├── database/
+│   └── init.sql             # 参考 SQL（以实际迁移与模型为准）
+├── docs/                    # 项目梳理、功能说明等
+├── scripts/                 # 分析、排错、工具脚本
+├── .env.example             # 环境变量模板（复制到 backend/.env，见下）
+├── Makefile                 # install、dev-backend、dev-frontend、test、db-init 等
+├── pytest.ini               # 预留 pytest 配置（测试用例目录可自行添加 tests/）
+└── README.md
 ```
 
-## 🚀 快速开始
+## 环境要求
 
-### 环境要求
+- **Node.js** 18+
+- **Python** 3.9+（与 `backend/requirements.txt` 一致即可）
+- **PostgreSQL** 12+
 
-- Node.js 18+
-- Python 3.9+
-- PostgreSQL 12+
-
-### 方式一：使用 Makefile（推荐）
-
-```bash
-# 1. 克隆项目
-git clone <repository-url>
-cd my-bills-2
-
-# 2. 复制环境变量配置文件
-cp .env.example .env
-# 编辑 .env 文件，填入实际的数据库连接信息
-
-# 3. 安装所有依赖
-make install
-
-# 4. 初始化数据库
-make db-init
-
-# 5. 启动开发服务器
-make dev-backend    # 启动后端 (http://127.0.0.1:8000)
-make dev-frontend   # 启动前端 (http://localhost:5173)
-
-# 其他常用命令
-make test          # 运行测试
-make lint          # 代码检查
-make format        # 代码格式化
-make help          # 查看所有可用命令
-```
-
-### 方式二：手动安装
-
-### 1. 克隆项目
+## 快速开始（推荐 Makefile）
 
 ```bash
 git clone <repository-url>
-cd my-bills-2
-```
+cd my-bill-2
 
-### 2. 数据库设置
-
-#### 安装 PostgreSQL
-
-**macOS:**
-```bash
-# 使用 Homebrew 安装
-brew install postgresql
-brew services start postgresql
-```
-
-**Ubuntu/Debian:**
-```bash
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
-sudo systemctl enable postgresql
-```
-
-**Windows:**
-下载并安装 PostgreSQL 官方安装包：https://www.postgresql.org/download/windows/
-
-#### 配置数据库
-
-```bash
-# 创建数据库和用户
-sudo -u postgres psql << EOF
-CREATE DATABASE bills_db;
-CREATE USER postgres WITH PASSWORD 'password';
-GRANT ALL PRIVILEGES ON DATABASE bills_db TO postgres;
-\q
-EOF
-
-# 使用自动化脚本初始化数据库（推荐）
-cd backend
-python setup_postgres.py
-
-# 或者手动导入数据库结构
-psql -U postgres -d bills_db -f init.sql
-```
-
-#### 环境配置
-
-在 `backend` 目录下创建 `.env` 文件：
-
-```bash
-DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
-SECRET_KEY=your-secret-key-here
-ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
-DEBUG=True
-HOST=127.0.0.1
-PORT=8000
-```
-
-> 📝 **注意**: 请根据实际情况修改数据库连接参数，生产环境请使用强密码。
-
-### 3. 后端部署
-
-```bash
-cd backend
-
-# 安装系统依赖（CentOS/RHEL）
-sudo yum install -y postgresql-devel python3-devel gcc
-
-# 安装Python依赖
-pip3 install -r requirements.txt
-
-# 配置环境变量（可选）
-export DATABASE_URL="postgresql://josie:bills_password_2024@localhost/bills_db"
-
-# 启动后端服务
-python3 main.py
-```
-
-### 4. 前端部署
-
-```bash
-cd frontend
+# 配置环境变量：仓库根目录的示例复制到 backend/.env（后端 BASE_DIR 为 backend/）
+cp .env.example backend/.env
+# 编辑 backend/.env：至少设置 DATABASE_URL、SECRET_KEY（≥32 字符）
 
 # 安装依赖
-npm install
+make install
 
-# 开发环境启动
-npm run dev
+# 初始化数据库表（在 backend 下执行 create_tables.py）
+make db-init
 
-# 生产环境构建
-npm run build
+# 分别开两个终端
+make dev-backend    # http://127.0.0.1:8000
+make dev-frontend   # http://localhost:5173
 ```
 
-## 🔧 配置说明
+常用命令：`make help`、`make test`（需存在 `tests/` 与用例）、`make lint`、`make format`、`make build`。
 
-### 后端配置
+### 环境变量说明（要点）
 
-主要配置文件：`backend/config/settings.py`
+- 配置文件加载顺序见 `backend/config/settings.py`：**优先 `backend/.env`**，否则 `backend/config/environments/{ENVIRONMENT}.env`。
+- **SECRET_KEY**：至少 32 字符。
+- **CORS_ORIGINS**：逗号分隔，默认包含 `localhost:5173` 等。
+- **ALLOWED_EXTENSIONS**：与 `settings` 一致时可包含 `.csv,.xlsx,.xls,.pdf` 等。
+- **ZHIPU_API_KEY**：可选，用于 AI 分类相关能力。
+- 根目录 `.env.example` 与后端字段对应；以 `settings.py` 中 `Field` 为准。
 
-```python
-class Settings:
-    app_name: str = "家庭账单管理系统"
-    debug: bool = False
-    secret_key: str = "your-secret-key"
-    
-    # 数据库配置
-    database_url: str = "postgresql://josie:bills_password_2024@localhost:5432/bills_db"
-    
-    # CORS配置
-    allowed_origins: List[str] = [
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "https://yourdomain.com"
-    ]
-```
+### 前端 API 地址
 
-### 前端配置
+- 开发默认请求 `http://localhost:8000`（见 `frontend/src/api/config.ts`）。
+- 若构建/预览需指向生产 API，使用环境变量 **`VITE_USE_PROD_API=true`**（详见 `getApiBaseUrl()`）。
 
-主要配置文件：`frontend/src/api/config.ts`
+## 主要路由（前端）
 
-```typescript
-export const API_CONFIG = {
-  // 开发环境API地址
-  BASE_URL: 'http://localhost:8000/api/v1',
-  
-  // 生产环境API地址
-  PROD_BASE_URL: 'http://bill.mitrecx.top:8000/api/v1',
-  
-  // 请求超时时间
-  TIMEOUT: 30000,
-}
-```
+| 路径 | 说明 |
+|------|------|
+| `/login`、`/register` | 登录注册 |
+| `/dashboard`、`/family-dashboard` | 仪表盘（统计与图表） |
+| `/bills` | 账单列表与管理 |
+| `/upload` | 上传与导入 |
+| `/messages` | 消息 |
+| `/users` | 用户管理（权限依角色） |
+| `/family` | 家庭管理 |
+| `/classification-rules` | 分类规则 |
+| `/settings` | 设置 |
+| `/profile` | 个人中心 |
 
-## 📖 使用指南
+## 后端 API 与文档
 
-### 1. 用户注册和登录
+- 开发环境 Swagger：**http://localhost:8000/docs**（生产若 `ENVIRONMENT=production` 可能关闭文档 URL，以配置为准）。
+- 路由统一前缀：**`/api/v1`**。
+- 示例：
+  - `POST /api/v1/auth/register`、`POST /api/v1/auth/login`、`GET /api/v1/auth/me`
+  - `GET|POST /api/v1/bills`、`GET /api/v1/bills/stats`、财务汇总与图表相关子路径
+  - `POST /api/v1/upload/preview`、`POST /api/v1/upload/confirm`
+  - `GET /api/v1/health/...` 健康检查
 
-1. 访问前端地址，点击"立即注册"
-2. 填写用户名、邮箱、姓名、密码
-3. 注册成功后自动登录进入仪表板
+完整列表以 OpenAPI 为准。
 
-### 2. 账单文件上传
+## 数据模型（概要）
 
-1. 进入"文件上传"页面
-2. 选择家庭（如果已创建）
-3. 拖拽或点击上传账单文件
-4. 支持格式：
-   - 支付宝：CSV格式
-   - 京东：CSV格式  
-   - 招商银行：PDF格式
+核心实体包括：`User`、`Family`、`FamilyMember`、`Bill`、`BillCategory`、`Message` / `MessageAction`、`SystemConfig`、`ClassificationRule` 等。关系与字段以 `backend/models/` 为准。
 
-### 3. 账单管理
+## 安全说明
 
-1. 在"账单管理"页面查看所有账单
-2. 使用搜索和筛选功能找到特定账单
-3. 支持按时间、金额、类型、来源筛选
-4. 可以编辑或删除账单记录
+- **密码**：使用 **bcrypt** 哈希存储，非明文、非 SHA256。
+- **Token**：JWT；中间件含 Token 刷新与限流等（见 `backend/core/middleware.py`）。
+- **生产**：强 `SECRET_KEY`、HTTPS、收紧 CORS、按需关闭 Swagger。
 
-### 4. 统计分析
+## 部署与更多文档
 
-1. 在"统计分析"页面查看财务概览
-2. 查看收支趋势图表
-3. 分析各分类支出占比
-4. 支持时间范围筛选
+- 后端：`backend/DEPLOY.md`、`backend/deploy.sh`
+- 前端：`frontend/DEPLOY.md`、`frontend/deploy.sh`
+- PostgreSQL：`POSTGRES_SETUP.md`
+- 架构梳理：`docs/project_overview.md`
+- 年度支出图表等专题：`docs/年度支出图表模块实现说明书.md`
+- 账单分类体系：`账单分类体系.md`
+- 分类规则脚本：`backend/scripts/README_classification_rules.md`
 
-## 🗄️ 数据库结构
+## 故障排除
 
-### 主要数据表
+- **数据库连接失败**：检查 PostgreSQL 服务、`DATABASE_URL`、防火墙与数据库用户权限。
+- **CORS**：将前端源加入 `CORS_ORIGINS`。
+- **上传失败**：检查 `ALLOWED_EXTENSIONS`、`MAX_FILE_SIZE`、`backend/uploads` 目录权限及解析器是否支持该 `source_type`。
 
-- `users` - 用户信息
-- `families` - 家庭信息  
-- `family_members` - 家庭成员关系
-- `bills` - 账单记录
-- `bill_categories` - 账单分类
-- `upload_records` - 上传记录
+---
 
-### 核心关系
-
-```
-Users (1:N) FamilyMembers (N:1) Families
-Families (1:N) Bills (N:1) BillCategories
-Users (1:N) UploadRecords
-```
-
-## 🌐 API文档
-
-后端提供完整的 OpenAPI/Swagger 文档：
-
-- 开发环境: http://localhost:8000/docs
-- 生产环境: http://bill.mitrecx.top:8000/docs
-
-### 主要API端点
-
-- `POST /api/v1/auth/register` - 用户注册
-- `POST /api/v1/auth/login` - 用户登录
-- `GET /api/v1/auth/me` - 获取当前用户信息
-- `GET /api/v1/bills` - 获取账单列表
-- `GET /api/v1/bills/stats` - 获取统计数据
-- `POST /api/v1/upload/preview` - 文件预览
-- `POST /api/v1/upload/confirm` - 确认上传
-
-## 🔐 安全说明
-
-### 认证机制
-- JWT Token 认证
-- Token 过期时间管理
-- 密码哈希存储（SHA256）
-
-### 数据安全
-- SQL注入防护（SQLAlchemy ORM）
-- CORS跨域访问控制
-- 敏感信息加密存储
-
-### 文件安全
-- 文件类型验证
-- 文件大小限制（10MB）
-- 上传目录权限控制
-
-## 🚀 生产部署
-
-### 后端生产部署
-
-```bash
-# 使用 systemd 管理服务
-sudo tee /etc/systemd/system/bills-backend.service > /dev/null <<EOF
-[Unit]
-Description=Family Bills Backend
-After=network.target
-
-[Service]
-Type=simple
-User=josie
-WorkingDirectory=/home/josie/apps/family-bills-backend
-ExecStart=/usr/bin/python3 main.py
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-# 启动服务
-sudo systemctl enable bills-backend
-sudo systemctl start bills-backend
-```
-
-### 前端生产部署
-
-```bash
-# 构建生产版本
-npm run build
-
-# 使用 Nginx 托管静态文件
-sudo tee /etc/nginx/conf.d/bills-frontend.conf > /dev/null <<EOF
-server {
-    listen 80;
-    server_name yourdomain.com;
-    
-    root /path/to/frontend/dist;
-    index index.html;
-    
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    location /api {
-        proxy_pass http://localhost:8000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF
-```
-
-## 🐛 故障排除
-
-### 常见问题
-
-1. **数据库连接失败**
-   ```bash
-   # 检查PostgreSQL服务状态
-   sudo systemctl status postgresql
-   
-   # 检查数据库连接
-   psql -h localhost -U josie -d bills_db -c "SELECT 1"
-   ```
-
-2. **CORS跨域错误**
-   - 检查后端 `allowed_origins` 配置
-   - 确认前端访问地址在允许列表中
-
-3. **文件上传失败**
-   - 检查文件格式和大小
-   - 确认上传目录权限
-   - 查看后端日志
-
-### 日志查看
-
-```bash
-# 后端日志
-tail -f /home/josie/apps/family-bills-backend/app.log
-
-# 系统服务日志
-sudo journalctl -u bills-backend -f
-```
+维护文档时请同步更新 `docs/project_overview.md` 与本 README，并与 `backend/config/settings.py`、路由注册保持一致。

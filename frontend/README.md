@@ -1,69 +1,46 @@
-# React + TypeScript + Vite
+# 前端（家庭账单管理系统）
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+基于 **Vite 7 + React 18 + TypeScript** 的单页应用，UI 使用 **Ant Design 5**，状态管理为 **Zustand**，图表使用 **Recharts** 与 **ECharts**。
 
-Currently, two official plugins are available:
+## 开发
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd frontend
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+默认开发服务器：**http://localhost:5173**。  
+后端 API 默认指向 **http://localhost:8000**（见 `src/api/config.ts`）。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 连接生产 API
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+构建或预览时若需使用生产环境接口，设置：
+
+```bash
+VITE_USE_PROD_API=true npm run build
 ```
+
+逻辑见 `getApiBaseUrl()`：仅在显式为 `true` 时使用 `PROD_BASE_URL`。
+
+## 脚本
+
+| 命令 | 说明 |
+|------|------|
+| `npm run dev` | 开发服务器（HMR） |
+| `npm run build` | `tsc -b` 类型检查 + Vite 生产构建 |
+| `npm run preview` | 本地预览 `dist` |
+| `npm run lint` | ESLint |
+
+## 目录说明
+
+- **`src/api/`** — `client.ts`（Axios 实例与拦截器）、`config.ts`（基址与各 API 路径常量）、`services.ts`（接口封装）。
+- **`src/stores/`** — 认证、账单、家庭、消息等 Zustand store。
+- **`src/pages/`** — 路由页面：登录注册、仪表盘、账单、上传、消息、用户、家庭、分类规则、设置、个人中心等。
+- **`src/components/`** — 布局、各类图表等复用组件。
+
+路由定义见 **`src/App.tsx`**。
+
+## 部署
+
+详见同目录 **[DEPLOY.md](./DEPLOY.md)** 与仓库根目录 **[README.md](../README.md)**。
