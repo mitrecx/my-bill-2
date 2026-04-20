@@ -2,6 +2,7 @@
 
 # 前端部署脚本
 # 部署到 bill.mitrecx.top 服务器
+# 仅更新静态资源与 nginx reload，不覆盖 HTTPS / vhost 配置（避免误用过期证书副本）
 # 使用方法:
 #   ./deploy.sh           # 正常部署，智能检测是否需要安装依赖
 #   ./deploy.sh --deps     # 强制重新安装依赖
@@ -104,79 +105,14 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
     sudo chown -R nginx:nginx ${REMOTE_PATH}
     sudo chmod -R 755 ${REMOTE_PATH}
     
-    # 创建或更新nginx配置 - 使用HTTPS配置
-    sudo tee /etc/nginx/conf.d/family-bills.conf > /dev/null << 'NGINXEOF'
-server {
-    listen 443 ssl http2;
-    server_name bill.mitrecx.top;
-
-    ssl_certificate     /etc/nginx/ssl/bill.mitrecx.top.pem;
-    ssl_certificate_key /etc/nginx/ssl/bill.mitrecx.top.key;
+    # 重要：不再用脚本覆盖 /etc/nginx/conf.d/*.conf。
+    # 旧逻辑每次部署都会写入固定路径 ssl_certificate /etc/nginx/ssl/bill.mitrecx.top.pem；
+    # 若线上实际使用 Let's Encrypt（/etc/letsencrypt/live/...）或定期更新的证书，
+    # 覆盖后 Nginx 会改指向可能过期的 /etc/nginx/ssl/ 副本，表现为「一部署证书就过期」。
+    # HTTPS / 反代 / 证书路径请在服务器上单独维护（见仓库 ssl-certs/、family-bills-https.conf）。
     
-    # SSL 优化配置
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
-    ssl_prefer_server_ciphers on;
-    ssl_session_cache shared:SSL:10m;
-    ssl_session_timeout 10m;
-
-    root ${REMOTE_PATH};
-    index index.html;
-    
-    # 前端路由支持
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-    
-    # API代理到后端
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000/api/;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        # 超时设置 - 支持大文件上传和AI处理
-        proxy_connect_timeout 300s;
-        proxy_send_timeout 300s;
-        proxy_read_timeout 300s;
-        proxy_buffering off;
-        
-        # 客户端请求体大小限制
-        client_max_body_size 100M;
-    }
-    
-    # 静态资源缓存
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)\$ {
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-    
-    # 安全头
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    
-    # Gzip压缩
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
-}
-
-server {
-    listen 80;
-    server_name bill.mitrecx.top;
-    return 301 https://\$host\$request_uri;
-}
-NGINXEOF
-    
-    # 配置已直接写入conf.d目录，无需额外启用
-    
-    # 测试nginx配置
+    # 仅校验并重载，使静态文件更新生效（不修改 vhost / 证书）
     sudo nginx -t
-    
-    # 重新加载nginx
     sudo systemctl reload nginx
     
     # 检查nginx状态

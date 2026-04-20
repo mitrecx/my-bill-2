@@ -129,8 +129,8 @@ server {
     listen 443 ssl http2;
     server_name bill.mitrecx.top;
 
-    ssl_certificate     /etc/nginx/ssl/bill.mitrecx.top.pem;
-    ssl_certificate_key /etc/nginx/ssl/bill.mitrecx.top.key;
+    ssl_certificate     /etc/letsencrypt/live/bill.mitrecx.top/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bill.mitrecx.top/privkey.pem;
     
     # SSL 优化配置
     ssl_protocols TLSv1.2 TLSv1.3;

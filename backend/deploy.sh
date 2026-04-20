@@ -48,6 +48,7 @@ tar -czf family-bills-backend.tar.gz \
     --exclude=logs \
     --exclude=uploads \
     --exclude=*.log \
+    --exclude=family-bills-backend.tar.gz \
     --no-xattrs \
     .
 

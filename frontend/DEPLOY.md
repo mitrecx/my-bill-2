@@ -40,27 +40,29 @@
    - 备份旧版本
    - 解压新版本到 `/var/www/family-bills-frontend`
    - 设置文件权限
-   - 配置 Nginx
-   - 重新加载 Nginx
+   - **`nginx -t` 与 `reload`（不覆盖站点配置）**
 7. **清理临时文件**
 
-## Nginx 配置特性
+## HTTPS / Nginx（重要）
 
-脚本会自动创建和配置 Nginx，包含以下特性：
+**`deploy.sh` 不再写入或覆盖 `/etc/nginx/conf.d/` 下的站点配置。**
 
-- **前端路由支持**：支持 React Router 的 SPA 路由
-- **API 代理**：`/api/*` 请求自动代理到后端服务（端口 8000）
-- **静态资源缓存**：JS/CSS/图片等静态资源设置 1 年缓存
-- **Gzip 压缩**：自动压缩文本资源
-- **安全头**：添加基本的安全响应头
+原因：旧版脚本每次部署都会把 `ssl_certificate` 固定为 `/etc/nginx/ssl/bill.mitrecx.top.pem`。若服务器上实际使用的是 **Let’s Encrypt**（`/etc/letsencrypt/live/...`）或更新的证书，而 `/etc/nginx/ssl/` 里只是**曾经拷贝的旧文件**，覆盖后 Nginx 会重新指向这些过期副本，表现为「部署前证书正常、部署后浏览器提示过期」。
+
+- **日常发版**：只更新前端静态文件，**不修改**证书路径与 vhost。
+- **首次上架 / 改 Nginx**：在服务器上单独配置，或使用仓库内 **`ssl-certs/`**（如 `renew-ssl.sh`、`deploy-ssl.sh`）、根目录 **`family-bills-https.conf`** 作为参考。
+
+示例站点能力（需在服务器上的 Nginx 配置中自行维护）：
+
+- SPA 路由、`/api/` 反代到后端、静态缓存、Gzip、安全头等。
 
 ## 访问地址
 
 部署完成后，可以通过以下地址访问：
 
-- **前端应用**：http://bill.mitrecx.top
-- **API 接口**：http://bill.mitrecx.top/api
-- **API 文档**：http://bill.mitrecx.top/api/docs
+- **前端应用**：https://bill.mitrecx.top
+- **API 接口**：https://bill.mitrecx.top/api
+- **API 文档**：https://bill.mitrecx.top/api/docs
 
 ## 智能检测机制
 
