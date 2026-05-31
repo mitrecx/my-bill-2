@@ -43,6 +43,7 @@ ssl-certs/*.crt
 .vercel/
 .vscode/
 .cursor/mcp.json
+.cursor/rules/local/
 
 .trae/
 docs/项目入门文档.md
