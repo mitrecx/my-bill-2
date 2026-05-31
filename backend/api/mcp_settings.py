@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
-from bill_mcp.context import current_mcp_user
+from bill_mcp.context import current_mcp_user_id
 from bill_mcp.server import mcp
 from config.database import SessionLocal, get_db
 from config.settings import settings
@@ -33,7 +33,7 @@ def _extract_api_key(request: Request) -> Optional[str]:
     return request.headers.get("x-mcp-api-key")
 
 
-def _authenticate_request(request: Request) -> User:
+def _authenticate_request(request: Request) -> int:
     raw_key = _extract_api_key(request)
     if not raw_key:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="缺少 MCP API Key")
@@ -43,7 +43,7 @@ def _authenticate_request(request: Request) -> User:
         user = authenticate_mcp_api_key(db, raw_key)
         if not user:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="无效的 MCP API Key")
-        return user
+        return user.id
     finally:
         db.close()
 
@@ -63,13 +63,13 @@ def _get_mcp_asgi_handler():
 
 async def handle_mcp_transport(request: Request):
     """Streamable HTTP MCP 端点（标准路径 /mcp）。"""
-    user = _authenticate_request(request)
-    token = current_mcp_user.set(user)
+    user_id = _authenticate_request(request)
+    token = current_mcp_user_id.set(user_id)
     try:
         handler = _get_mcp_asgi_handler()
         await handler(request.scope, request.receive, request._send)
     finally:
-        current_mcp_user.reset(token)
+        current_mcp_user_id.reset(token)
 
 
 def register_mcp_transport(app) -> None:
