@@ -313,7 +313,7 @@ const UploadPage: React.FC = () => {
               }}
               disabled={uploading}
             />
-            <Tooltip title="将您的分类规则写入 AI 提示词优先参考，由 AI 结合账单描述选类">
+            <Tooltip title="将您的个人与家庭分类规则写入 AI 提示词优先参考，由 AI 结合账单描述选类">
               <Text>导入后 AI 自动分类</Text>
             </Tooltip>
           </Space>

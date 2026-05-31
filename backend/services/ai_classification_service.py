@@ -76,32 +76,17 @@ class AIClassificationService:
             from services.classification_rule_service import (
                 format_classification_rules_for_ai_prompt,
                 normalize_transaction_type,
+                query_applicable_active_rules,
             )
 
             normalized_transaction_type = normalize_transaction_type(transaction_type)
 
-            # 查询当前用户启用的分类规则
-            query = db.query(ClassificationRule).filter(
-                ClassificationRule.created_by == user_id,
-                ClassificationRule.is_active == True
+            rules = query_applicable_active_rules(
+                db,
+                user_id,
+                source_type=source_type,
+                transaction_type=normalized_transaction_type,
             )
-            
-            # 如果指定了来源类型，则过滤规则
-            if source_type:
-                query = query.filter(
-                    (ClassificationRule.source_type == source_type) |
-                    (ClassificationRule.source_type == 'all')
-                )
-            else:
-                # 如果没有指定来源类型，只获取通用规则
-                query = query.filter(ClassificationRule.source_type == 'all')
-
-            if normalized_transaction_type:
-                query = query.filter(
-                    ClassificationRule.transaction_type == normalized_transaction_type
-                )
-            
-            rules = query.order_by(ClassificationRule.priority.desc()).all()
             return format_classification_rules_for_ai_prompt(rules)
             
         except Exception as e:
@@ -316,6 +301,7 @@ class AIClassificationService:
             from services.classification_rule_service import (
                 format_classification_rules_for_ai_prompt,
                 normalize_transaction_type,
+                query_applicable_active_rules,
             )
 
             source_types = {
@@ -329,24 +315,12 @@ class AIClassificationService:
                 if normalize_transaction_type(bill.get('transaction_type'))
             }
 
-            rules_query = db.query(ClassificationRule).filter(
-                ClassificationRule.created_by == user_id,
-                ClassificationRule.is_active == True,
+            rules = query_applicable_active_rules(
+                db,
+                user_id,
+                source_types=list(source_types) if source_types else None,
+                transaction_types=list(transaction_types) if transaction_types else None,
             )
-            if source_types:
-                rules_query = rules_query.filter(
-                    ClassificationRule.source_type.in_(source_types)
-                    | (ClassificationRule.source_type == 'all')
-                )
-            else:
-                rules_query = rules_query.filter(ClassificationRule.source_type == 'all')
-
-            if transaction_types:
-                rules_query = rules_query.filter(
-                    ClassificationRule.transaction_type.in_(transaction_types)
-                )
-
-            rules = rules_query.order_by(ClassificationRule.priority.desc()).all()
             rules_context = format_classification_rules_for_ai_prompt(rules)
             if not rules_context:
                 rules_context = self.get_classification_rules_context(db, user_id)

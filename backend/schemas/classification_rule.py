@@ -4,6 +4,10 @@ from pydantic import BaseModel, Field, validator
 
 
 class ClassificationRuleBase(BaseModel):
+    scope: Literal["personal", "family"] = Field(
+        default="personal",
+        description="作用域：personal=仅创建者，family=家庭共享",
+    )
     rule_text: str = Field(
         ...,
         description="供 AI 参考的自然语言规则描述（如商户名、关键词短语），非正则表达式",
@@ -36,6 +40,7 @@ class ClassificationRuleCreate(ClassificationRuleBase):
 
 class ClassificationRuleUpdate(BaseModel):
     """更新分类规则的请求模型"""
+    scope: Optional[Literal["personal", "family"]] = None
     rule_text: Optional[str] = None
     source_type: Optional[Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"]] = None
     target_category: Optional[str] = None
@@ -59,6 +64,7 @@ class ClassificationRuleUpdate(BaseModel):
 class ClassificationRuleResponse(ClassificationRuleBase):
     """分类规则的响应模型"""
     id: int
+    family_id: Optional[int] = None
     created_by: Optional[int] = None
     created_at: datetime
     updated_at: datetime

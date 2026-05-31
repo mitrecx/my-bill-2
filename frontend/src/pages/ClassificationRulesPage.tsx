@@ -40,6 +40,7 @@ const { Text } = Typography;
 const { Option } = Select;
 
 interface RuleFormData {
+  scope: 'personal' | 'family';
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
@@ -64,6 +65,7 @@ const ClassificationRulesPage: React.FC = () => {
   
   // 筛选状态
   const [filters, setFilters] = useState({
+    scope: '',
     source_type: '',
     target_category: '',
     transaction_type: '',
@@ -132,6 +134,7 @@ const ClassificationRulesPage: React.FC = () => {
         page_size: pageSize,
       };
       
+      if (filters.scope) params.scope = filters.scope;
       if (filters.source_type) params.source_type = filters.source_type;
       if (filters.target_category) params.target_category = filters.target_category;
       if (filters.transaction_type) params.transaction_type = filters.transaction_type;
@@ -172,6 +175,7 @@ const ClassificationRulesPage: React.FC = () => {
     setEditingRule(null);
     form.resetFields();
     form.setFieldsValue({
+      scope: 'personal',
       source_type: 'all',
       transaction_type: 'expense',
       priority: 1,
@@ -184,6 +188,7 @@ const ClassificationRulesPage: React.FC = () => {
   const handleEdit = (rule: ClassificationRule) => {
     setEditingRule(rule);
     form.setFieldsValue({
+      scope: rule.scope,
       rule_text: rule.rule_text,
       source_type: rule.source_type,
       target_category: rule.target_category,
@@ -264,7 +269,7 @@ const ClassificationRulesPage: React.FC = () => {
   // 重置筛选
   const handleReset = () => {
     setSearchInput('');
-    setFilters({ source_type: '', target_category: '', transaction_type: '', is_active: undefined, search: '' });
+    setFilters({ scope: '', source_type: '', target_category: '', transaction_type: '', is_active: undefined, search: '' });
     setPagination({ ...pagination, current: 1 });
   };
 
@@ -294,6 +299,17 @@ const ClassificationRulesPage: React.FC = () => {
         <Tooltip placement="topLeft" title={text}>
           {text}
         </Tooltip>
+      ),
+    },
+    {
+      title: '作用域',
+      dataIndex: 'scope',
+      key: 'scope',
+      width: 80,
+      render: (scope: string) => (
+        <Tag color={scope === 'family' ? 'purple' : 'cyan'}>
+          {scope === 'family' ? '家庭' : '个人'}
+        </Tag>
       ),
     },
     {
@@ -391,8 +407,8 @@ const ClassificationRulesPage: React.FC = () => {
       <Alert
         type="info"
         showIcon
-        message="分类规则供 AI 自动分类时优先参考"
-        description="规则会在导入账单开启「AI 自动分类」时写入提示词，由 AI 结合账单描述语义判断是否适用。系统不做正则或关键词硬匹配。"
+        message="分类规则支持个人级与家庭级"
+        description="个人级规则仅对创建者生效；家庭级规则对全部家庭成员生效，成员均可管理。导入账单开启「AI 自动分类」时，会合并使用你的个人规则与家庭规则，写入提示词供 AI 优先参考（非程序硬匹配）。"
         style={{ marginBottom: 16 }}
       />
 
@@ -410,6 +426,22 @@ const ClassificationRulesPage: React.FC = () => {
                 allowClear
                 style={{ flex: 1, minWidth: 0 }}
               />
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>作用域：</Text>
+              <Select
+                placeholder="请选择"
+                value={filters.scope || undefined}
+                onChange={(value) => setFilters({ ...filters, scope: value || '' })}
+                allowClear
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                <Option value="personal">个人</Option>
+                <Option value="family">家庭</Option>
+              </Select>
             </div>
           </Col>
 
@@ -535,12 +567,25 @@ const ClassificationRulesPage: React.FC = () => {
           form={form}
           layout="vertical"
           initialValues={{
+            scope: 'personal',
             source_type: 'all',
             transaction_type: 'expense',
             priority: 1,
             is_active: true,
           }}
         >
+          <Form.Item
+            label="作用域"
+            name="scope"
+            rules={[{ required: true, message: '请选择作用域' }]}
+            extra="个人级仅对自己生效；家庭级对全部家庭成员生效（须已加入家庭）"
+          >
+            <Select placeholder="请选择作用域">
+              <Option value="personal">个人</Option>
+              <Option value="family">家庭</Option>
+            </Select>
+          </Form.Item>
+
           <Form.Item
             label="规则文本"
             name="rule_text"

@@ -13,7 +13,12 @@ from config.database import get_db
 from models.bill import BillCategory
 from models.classification_rule import ClassificationRule
 from models import User
-from services.classification_rule_service import format_classification_rules_for_ai_prompt
+from services.classification_rule_service import (
+    create_classification_rule_record,
+    format_classification_rules_for_ai_prompt,
+    get_user_family_id,
+)
+from schemas.classification_rule import ClassificationRuleCreate
 
 
 def _default_user_id(db):
@@ -37,11 +42,15 @@ def list_rules():
         print(f"共 {len(rules)} 条规则:\n")
         for rule in rules:
             status = "✓" if rule.is_active else "✗"
+            scope_label = "家庭" if rule.scope == "family" else "个人"
             print(f"{status} ID: {rule.id}")
+            print(f"   作用域: {scope_label}")
             print(f"   优先级: {rule.priority}")
             print(f"   来源: {rule.source_type}")
             print(f"   收支类型: {rule.transaction_type}")
             print(f"   目标分类: {rule.target_category}")
+            if rule.family_id:
+                print(f"   家庭 ID: {rule.family_id}")
             print(f"   规则文本: {rule.rule_text}")
             print(f"   创建时间: {rule.created_at}")
             print()
@@ -49,7 +58,7 @@ def list_rules():
         db.close()
 
 
-def add_rule(rule_text, source_type, target_category, transaction_type="expense", priority=5):
+def add_rule(rule_text, source_type, target_category, transaction_type="expense", scope="personal", priority=5):
     print("=== 添加分类规则 ===")
     db = next(get_db())
     try:
@@ -62,29 +71,21 @@ def add_rule(rule_text, source_type, target_category, transaction_type="expense"
             return
 
         user_id = _default_user_id(db)
-        existing = db.query(ClassificationRule).filter(
-            ClassificationRule.created_by == user_id,
-            ClassificationRule.rule_text == rule_text,
-            ClassificationRule.source_type == source_type,
-            ClassificationRule.transaction_type == transaction_type,
-        ).first()
-        if existing:
-            print(f"错误: 相同规则已存在 (ID: {existing.id})")
+        if scope == "family" and get_user_family_id(db, user_id) is None:
+            print("错误: 创建家庭级规则须先加入家庭")
             return
 
-        rule = ClassificationRule(
+        payload = ClassificationRuleCreate(
             rule_text=rule_text,
             source_type=source_type,
             target_category=target_category,
             transaction_type=transaction_type,
+            scope=scope,
             priority=priority,
             is_active=True,
-            created_by=user_id,
         )
-        db.add(rule)
-        db.commit()
-        db.refresh(rule)
-        print(f"成功创建规则 (ID: {rule.id})，归属用户 ID: {user_id}")
+        rule = create_classification_rule_record(db, user_id, payload)
+        print(f"成功创建规则 (ID: {rule.id})，作用域: {scope}")
         print(format_classification_rules_for_ai_prompt([rule]))
     except Exception as exc:
         print(f"添加规则失败: {exc}")
@@ -128,9 +129,10 @@ def toggle_rule(rule_id):
         db.close()
 
 
-def preview_rule(rule_text, description, source_type="all", transaction_type="expense", target_category="示例分类"):
+def preview_rule(rule_text, description, source_type="all", transaction_type="expense", target_category="示例分类", scope="personal"):
     print("=== AI 提示词预览（非程序匹配） ===")
     rule = ClassificationRule(
+        scope=scope,
         rule_text=rule_text,
         source_type=source_type,
         target_category=target_category,
@@ -149,9 +151,13 @@ def show_statistics():
     try:
         total = db.query(ClassificationRule).count()
         active = db.query(ClassificationRule).filter(ClassificationRule.is_active == True).count()
+        personal = db.query(ClassificationRule).filter(ClassificationRule.scope == "personal").count()
+        family = db.query(ClassificationRule).filter(ClassificationRule.scope == "family").count()
         print(f"总规则数: {total}")
         print(f"启用规则数: {active}")
         print(f"禁用规则数: {total - active}")
+        print(f"个人规则数: {personal}")
+        print(f"家庭规则数: {family}")
     finally:
         db.close()
 
@@ -167,6 +173,7 @@ def main():
     add_parser.add_argument("source_type", help="来源类型")
     add_parser.add_argument("target_category", help="目标分类名称")
     add_parser.add_argument("--transaction-type", default="expense", choices=["expense", "income", "transfer"])
+    add_parser.add_argument("--scope", default="personal", choices=["personal", "family"], help="作用域")
     add_parser.add_argument("--priority", type=int, default=5)
 
     delete_parser = subparsers.add_parser("delete", help="删除分类规则")
@@ -185,7 +192,7 @@ def main():
     if args.command == "list":
         list_rules()
     elif args.command == "add":
-        add_rule(args.rule_text, args.source_type, args.target_category, args.transaction_type, args.priority)
+        add_rule(args.rule_text, args.source_type, args.target_category, args.transaction_type, args.scope, args.priority)
     elif args.command == "delete":
         delete_rule(args.rule_id)
     elif args.command == "toggle":

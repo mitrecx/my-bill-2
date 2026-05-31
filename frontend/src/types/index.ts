@@ -169,6 +169,8 @@ export interface UploadResponse {
 // 分类规则相关类型
 export interface ClassificationRule {
   id: number;
+  scope: 'personal' | 'family';
+  family_id: number | null;
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
@@ -181,6 +183,7 @@ export interface ClassificationRule {
 }
 
 export interface ClassificationRuleCreate {
+  scope?: 'personal' | 'family';
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
@@ -190,6 +193,7 @@ export interface ClassificationRuleCreate {
 }
 
 export interface ClassificationRuleUpdate {
+  scope?: 'personal' | 'family';
   rule_text?: string;
   source_type?: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category?: string;

@@ -402,7 +402,7 @@ export const familyApi = {
 
 // 分类规则服务
 export const ClassificationRuleService = {
-  async getRules(params?: { page?: number; page_size?: number; source_type?: string; target_category?: string; transaction_type?: string; is_active?: boolean; search?: string; }) {
+  async getRules(params?: { page?: number; page_size?: number; scope?: string; source_type?: string; target_category?: string; transaction_type?: string; is_active?: boolean; search?: string; }) {
     const response = await ApiClient.get<ClassificationRuleListResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.BASE, { params });
     return response;
   },

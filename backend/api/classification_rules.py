@@ -1,81 +1,68 @@
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
 
 from config.database import get_db
-from models import ClassificationRule, User
-from models.bill import BillCategory
+from models import User
 from schemas import (
     ClassificationRuleCreate,
     ClassificationRuleUpdate,
     ClassificationRuleResponse,
     ClassificationRuleListResponse,
     ClassificationRuleBatchCreate,
-    ClassificationRuleTestRequest,
-    ClassificationRuleTestResponse
 )
 from schemas.common import ApiResponse
 from api.auth import get_current_user
+from services.classification_rule_service import (
+    create_classification_rule_record,
+    delete_classification_rule_record,
+    get_classification_rule_record,
+    list_classification_rules,
+    toggle_classification_rule_record,
+    update_classification_rule_record,
+)
 
 router = APIRouter(prefix="/classification-rules", tags=["classification-rules"])
+
+
+def _http_error(exc: Exception) -> HTTPException:
+    message = str(exc)
+    status_code = 404 if "不存在" in message else 400
+    return HTTPException(status_code=status_code, detail=message)
 
 
 @router.get("", response_model=ApiResponse[ClassificationRuleListResponse])
 async def get_classification_rules(
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
+    scope: Optional[str] = Query(None, description="按作用域筛选 personal/family"),
     source_type: Optional[str] = Query(None, description="按来源类型筛选"),
     target_category: Optional[str] = Query(None, description="按目标分类筛选"),
     transaction_type: Optional[str] = Query(None, description="按交易类型筛选 expense/income/transfer"),
     is_active: Optional[bool] = Query(None, description="按启用状态筛选"),
     search: Optional[str] = Query(None, description="搜索规则文本"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """获取分类规则列表"""
-    
-    # 构建查询 - 只查询当前用户的规则
-    query = db.query(ClassificationRule).filter(ClassificationRule.created_by == current_user.id)
-    
-    # 应用筛选条件
-    if source_type:
-        query = query.filter(ClassificationRule.source_type == source_type)
-    
-    if target_category:
-        query = query.filter(ClassificationRule.target_category == target_category)
-
-    if transaction_type:
-        query = query.filter(ClassificationRule.transaction_type == transaction_type)
-    
-    if is_active is not None:
-        query = query.filter(ClassificationRule.is_active == is_active)
-    
-    if search:
-        query = query.filter(
-            or_(
-                ClassificationRule.rule_text.ilike(f"%{search}%"),
-                ClassificationRule.target_category.ilike(f"%{search}%")
-            )
+    """获取当前用户可见的分类规则（个人规则 + 家庭规则）"""
+    try:
+        result = list_classification_rules(
+            db,
+            current_user.id,
+            page=page,
+            page_size=page_size,
+            scope=scope,
+            source_type=source_type,
+            target_category=target_category,
+            transaction_type=transaction_type,
+            is_active=is_active,
+            search=search,
         )
-    
-    # 按优先级和创建时间排序
-    query = query.order_by(desc(ClassificationRule.priority), desc(ClassificationRule.created_at))
-    
-    # 获取总数
-    total = query.count()
-    
-    # 分页
-    offset = (page - 1) * page_size
-    rules = query.offset(offset).limit(page_size).all()
-    
-    data = ClassificationRuleListResponse(
-        rules=rules,
-        total=total,
-        page=page,
-        page_size=page_size
-    )
-    
+    except ValueError as exc:
+        raise _http_error(exc) from exc
+
+    data = ClassificationRuleListResponse(**result)
     return ApiResponse(success=True, data=data, message="获取分类规则列表成功")
 
 
@@ -83,51 +70,13 @@ async def get_classification_rules(
 async def create_classification_rule(
     rule_data: ClassificationRuleCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """创建分类规则（写入数据库，在 AI 自动分类时注入提示词供优先参考）"""
-    
-    # 检查当前用户是否已存在相同的规则
-    existing_rule = db.query(ClassificationRule).filter(
-        and_(
-            ClassificationRule.created_by == current_user.id,
-            ClassificationRule.rule_text == rule_data.rule_text,
-            ClassificationRule.source_type == rule_data.source_type,
-            ClassificationRule.transaction_type == rule_data.transaction_type,
-        )
-    ).first()
-    
-    if existing_rule:
-        raise HTTPException(
-            status_code=400,
-            detail=f"相同的规则已存在 (ID: {existing_rule.id})"
-        )
-    
-    # 校验目标分类存在且未被删除
-    category = db.query(BillCategory).filter(
-        and_(
-            BillCategory.category_name == rule_data.target_category,
-            BillCategory.is_deleted == False
-        )
-    ).first()
-    if not category:
-        raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
-
-    if rule_data.transaction_type == "expense" and category.category_type != "expense":
-        raise HTTPException(status_code=400, detail="支出规则的目标分类必须是支出类分类")
-    if rule_data.transaction_type == "income" and category.category_type != "income":
-        raise HTTPException(status_code=400, detail="收入规则的目标分类必须是收入类分类")
-    
-    # 创建新规则
-    rule = ClassificationRule(
-        **rule_data.dict(),
-        created_by=current_user.id
-    )
-    
-    db.add(rule)
-    db.commit()
-    db.refresh(rule)
-    
+    """创建分类规则（personal 仅对自己生效，family 对家庭所有成员生效）"""
+    try:
+        rule = create_classification_rule_record(db, current_user.id, rule_data)
+    except ValueError as exc:
+        raise _http_error(exc) from exc
     return ApiResponse(success=True, data=rule, message="分类规则创建成功")
 
 
@@ -135,95 +84,40 @@ async def create_classification_rule(
 async def create_classification_rules_batch(
     batch_data: ClassificationRuleBatchCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """批量创建分类规则"""
-    
     created_rules = []
     errors = []
-    
+
     for i, rule_data in enumerate(batch_data.rules):
         try:
-            # 检查当前用户是否已存在相同的规则
-            existing_rule = db.query(ClassificationRule).filter(
-                and_(
-                    ClassificationRule.created_by == current_user.id,
-                    ClassificationRule.rule_text == rule_data.rule_text,
-                    ClassificationRule.source_type == rule_data.source_type,
-                    ClassificationRule.transaction_type == rule_data.transaction_type,
-                )
-            ).first()
-            
-            if existing_rule:
-                errors.append(f"规则 {i+1}: 相同的规则已存在 (ID: {existing_rule.id})")
-                continue
-            
-            # 校验目标分类存在且未被删除
-            category = db.query(BillCategory).filter(
-                and_(
-                    BillCategory.category_name == rule_data.target_category,
-                    BillCategory.is_deleted == False
-                )
-            ).first()
-            if not category:
-                errors.append(f"规则 {i+1}: 目标分类不存在或已被删除")
-                continue
-
-            if rule_data.transaction_type == "expense" and category.category_type != "expense":
-                errors.append(f"规则 {i+1}: 支出规则的目标分类必须是支出类分类")
-                continue
-            if rule_data.transaction_type == "income" and category.category_type != "income":
-                errors.append(f"规则 {i+1}: 收入规则的目标分类必须是收入类分类")
-                continue
-            
-            # 创建新规则
-            rule = ClassificationRule(
-                **rule_data.dict(),
-                created_by=current_user.id
-            )
-            
-            db.add(rule)
-            db.flush()  # 获取ID但不提交
+            rule = create_classification_rule_record(db, current_user.id, rule_data)
             created_rules.append(rule)
-            
-        except Exception as e:
-            errors.append(f"规则 {i+1}: {str(e)}")
-    
+        except ValueError as exc:
+            errors.append(f"规则 {i + 1}: {exc}")
+
     if errors:
-        db.rollback()
-        error_message = "批量创建失败:\n" + "\n".join(errors)
-        raise HTTPException(
-            status_code=400,
-            detail=error_message
-        )
-    
-    db.commit()
-    
-    # 刷新所有创建的规则
-    for rule in created_rules:
-        db.refresh(rule)
-    
-    return ApiResponse(success=True, data=created_rules, message=f"成功创建 {len(created_rules)} 条分类规则")
+        raise HTTPException(status_code=400, detail="批量创建失败:\n" + "\n".join(errors))
+
+    return ApiResponse(
+        success=True,
+        data=created_rules,
+        message=f"成功创建 {len(created_rules)} 条分类规则",
+    )
 
 
 @router.get("/{rule_id}", response_model=ApiResponse[ClassificationRuleResponse])
 async def get_classification_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
-    """获取单个分类规则"""
-    
-    rule = db.query(ClassificationRule).filter(
-        and_(
-            ClassificationRule.id == rule_id,
-            ClassificationRule.created_by == current_user.id
-        )
-    ).first()
-    
-    if not rule:
-        raise HTTPException(status_code=404, detail="分类规则不存在")
-    
+    """获取单条分类规则"""
+    try:
+        rule = get_classification_rule_record(db, current_user.id, rule_id)
+    except ValueError as exc:
+        raise _http_error(exc) from exc
     return ApiResponse(success=True, data=rule, message="获取分类规则成功")
 
 
@@ -232,67 +126,13 @@ async def update_classification_rule(
     rule_id: int,
     rule_data: ClassificationRuleUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """更新分类规则"""
-    
-    rule = db.query(ClassificationRule).filter(
-        and_(
-            ClassificationRule.id == rule_id,
-            ClassificationRule.created_by == current_user.id
-        )
-    ).first()
-    
-    if not rule:
-        raise HTTPException(status_code=404, detail="分类规则不存在")
-    
-    # 如果更新了规则文本、来源类型或交易类型，检查是否与其他规则冲突
-    if rule_data.rule_text or rule_data.source_type or rule_data.transaction_type:
-        new_rule_text = rule_data.rule_text or rule.rule_text
-        new_source_type = rule_data.source_type or rule.source_type
-        new_transaction_type = rule_data.transaction_type or rule.transaction_type
-        
-        existing_rule = db.query(ClassificationRule).filter(
-            and_(
-                ClassificationRule.created_by == current_user.id,
-                ClassificationRule.rule_text == new_rule_text,
-                ClassificationRule.source_type == new_source_type,
-                ClassificationRule.transaction_type == new_transaction_type,
-                ClassificationRule.id != rule_id
-            )
-        ).first()
-        
-        if existing_rule:
-            raise HTTPException(
-                status_code=400,
-                detail=f"相同的规则已存在 (ID: {existing_rule.id})"
-            )
-    
-    # 如果目标分类被更新或最终目标分类无效，需要校验目标分类有效性
-    new_target_category = rule_data.target_category if rule_data.target_category is not None else rule.target_category
-    new_transaction_type = rule_data.transaction_type if rule_data.transaction_type is not None else rule.transaction_type
-    if new_target_category:
-        category = db.query(BillCategory).filter(
-            and_(
-                BillCategory.category_name == new_target_category,
-                BillCategory.is_deleted == False
-            )
-        ).first()
-        if not category:
-            raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
-        if new_transaction_type == "expense" and category.category_type != "expense":
-            raise HTTPException(status_code=400, detail="支出规则的目标分类必须是支出类分类")
-        if new_transaction_type == "income" and category.category_type != "income":
-            raise HTTPException(status_code=400, detail="收入规则的目标分类必须是收入类分类")
-    
-    # 更新规则
-    update_data = rule_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(rule, field, value)
-    
-    db.commit()
-    db.refresh(rule)
-    
+    try:
+        rule = update_classification_rule_record(db, current_user.id, rule_id, rule_data)
+    except ValueError as exc:
+        raise _http_error(exc) from exc
     return ApiResponse(success=True, data=rule, message="分类规则更新成功")
 
 
@@ -300,23 +140,13 @@ async def update_classification_rule(
 async def delete_classification_rule(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """删除分类规则"""
-    
-    rule = db.query(ClassificationRule).filter(
-        and_(
-            ClassificationRule.id == rule_id,
-            ClassificationRule.created_by == current_user.id
-        )
-    ).first()
-    
-    if not rule:
-        raise HTTPException(status_code=404, detail="分类规则不存在")
-    
-    db.delete(rule)
-    db.commit()
-    
+    try:
+        delete_classification_rule_record(db, current_user.id, rule_id)
+    except ValueError as exc:
+        raise _http_error(exc) from exc
     return ApiResponse(success=True, data=True, message="分类规则删除成功")
 
 
@@ -324,38 +154,13 @@ async def delete_classification_rule(
 async def toggle_classification_rule_status(
     rule_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
 ):
     """切换分类规则的启用状态"""
-    
-    rule = db.query(ClassificationRule).filter(
-        and_(
-            ClassificationRule.id == rule_id,
-            ClassificationRule.created_by == current_user.id
-        )
-    ).first()
-    
-    if not rule:
-        raise HTTPException(status_code=404, detail="分类规则不存在")
-    
-    # 如果将要启用规则，校验目标分类有效性
-    will_enable = not rule.is_active
-    if will_enable:
-        category = db.query(BillCategory).filter(
-            and_(
-                BillCategory.category_name == rule.target_category,
-                BillCategory.is_deleted == False
-            )
-        ).first()
-        if not category:
-            raise HTTPException(status_code=400, detail="目标分类不存在或已被删除，无法启用该规则")
-    
-    # 切换状态
-    rule.is_active = not rule.is_active
-    
-    db.commit()
-    db.refresh(rule)
-    
+    try:
+        rule = toggle_classification_rule_record(db, current_user.id, rule_id)
+    except ValueError as exc:
+        raise _http_error(exc) from exc
     return ApiResponse(success=True, data=rule, message="分类规则状态切换成功")
 
 
@@ -383,7 +188,7 @@ async def get_source_type_options():
             {"value": "wechat", "label": "微信支付"},
             {"value": "meituan", "label": "美团"},
             {"value": "manual", "label": "手动录入"},
-            {"value": "all", "label": "所有来源"}
+            {"value": "all", "label": "所有来源"},
         ]
     }
     return ApiResponse(success=True, data=data, message="获取来源类型选项成功")

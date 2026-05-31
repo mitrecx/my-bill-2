@@ -241,17 +241,19 @@ def query_bill_categories(
 def query_classification_rules(
     page: int = 1,
     page_size: int = 20,
+    scope: Optional[str] = None,
     source_type: Optional[str] = None,
     target_category: Optional[str] = None,
     transaction_type: Optional[str] = None,
     is_active: Optional[bool] = None,
     search: Optional[str] = None,
 ) -> str:
-    """查询当前用户的自定义分类规则列表。
+    """查询当前用户可见的自定义分类规则（个人规则 + 家庭规则）。
 
     Args:
         page: 页码，从 1 开始
         page_size: 每页条数，最大 100
+        scope: 作用域 personal/family
         source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
         target_category: 目标分类名称
         transaction_type: 交易类型 expense/income/transfer
@@ -266,6 +268,7 @@ def query_classification_rules(
             user_id,
             page=page,
             page_size=page_size,
+            scope=scope,
             source_type=source_type,
             target_category=target_category,
             transaction_type=transaction_type,
@@ -286,16 +289,18 @@ def create_classification_rule(
     source_type: str,
     target_category: str,
     transaction_type: str = "expense",
+    scope: str = "personal",
     priority: int = 0,
     is_active: bool = True,
 ) -> str:
-    """创建自定义分类规则（仅当前用户可见；规则会在 AI 自动分类时注入提示词供优先参考）。
+    """创建分类规则（personal 仅对自己生效，family 对家庭所有成员生效；AI 自动分类时注入提示词供优先参考）。
 
     Args:
         rule_text: 供 AI 参考的自然语言描述（如商户名、关键词短语），非正则表达式
         source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
         target_category: 目标分类名称（须为系统中已存在的分类名）
         transaction_type: 适用交易类型 expense/income/transfer
+        scope: 作用域 personal/family，默认 personal
         priority: 优先级，数字越大越优先
         is_active: 是否启用
     """
@@ -307,6 +312,7 @@ def create_classification_rule(
             source_type=source_type,
             target_category=target_category,
             transaction_type=transaction_type,
+            scope=scope,
             priority=priority,
             is_active=is_active,
         )
@@ -333,10 +339,11 @@ def update_classification_rule(
     source_type: Optional[str] = None,
     target_category: Optional[str] = None,
     transaction_type: Optional[str] = None,
+    scope: Optional[str] = None,
     priority: Optional[int] = None,
     is_active: Optional[bool] = None,
 ) -> str:
-    """更新自定义分类规则（仅可更新当前用户自己的规则；供 AI 自动分类时参考）。
+    """更新分类规则（个人规则仅创建者可改，家庭规则家庭成员均可改）。
 
     Args:
         rule_id: 规则 ID
@@ -344,6 +351,7 @@ def update_classification_rule(
         source_type: 来源类型（可选）
         target_category: 目标分类名称（可选）
         transaction_type: 适用交易类型 expense/income/transfer（可选）
+        scope: 作用域 personal/family（可选）
         priority: 优先级（可选）
         is_active: 是否启用（可选）
     """
@@ -355,6 +363,7 @@ def update_classification_rule(
             source_type=source_type,
             target_category=target_category,
             transaction_type=transaction_type,
+            scope=scope,
             priority=priority,
             is_active=is_active,
         )
@@ -376,7 +385,7 @@ def update_classification_rule(
 
 @mcp.tool()
 def delete_classification_rule(rule_id: int) -> str:
-    """删除自定义分类规则（仅可删除当前用户自己的规则）。
+    """删除分类规则（个人规则仅创建者可删，家庭规则家庭成员均可删）。
 
     Args:
         rule_id: 规则 ID
