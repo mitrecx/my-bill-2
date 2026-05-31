@@ -44,6 +44,7 @@ ssl-certs/*.crt
 .vscode/
 .cursor/mcp.json
 .cursor/rules/local/
+.cursor/skills/local/
 
 .trae/
 docs/项目入门文档.md
