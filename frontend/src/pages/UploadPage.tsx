@@ -9,6 +9,7 @@ import {
 
   message,
   Progress,
+  Switch,
 } from 'antd';
 import {
   InboxOutlined,
@@ -20,6 +21,7 @@ import type { UploadFile, UploadProps } from 'antd/es/upload';
 
 const { Text, Paragraph } = Typography;
 const { Dragger } = Upload;
+const AUTO_CATEGORIZE_KEY = 'family_bills_auto_categorize';
 
 const UploadPage: React.FC = () => {
   const { fetchBills } = useBillsStore();
@@ -30,6 +32,10 @@ const UploadPage: React.FC = () => {
   const [progressStatus, setProgressStatus] = useState<string>('');
   const progressContainerRef = useRef<HTMLDivElement | null>(null);
   const [showStickyProgress, setShowStickyProgress] = useState(false);
+  const [autoCategorize, setAutoCategorize] = useState(() => {
+    const saved = localStorage.getItem(AUTO_CATEGORIZE_KEY);
+    return saved === null ? true : saved === 'true';
+  });
 
   // 当上传中且内联进度条不在可视区域内时，自动展示悬浮进度条
   useEffect(() => {
@@ -165,7 +171,7 @@ const UploadPage: React.FC = () => {
         const uploadProgress = Math.round(progress * 0.3);
         setUploadProgress(uploadProgress);
         setProgressStatus(`正在上传文件... ${progress}%`);
-      });
+      }, autoCategorize);
       
       // 文件上传完成，开始解析阶段
       setUploadProgress(30);
@@ -274,7 +280,7 @@ const UploadPage: React.FC = () => {
                {uploadProgress < 30 && <Text type="secondary">• 文件上传中</Text>}
                {uploadProgress >= 30 && uploadProgress < 60 && <Text type="secondary">• 解析账单数据</Text>}
                {uploadProgress >= 60 && uploadProgress < 90 && <Text type="secondary">• 保存账单记录</Text>}
-               {uploadProgress >= 90 && uploadProgress < 100 && <Text type="secondary">• AI智能分类</Text>}
+               {autoCategorize && uploadProgress >= 90 && uploadProgress < 100 && <Text type="secondary">• AI智能分类</Text>}
                {uploadProgress === 100 && <Text type="success">• 处理完成</Text>}
              </div>
            </div>
@@ -295,6 +301,20 @@ const UploadPage: React.FC = () => {
             </Card>
           </div>
         )}
+
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Space>
+            <Switch
+              checked={autoCategorize}
+              onChange={(checked) => {
+                setAutoCategorize(checked);
+                localStorage.setItem(AUTO_CATEGORIZE_KEY, String(checked));
+              }}
+              disabled={uploading}
+            />
+            <Text>导入后 AI 自动分类</Text>
+          </Space>
+        </Space>
 
         <Space>
           <Button

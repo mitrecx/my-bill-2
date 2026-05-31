@@ -126,9 +126,19 @@ export class ApiClient {
   }
 
   // 文件上传专用方法
-  static async upload<T>(url: string, file: File, onProgress?: (progress: number) => void): Promise<ApiResponse<T>> {
+  static async upload<T>(
+    url: string,
+    file: File,
+    onProgress?: (progress: number) => void,
+    extraFields?: Record<string, string | boolean>,
+  ): Promise<ApiResponse<T>> {
     const formData = new FormData();
     formData.append('file', file);
+    if (extraFields) {
+      Object.entries(extraFields).forEach(([key, value]) => {
+        formData.append(key, String(value));
+      });
+    }
 
     const config: AxiosRequestConfig = {
       headers: {

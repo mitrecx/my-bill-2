@@ -257,8 +257,17 @@ export const BillService = {
 
 // 上传记录服务
 export const UploadService = {
-  async uploadFile(file: File, onProgress?: (progress: number) => void) {
-    const response = await ApiClient.upload<UploadResponse>(API_ENDPOINTS.UPLOAD.BASE, file, onProgress);
+  async uploadFile(
+    file: File,
+    onProgress?: (progress: number) => void,
+    autoCategorize = true,
+  ) {
+    const response = await ApiClient.upload<UploadResponse>(
+      API_ENDPOINTS.UPLOAD.BASE,
+      file,
+      onProgress,
+      { auto_categorize: autoCategorize },
+    );
     return response;
   },
 
