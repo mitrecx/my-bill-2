@@ -1,6 +1,6 @@
 # 核心框架
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
 
 # 数据库相关
 sqlalchemy==2.0.23
@@ -38,3 +38,6 @@ asyncpg==0.29.0
 
 # AI模型
 zai-sdk
+
+# MCP Server (Streamable HTTP)
+mcp>=1.10.0

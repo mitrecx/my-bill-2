@@ -97,4 +97,11 @@ export const API_ENDPOINTS = {
     BY_ID: (id: number) => `/api/v1/messages/${id}`,
     ACTION: (id: number) => `/api/v1/messages/${id}/actions`,
   },
+
+  // MCP 相关
+  MCP: {
+    SETTINGS: '/api/v1/mcp/settings',
+    API_KEY: '/api/v1/mcp/settings/api-key',
+    INFO: '/api/v1/mcp/info',
+  },
 }

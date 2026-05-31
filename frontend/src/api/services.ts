@@ -28,6 +28,11 @@ import type {
 } from '../types';
 import type { MonthlyExpenseTrendResponse } from '../types/bills';
 import type {
+  McpApiKeyCreateResult,
+  McpApiKeyStatus,
+  McpServerInfo,
+} from '../types/mcp';
+import type {
   MessageListResponse,
   MessageUpdate,
   MessageActionCreate,
@@ -418,6 +423,24 @@ export const ClassificationRuleService = {
   },
 };
 
+export const McpService = {
+  async getSettings(): Promise<ApiResponse<McpApiKeyStatus>> {
+    return ApiClient.get<McpApiKeyStatus>(API_ENDPOINTS.MCP.SETTINGS);
+  },
+
+  async generateApiKey(): Promise<ApiResponse<McpApiKeyCreateResult>> {
+    return ApiClient.post<McpApiKeyCreateResult>(API_ENDPOINTS.MCP.API_KEY);
+  },
+
+  async revokeApiKey(): Promise<ApiResponse<null>> {
+    return ApiClient.delete<null>(API_ENDPOINTS.MCP.API_KEY);
+  },
+
+  async getServerInfo(): Promise<ApiResponse<McpServerInfo>> {
+    return ApiClient.get<McpServerInfo>(API_ENDPOINTS.MCP.INFO);
+  },
+};
+
 export default {
   AuthService,
   UserService,
@@ -427,4 +450,5 @@ export default {
   SystemConfigService,
   MessageService,
   ClassificationRuleService,
+  McpService,
 };
