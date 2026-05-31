@@ -1,7 +1,8 @@
 import pandas as pd
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from .base_parser import BaseParser, ParseResult
+from .refund_pairing import pair_payment_refund_records
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,7 @@ class AlipayParser(BaseParser):
             df = df.dropna(how='all')
             
             # 遍历每一行数据
+            all_records: List[Dict[str, Any]] = []
             for index, row in df.iterrows():
                 try:
                     # 转换为字典
@@ -77,20 +79,25 @@ class AlipayParser(BaseParser):
                     
                     # 额外处理支付宝特有字段
                     processed_record = self._process_alipay_fields(mapped_record)
-                    
-                    # 提取custom_raw_data
-                    custom_raw_data = processed_record.pop("raw_data", None)
-                    
-                    # 标准化记录
-                    standardized = self.standardize_record(processed_record, custom_raw_data)
-                    if standardized:
-                        result.add_success(standardized)
-                    else:
-                        result.add_failed(raw_record, "记录标准化失败")
+                    all_records.append(processed_record)
                         
                 except Exception as e:
                     logger.warning(f"处理第{index}行时出错: {e}")
                     result.add_failed(row.to_dict() if hasattr(row, 'to_dict') else {}, str(e))
+
+            paired_records = pair_payment_refund_records(all_records)
+
+            for processed_record in paired_records:
+                try:
+                    custom_raw_data = processed_record.pop("raw_data", None)
+                    standardized = self.standardize_record(processed_record, custom_raw_data)
+                    if standardized:
+                        result.add_success(standardized)
+                    else:
+                        result.add_failed(processed_record, "记录标准化失败")
+                except Exception as e:
+                    logger.warning(f"标准化记录时出错: {e}")
+                    result.add_failed(processed_record if isinstance(processed_record, dict) else {}, str(e))
             
             return result
             
