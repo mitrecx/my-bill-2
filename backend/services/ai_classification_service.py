@@ -71,9 +71,12 @@ class AIClassificationService:
         source_type: str = None,
         transaction_type: str = None,
     ) -> str:
-        """获取分类规则上下文信息"""
+        """获取分类规则上下文（注入 AI 提示词，供模型优先参考）"""
         try:
-            from services.classification_rule_service import TRANSACTION_TYPE_LABELS, normalize_transaction_type
+            from services.classification_rule_service import (
+                format_classification_rules_for_ai_prompt,
+                normalize_transaction_type,
+            )
 
             normalized_transaction_type = normalize_transaction_type(transaction_type)
 
@@ -95,28 +98,11 @@ class AIClassificationService:
 
             if normalized_transaction_type:
                 query = query.filter(
-                    (ClassificationRule.transaction_type == normalized_transaction_type) |
-                    (ClassificationRule.transaction_type == 'all')
+                    ClassificationRule.transaction_type == normalized_transaction_type
                 )
             
-            # 按优先级排序
             rules = query.order_by(ClassificationRule.priority.desc()).all()
-            
-            if not rules:
-                return ""
-            
-            context = "\n分类规则（请优先按照以下规则进行分类）：\n"
-            
-            for rule in rules:
-                type_label = TRANSACTION_TYPE_LABELS.get(rule.transaction_type, rule.transaction_type)
-                context += (
-                    f"- 如果账单描述包含「{rule.rule_text}」"
-                    f"（适用类型：{type_label}），则分类为「{rule.target_category}」\n"
-                )
-            
-            context += "\n注意：以上规则具有优先级，请优先匹配高优先级规则。如果没有匹配的规则，再根据账单描述进行智能分类。\n"
-            
-            return context
+            return format_classification_rules_for_ai_prompt(rules)
             
         except Exception as e:
             logger.error(f"获取分类规则上下文失败: {e}")
@@ -163,8 +149,8 @@ class AIClassificationService:
 {categories_context}{rules_context}
 
 分类指导：
-1. **优先级顺序**：首先检查是否匹配分类规则，如果匹配则按规则分类；如果不匹配任何规则，再根据账单描述进行智能分类
-2. **交易类型匹配**：根据交易类型选择对应类别
+1. **优先级顺序**：优先参考用户自定义分类规则；规则为自然语言线索，请结合账单描述语义判断是否适用；无适用规则时再智能推断
+2. **收支类型匹配**：根据收支类型选择对应类别
    - 不能混淆收入和支出类别
    - 交易类型为"收入"的账单，必须从收入类别中选择分类
    - 交易类型为"支出"的账单，必须从支出类别中选择分类
@@ -328,7 +314,7 @@ class AIClassificationService:
             
             # 获取分类规则上下文（匹配批次内任一账单的来源与交易类型）
             from services.classification_rule_service import (
-                TRANSACTION_TYPE_LABELS,
+                format_classification_rules_for_ai_prompt,
                 normalize_transaction_type,
             )
 
@@ -358,25 +344,11 @@ class AIClassificationService:
             if transaction_types:
                 rules_query = rules_query.filter(
                     ClassificationRule.transaction_type.in_(transaction_types)
-                    | (ClassificationRule.transaction_type == 'all')
                 )
 
             rules = rules_query.order_by(ClassificationRule.priority.desc()).all()
-            if rules:
-                rules_context = "\n分类规则（请优先按照以下规则进行分类）：\n"
-                for rule in rules:
-                    type_label = TRANSACTION_TYPE_LABELS.get(
-                        rule.transaction_type, rule.transaction_type
-                    )
-                    rules_context += (
-                        f"- 如果账单描述包含「{rule.rule_text}」"
-                        f"（适用类型：{type_label}），则分类为「{rule.target_category}」\n"
-                    )
-                rules_context += (
-                    "\n注意：以上规则具有优先级，请优先匹配高优先级规则。"
-                    "如果没有匹配的规则，再根据账单描述进行智能分类。\n"
-                )
-            else:
+            rules_context = format_classification_rules_for_ai_prompt(rules)
+            if not rules_context:
                 rules_context = self.get_classification_rules_context(db, user_id)
             
             # 构建批量账单信息（删除金额字段和来源字段）
@@ -394,8 +366,8 @@ class AIClassificationService:
 {categories_context}{rules_context}
 
 分类指导：
-1. **优先级顺序**：首先检查是否匹配分类规则，如果匹配则按规则分类；如果不匹配任何规则，再根据账单描述进行智能分类
-2. **交易类型匹配**：根据交易类型选择对应类别
+1. **优先级顺序**：优先参考用户自定义分类规则；规则为自然语言线索，请结合账单描述语义判断是否适用；无适用规则时再智能推断
+2. **收支类型匹配**：根据收支类型选择对应类别
    - 不能混淆收入和支出类别
    - 交易类型为"收入"的账单，必须从收入类别中选择分类
    - 交易类型为"支出"的账单，必须从支出类别中选择分类

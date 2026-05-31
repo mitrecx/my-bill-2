@@ -27,7 +27,7 @@ async def get_classification_rules(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     source_type: Optional[str] = Query(None, description="按来源类型筛选"),
     target_category: Optional[str] = Query(None, description="按目标分类筛选"),
-    transaction_type: Optional[str] = Query(None, description="按交易类型筛选 expense/income/transfer/all"),
+    transaction_type: Optional[str] = Query(None, description="按交易类型筛选 expense/income/transfer"),
     is_active: Optional[bool] = Query(None, description="按启用状态筛选"),
     search: Optional[str] = Query(None, description="搜索规则文本"),
     db: Session = Depends(get_db),
@@ -85,7 +85,7 @@ async def create_classification_rule(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """创建分类规则"""
+    """创建分类规则（写入数据库，在 AI 自动分类时注入提示词供优先参考）"""
     
     # 检查当前用户是否已存在相同的规则
     existing_rule = db.query(ClassificationRule).filter(
@@ -367,7 +367,6 @@ async def get_transaction_type_options():
             {"value": "expense", "label": "支出"},
             {"value": "income", "label": "收入"},
             {"value": "transfer", "label": "不计收支"},
-            {"value": "all", "label": "全部"},
         ]
     }
     return ApiResponse(success=True, data=data, message="获取交易类型选项成功")

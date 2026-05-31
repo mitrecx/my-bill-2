@@ -254,7 +254,7 @@ def query_classification_rules(
         page_size: 每页条数，最大 100
         source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
         target_category: 目标分类名称
-        transaction_type: 交易类型 expense/income/transfer/all
+        transaction_type: 交易类型 expense/income/transfer
         is_active: 是否启用
         search: 搜索规则文本或目标分类
     """
@@ -285,17 +285,17 @@ def create_classification_rule(
     rule_text: str,
     source_type: str,
     target_category: str,
-    transaction_type: str = "all",
+    transaction_type: str = "expense",
     priority: int = 0,
     is_active: bool = True,
 ) -> str:
-    """创建自定义分类规则（仅当前用户可见，用于 AI/规则优先分类）。
+    """创建自定义分类规则（仅当前用户可见；规则会在 AI 自动分类时注入提示词供优先参考）。
 
     Args:
-        rule_text: 规则关键词或描述（匹配账单描述）
+        rule_text: 供 AI 参考的自然语言描述（如商户名、关键词短语），非正则表达式
         source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
         target_category: 目标分类名称（须为系统中已存在的分类名）
-        transaction_type: 适用交易类型 expense/income/transfer/all
+        transaction_type: 适用交易类型 expense/income/transfer
         priority: 优先级，数字越大越优先
         is_active: 是否启用
     """
@@ -336,14 +336,14 @@ def update_classification_rule(
     priority: Optional[int] = None,
     is_active: Optional[bool] = None,
 ) -> str:
-    """更新自定义分类规则（仅可更新当前用户自己的规则）。
+    """更新自定义分类规则（仅可更新当前用户自己的规则；供 AI 自动分类时参考）。
 
     Args:
         rule_id: 规则 ID
-        rule_text: 规则关键词（可选）
+        rule_text: 供 AI 参考的自然语言描述（可选）
         source_type: 来源类型（可选）
         target_category: 目标分类名称（可选）
-        transaction_type: 适用交易类型 expense/income/transfer/all（可选）
+        transaction_type: 适用交易类型 expense/income/transfer（可选）
         priority: 优先级（可选）
         is_active: 是否启用（可选）
     """

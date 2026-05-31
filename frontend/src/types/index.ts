@@ -172,7 +172,7 @@ export interface ClassificationRule {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
-  transaction_type: 'expense' | 'income' | 'transfer' | 'all';
+  transaction_type: 'expense' | 'income' | 'transfer';
   priority: number;
   is_active: boolean;
   created_by: number;
@@ -184,7 +184,7 @@ export interface ClassificationRuleCreate {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
-  transaction_type?: 'expense' | 'income' | 'transfer' | 'all';
+  transaction_type?: 'expense' | 'income' | 'transfer';
   priority?: number;
   is_active?: boolean;
 }
@@ -193,7 +193,7 @@ export interface ClassificationRuleUpdate {
   rule_text?: string;
   source_type?: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category?: string;
-  transaction_type?: 'expense' | 'income' | 'transfer' | 'all';
+  transaction_type?: 'expense' | 'income' | 'transfer';
   priority?: number;
   is_active?: boolean;
 }
@@ -212,7 +212,7 @@ export interface SourceTypeOption {
 }
 
 export interface TransactionTypeOption {
-  value: 'expense' | 'income' | 'transfer' | 'all';
+  value: 'expense' | 'income' | 'transfer';
   label: string;
 }
 

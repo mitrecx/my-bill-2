@@ -10,6 +10,7 @@ import {
   message,
   Progress,
   Switch,
+  Tooltip,
 } from 'antd';
 import {
   InboxOutlined,
@@ -312,7 +313,9 @@ const UploadPage: React.FC = () => {
               }}
               disabled={uploading}
             />
-            <Text>导入后 AI 自动分类</Text>
+            <Tooltip title="将您的分类规则写入 AI 提示词优先参考，由 AI 结合账单描述选类">
+              <Text>导入后 AI 自动分类</Text>
+            </Tooltip>
           </Space>
         </Space>
 

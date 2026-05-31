@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Alert,
   Card,
   Table,
   Button,
@@ -33,6 +34,7 @@ import type {
   BillCategory,
 } from '../types';
 import type { ColumnsType } from 'antd/es/table';
+import TransactionTypeTag from '../components/TransactionTypeTag';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -41,7 +43,7 @@ interface RuleFormData {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
-  transaction_type: 'expense' | 'income' | 'transfer' | 'all';
+  transaction_type: 'expense' | 'income' | 'transfer';
   priority: number;
   is_active: boolean;
 }
@@ -79,7 +81,7 @@ const ClassificationRulesPage: React.FC = () => {
   const selectedTransactionType = Form.useWatch('transaction_type', form);
 
   const filteredCategories = categories.filter((category) => {
-    if (!selectedTransactionType || selectedTransactionType === 'all' || selectedTransactionType === 'transfer') {
+    if (!selectedTransactionType || selectedTransactionType === 'transfer') {
       return true;
     }
     return category.category_type === selectedTransactionType;
@@ -272,11 +274,6 @@ const ClassificationRulesPage: React.FC = () => {
     return option ? option.label : sourceType;
   };
 
-  const getTransactionTypeLabel = (transactionType: string) => {
-    const option = transactionTypeOptions.find(opt => opt.value === transactionType);
-    return option ? option.label : transactionType;
-  };
-
   // 获取分类名称
   const getCategoryName = (categoryName: string) => {
     const category = categories.find(cat => cat.name === categoryName);
@@ -309,12 +306,12 @@ const ClassificationRulesPage: React.FC = () => {
       ),
     },
     {
-      title: '交易类型',
+      title: '收支类型',
       dataIndex: 'transaction_type',
       key: 'transaction_type',
-      width: 100,
+      width: 90,
       render: (transactionType: string) => (
-        <Tag color="purple">{getTransactionTypeLabel(transactionType)}</Tag>
+        <TransactionTypeTag type={transactionType} />
       ),
     },
     {
@@ -391,6 +388,13 @@ const ClassificationRulesPage: React.FC = () => {
 
   return (
     <div style={{ padding: 24 }}>
+      <Alert
+        type="info"
+        showIcon
+        message="分类规则供 AI 自动分类时优先参考"
+        description="规则会在导入账单开启「AI 自动分类」时写入提示词，由 AI 结合账单描述语义判断是否适用。系统不做正则或关键词硬匹配。"
+        style={{ marginBottom: 16 }}
+      />
 
       {/* 筛选和操作栏 */}
       <Card style={{ marginBottom: 16 }}>
@@ -449,7 +453,7 @@ const ClassificationRulesPage: React.FC = () => {
 
           <Col xs={24} sm={12} md={6}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
-              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>交易类型：</Text>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>收支类型：</Text>
               <Select
                 placeholder="请选择"
                 value={filters.transaction_type || undefined}
@@ -541,7 +545,7 @@ const ClassificationRulesPage: React.FC = () => {
             label="规则文本"
             name="rule_text"
             rules={[{ required: true, message: '请输入规则文本' }]}
-            extra="用于匹配账单描述的关键词或短语"
+            extra="供 AI 参考的自然语言线索（如商户名、关键词），非正则表达式"
           >
             <Input placeholder="请输入规则文本" />
           </Form.Item>
@@ -561,12 +565,12 @@ const ClassificationRulesPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="交易类型"
+            label="收支类型"
             name="transaction_type"
-            rules={[{ required: true, message: '请选择交易类型' }]}
+            rules={[{ required: true, message: '请选择收支类型' }]}
           >
             <Select
-              placeholder="请选择交易类型"
+              placeholder="请选择收支类型"
               onChange={() => form.setFieldValue('target_category', undefined)}
             >
               {transactionTypeOptions.map((option) => (

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
@@ -8,8 +8,14 @@ from models.classification_rule import ClassificationRule
 from schemas.classification_rule import ClassificationRuleCreate, ClassificationRuleUpdate
 
 
+"""分类规则 CRUD 与 AI 提示词格式化。
+
+分类规则不在后端做正则/关键词硬匹配，而是在 AI 自动分类时注入提示词供模型优先参考。
+"""
+
+
 VALID_SOURCE_TYPES = ("alipay", "jd", "cmb", "wechat", "meituan", "manual", "all")
-VALID_TRANSACTION_TYPES = ("expense", "income", "transfer", "all")
+VALID_TRANSACTION_TYPES = ("expense", "income", "transfer")
 CN_TO_TRANSACTION_TYPE = {
     "支出": "expense",
     "收入": "income",
@@ -19,8 +25,51 @@ TRANSACTION_TYPE_LABELS = {
     "expense": "支出",
     "income": "收入",
     "transfer": "不计收支",
-    "all": "全部",
 }
+SOURCE_TYPE_LABELS = {
+    "alipay": "支付宝",
+    "jd": "京东",
+    "cmb": "招商银行",
+    "wechat": "微信支付",
+    "meituan": "美团",
+    "manual": "手动录入",
+    "all": "所有来源",
+}
+CLASSIFICATION_RULES_AI_GUIDANCE = (
+    "请优先参考以上用户自定义规则；规则为自然语言线索，请结合账单描述语义判断是否适用。"
+    "优先级高的规则优先；无适用规则时再根据描述智能推断。"
+)
+
+
+def format_classification_rules_for_ai_prompt(
+    rules: Sequence[Union[ClassificationRule, Dict[str, Any]]],
+) -> str:
+    """将分类规则格式化为注入 AI 提示词的文本。"""
+    if not rules:
+        return ""
+
+    lines = ["\n分类规则（AI 分类时请优先参考，按优先级从高到低）："]
+    for rule in rules:
+        if isinstance(rule, dict):
+            rule_text = rule["rule_text"]
+            target_category = rule["target_category"]
+            transaction_type = rule.get("transaction_type", "expense")
+            source_type = rule.get("source_type", "all")
+        else:
+            rule_text = rule.rule_text
+            target_category = rule.target_category
+            transaction_type = rule.transaction_type
+            source_type = rule.source_type
+
+        type_label = TRANSACTION_TYPE_LABELS.get(transaction_type, transaction_type)
+        source_label = SOURCE_TYPE_LABELS.get(source_type, source_type)
+        lines.append(
+            f"- 「{rule_text}」→ 分类「{target_category}」"
+            f"（收支类型：{type_label}；来源：{source_label}）"
+        )
+
+    lines.append(f"\n{CLASSIFICATION_RULES_AI_GUIDANCE}\n")
+    return "\n".join(lines)
 
 
 def normalize_transaction_type(value: Optional[str]) -> Optional[str]:
@@ -49,7 +98,7 @@ def serialize_classification_rule(rule: ClassificationRule) -> Dict[str, Any]:
 def _validate_target_category(
     db: Session,
     category_name: str,
-    transaction_type: str = "all",
+    transaction_type: str = "expense",
 ) -> None:
     category = (
         db.query(BillCategory)

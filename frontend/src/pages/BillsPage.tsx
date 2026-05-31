@@ -28,6 +28,7 @@ import { useAuthStore } from '../stores/auth';
 import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import TransactionTypeTag from '../components/TransactionTypeTag';
 import { ClassificationRuleService } from '../api/services';
 import type { SourceTypeOption } from '../types';
 import { useFamilyStore } from '../stores/family';
@@ -427,15 +428,11 @@ const BillsPage: React.FC = () => {
       sorter: (a: Bill, b: Bill) => a.amount - b.amount,
     },
     {
-      title: '类型',
+      title: '收支类型',
       dataIndex: 'transaction_type',
       key: 'transaction_type',
-      width: 70,
-      render: (type: string) => (
-        <Tag color={type === 'income' ? 'green' : type === 'expense' ? 'red' : 'blue'}>
-          {type === 'income' ? '收入' : type === 'expense' ? '支出' : '不计收支'}
-        </Tag>
-      ),
+      width: 90,
+      render: (type: string) => <TransactionTypeTag type={type} />,
     },
     {
       title: '来源',
@@ -597,7 +594,7 @@ const BillsPage: React.FC = () => {
           </Space>
 
           <Space align="center">
-            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>交易类型：</Text>
+            <Text style={{ display: 'inline-block', width: 80, textAlign: 'right' }}>收支类型：</Text>
             <Select
               placeholder="请选择"
               style={{ width: 240 }}
@@ -942,11 +939,11 @@ const BillsPage: React.FC = () => {
           </Form.Item>
 
           <Form.Item
-            label="交易类型"
+            label="收支类型"
             name="transaction_type"
-            rules={[{ required: true, message: '请选择交易类型' }]}
+            rules={[{ required: true, message: '请选择收支类型' }]}
           >
-            <Select placeholder="请选择交易类型">
+            <Select placeholder="请选择收支类型">
               <Option value="income">收入</Option>
               <Option value="expense">支出</Option>
               <Option value="transfer">不计收支</Option>
@@ -1022,8 +1019,8 @@ const BillsPage: React.FC = () => {
         width={520}
       >
         <Form form={batchForm} layout="vertical">
-          <Form.Item label="交易类型" name="transaction_type">
-            <Select placeholder="请选择交易类型" allowClear>
+          <Form.Item label="收支类型" name="transaction_type">
+            <Select placeholder="请选择收支类型" allowClear>
               <Option value="income">收入</Option>
               <Option value="expense">支出</Option>
               <Option value="transfer">不计收支</Option>

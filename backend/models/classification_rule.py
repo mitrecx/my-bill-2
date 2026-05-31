@@ -5,13 +5,14 @@ from config.database import Base
 
 
 class ClassificationRule(Base):
+    """用户自定义分类规则，在 AI 自动分类时注入提示词供优先参考（非程序硬匹配）。"""
     __tablename__ = "classification_rules"
 
     id = Column(Integer, primary_key=True, index=True)
     rule_text = Column(String, nullable=False)
     source_type = Column(String(20), nullable=False)
     target_category = Column(String(50), nullable=False)
-    transaction_type = Column(String(20), nullable=False, default="all")
+    transaction_type = Column(String(20), nullable=False, default="expense")
     priority = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # 不能为空
@@ -26,7 +27,7 @@ class ClassificationRule(Base):
             name='check_source_type'
         ),
         CheckConstraint(
-            "transaction_type IN ('expense', 'income', 'transfer', 'all')",
+            "transaction_type IN ('expense', 'income', 'transfer')",
             name='check_classification_rule_transaction_type'
         ),
         # 用户隔离的唯一约束
