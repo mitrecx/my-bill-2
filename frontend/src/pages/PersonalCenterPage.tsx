@@ -1,17 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Avatar, Typography, Space, Descriptions, Button, Modal, Form, Input, message } from 'antd';
-import { UserOutlined } from '@ant-design/icons';
+import { Card, Avatar, Typography, Space, Descriptions, Button, Modal, Form, Input, message, Tabs } from 'antd';
+import { SettingOutlined, UserOutlined, ApiOutlined } from '@ant-design/icons';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import { UserService } from '../api/services';
+import McpSettingsSection from '../components/McpSettingsSection';
 
 const { Title, Text } = Typography;
 
 const PersonalCenterPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'mcp' ? 'mcp' : 'profile';
+
   const { user, loadUser, isAuthenticated, setUser } = useAuthStore();
   const [editOpen, setEditOpen] = useState(false);
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
-  // 新增：密码修改独立弹窗与表单
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [passwordForm] = Form.useForm();
   const [pwdSubmitting, setPwdSubmitting] = useState(false);
@@ -22,7 +26,7 @@ const PersonalCenterPage: React.FC = () => {
         console.error('加载用户信息失败:', err);
       });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadUser]);
 
   const openEdit = async () => {
     setEditOpen(true);
@@ -33,8 +37,7 @@ const PersonalCenterPage: React.FC = () => {
         full_name: profile?.full_name || '',
         email: profile?.email || '',
       });
-    } catch (_err: any) {
-      // 静默回退到当前缓存的用户数据进行预填，不显示权限或错误提示
+    } catch {
       form.setFieldsValue({
         full_name: user?.full_name || '',
         email: user?.email || '',
@@ -42,7 +45,6 @@ const PersonalCenterPage: React.FC = () => {
     }
   };
 
-  // 新增：打开修改密码弹窗
   const openChangePassword = () => {
     setPasswordOpen(true);
     passwordForm.resetFields();
@@ -52,9 +54,8 @@ const PersonalCenterPage: React.FC = () => {
   const refreshProfile = async () => {
     try {
       const resp = await UserService.getProfile();
-      const profile = resp.data;
-      return profile;
-    } catch (err) {
+      return resp.data;
+    } catch {
       return null;
     }
   };
@@ -62,20 +63,18 @@ const PersonalCenterPage: React.FC = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const payload: any = {
+      const payload = {
         full_name: values.full_name,
         email: values.email,
       };
       setSubmitting(true);
       const resp = await UserService.updateProfile(payload);
       if (resp.success) {
-        // 立即用后端返回的最新用户数据刷新全局状态，驱动页面即时更新
         if (resp.data) {
           setUser(resp.data);
         }
         message.success('个人资料更新成功');
         setEditOpen(false);
-        // 仍保留一次拉取作为兜底，避免某些字段后端有额外处理
         const p = await refreshProfile();
         if (p) {
           setUser(p);
@@ -100,14 +99,11 @@ const PersonalCenterPage: React.FC = () => {
     }
   };
 
-  // 新增：处理修改密码提交
   const handleChangePassword = async () => {
     try {
       const values = await passwordForm.validateFields();
-      const newPwd = values.new_password;
-      const payload: any = { password: newPwd };
       setPwdSubmitting(true);
-      const resp = await UserService.updateProfile(payload);
+      const resp = await UserService.updateProfile({ password: values.new_password } as any);
       if (resp.success) {
         message.success('密码修改成功');
         setPasswordOpen(false);
@@ -118,16 +114,13 @@ const PersonalCenterPage: React.FC = () => {
       }
     } catch (err: any) {
       if (err?.errorFields) {
-        return; // 表单校验错误
+        return;
       }
-
-      // 直接呈现后端返回的具体错误信息（优先 detail/message），不再使用统一的“操作被拒绝”提示
       const data = err?.response?.data;
       let backendMsg: string | undefined;
 
       if (data) {
         if (Array.isArray(data.detail)) {
-          // FastAPI/Pydantic 422 错误数组：组合所有详细信息
           backendMsg = data.detail
             .map((d: any) => {
               const loc = Array.isArray(d?.loc) ? d.loc.join('.') : d?.loc;
@@ -145,40 +138,76 @@ const PersonalCenterPage: React.FC = () => {
         }
       }
 
-      const finalMsg = backendMsg || err?.message || '密码修改失败，请稍后重试';
-      message.error(finalMsg);
+      message.error(backendMsg || err?.message || '密码修改失败，请稍后重试');
     } finally {
       setPwdSubmitting(false);
     }
   };
 
+  const profileContent = (
+    <Card>
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Space align="center" size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
+          <Space align="center" size="large">
+            <Avatar size={96} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }}>
+              {user?.full_name?.[0] || user?.username?.[0] || 'U'}
+            </Avatar>
+            <div>
+              <Title level={3} style={{ marginBottom: 4 }}>{user?.full_name || user?.username || '用户'}</Title>
+              <Text type="secondary">@{user?.username}</Text>
+            </div>
+          </Space>
+          <Space>
+            <Button onClick={openChangePassword}>修改密码</Button>
+            <Button type="primary" onClick={openEdit}>编辑资料</Button>
+          </Space>
+        </Space>
+
+        <Descriptions column={1} bordered size="middle">
+          <Descriptions.Item label="用户名">{user?.username || '-'}</Descriptions.Item>
+          <Descriptions.Item label="邮箱">{user?.email || '-'}</Descriptions.Item>
+          <Descriptions.Item label="姓名">{user?.full_name || '-'}</Descriptions.Item>
+        </Descriptions>
+      </Space>
+    </Card>
+  );
+
   return (
     <div>
-      <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Space align="center" size="large" style={{ width: '100%', justifyContent: 'space-between' }}>
-            <Space align="center" size="large">
-              <Avatar size={96} icon={<UserOutlined />} style={{ backgroundColor: '#1890ff' }}>
-                {user?.full_name?.[0] || user?.username?.[0] || 'U'}
-              </Avatar>
-              <div>
-                <Title level={3} style={{ marginBottom: 4 }}>{user?.full_name || user?.username || '用户'}</Title>
-                <Text type="secondary">@{user?.username}</Text>
-              </div>
-            </Space>
-            <Space>
-              <Button onClick={openChangePassword}>修改密码</Button>
-              <Button type="primary" onClick={openEdit}>编辑资料</Button>
-            </Space>
-          </Space>
+      <Title level={4} style={{ marginBottom: 16 }}>
+        <SettingOutlined /> 设置
+      </Title>
 
-          <Descriptions column={1} bordered size="middle">
-            <Descriptions.Item label="用户名">{user?.username || '-'}</Descriptions.Item>
-            <Descriptions.Item label="邮箱">{user?.email || '-'}</Descriptions.Item>
-            <Descriptions.Item label="姓名">{user?.full_name || '-'}</Descriptions.Item>
-          </Descriptions>
-        </Space>
-      </Card>
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => {
+          if (key === 'profile') {
+            setSearchParams({});
+          } else {
+            setSearchParams({ tab: key });
+          }
+        }}
+        items={[
+          {
+            key: 'profile',
+            label: (
+              <span>
+                <UserOutlined /> 个人资料
+              </span>
+            ),
+            children: profileContent,
+          },
+          {
+            key: 'mcp',
+            label: (
+              <span>
+                <ApiOutlined /> MCP
+              </span>
+            ),
+            children: <McpSettingsSection />,
+          },
+        ]}
+      />
 
       <Modal
         title="编辑个人资料"
@@ -194,16 +223,12 @@ const PersonalCenterPage: React.FC = () => {
           <Form.Item label="姓名" name="full_name">
             <Input placeholder="请输入姓名" allowClear />
           </Form.Item>
-          <Form.Item label="邮箱" name="email" rules={[
-            { type: 'email', message: '邮箱格式不正确' },
-          ]}>
+          <Form.Item label="邮箱" name="email" rules={[{ type: 'email', message: '邮箱格式不正确' }]}>
             <Input placeholder="请输入邮箱" allowClear />
           </Form.Item>
-          {/* 注意：已移除所有与密码相关的输入框 */}
         </Form>
       </Modal>
 
-      {/* 新增：修改密码独立弹窗 */}
       <Modal
         title="修改密码"
         open={passwordOpen}
@@ -221,7 +246,7 @@ const PersonalCenterPage: React.FC = () => {
           ]}>
             <Input.Password placeholder="请输入新密码" allowClear />
           </Form.Item>
-          <Form.Item label="确认密码" name="confirm_password" dependencies={["new_password"]} rules={[
+          <Form.Item label="确认密码" name="confirm_password" dependencies={['new_password']} rules={[
             { required: true, message: '请再次输入新密码' },
             ({ getFieldValue }) => ({
               validator(_, value) {

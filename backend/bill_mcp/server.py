@@ -4,15 +4,29 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from config.database import SessionLocal
-from bill_mcp.context import get_current_mcp_user
+from bill_mcp.context import get_current_mcp_user_id
 from schemas.bills import BillCreate
 from services.bill_service import create_bill_record, create_bills_batch, query_bills
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Family Bills MCP", stateless_http=True)
+mcp = FastMCP(
+    "Family Bills MCP",
+    stateless_http=True,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "127.0.0.1:*",
+            "localhost:*",
+            "[::1]:*",
+            "bill.mitrecx.top",
+            "bill.mitrecx.top:*",
+        ],
+    ),
+)
 
 
 def _parse_datetime(value: str) -> datetime:
@@ -62,7 +76,7 @@ def create_bill(
         remark: 备注（可选）
         source_type: 来源类型，默认 manual
     """
-    user = get_current_mcp_user()
+    user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
         payload = _build_bill_create(
@@ -76,7 +90,7 @@ def create_bill(
                 "source_type": source_type,
             }
         )
-        bill = create_bill_record(db, user.id, payload)
+        bill = create_bill_record(db, user_id, payload)
         return json.dumps(
             {"success": True, "message": "创建账单成功", "bill": {"id": bill.id, "amount": bill.amount}},
             ensure_ascii=False,
@@ -95,11 +109,11 @@ def create_bills_batch(bills: List[Dict[str, Any]]) -> str:
     Args:
         bills: 账单列表，每项包含 amount、transaction_time、transaction_type 等字段
     """
-    user = get_current_mcp_user()
+    user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
         payloads = [_build_bill_create(item) for item in bills]
-        created = create_bills_batch(db, user.id, payloads)
+        created = create_bills_batch(db, user_id, payloads)
         return json.dumps(
             {
                 "success": True,
@@ -143,7 +157,7 @@ def query_bills_batch(
         min_amount: 最小金额
         max_amount: 最大金额
     """
-    user = get_current_mcp_user()
+    user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
         from datetime import date as date_type
@@ -152,7 +166,7 @@ def query_bills_batch(
         parsed_end = date_type.fromisoformat(end_date) if end_date else None
         result = query_bills(
             db,
-            user.id,
+            user_id,
             page=max(page, 1),
             size=min(max(size, 1), 100),
             start_date=parsed_start,

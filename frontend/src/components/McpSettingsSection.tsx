@@ -14,7 +14,6 @@ import {
   List,
 } from 'antd';
 import {
-  ApiOutlined,
   CopyOutlined,
   KeyOutlined,
   ReloadOutlined,
@@ -23,9 +22,9 @@ import {
 import { McpService } from '../api/services';
 import type { McpApiKeyStatus, McpServerInfo } from '../types/mcp';
 
-const { Paragraph, Text, Title } = Typography;
+const { Paragraph, Text } = Typography;
 
-const McpSettingsPage: React.FC = () => {
+const McpSettingsSection: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [keyStatus, setKeyStatus] = useState<McpApiKeyStatus | null>(null);
   const [serverInfo, setServerInfo] = useState<McpServerInfo | null>(null);
@@ -104,11 +103,7 @@ const McpSettingsPage: React.FC = () => {
     : '';
 
   return (
-    <div>
-      <Title level={4} style={{ marginBottom: 16 }}>
-        <ApiOutlined /> MCP 设置
-      </Title>
-
+    <>
       <Card title="API Key 管理" loading={loading} style={{ marginBottom: 16 }}>
         {keyStatus?.has_key ? (
           <>
@@ -222,8 +217,8 @@ const McpSettingsPage: React.FC = () => {
         />
         <Input.TextArea value={newApiKey || ''} readOnly autoSize={{ minRows: 3 }} style={{ fontFamily: 'monospace' }} />
       </Modal>
-    </div>
+    </>
   );
 };
 
-export default McpSettingsPage;
+export default McpSettingsSection;
