@@ -359,7 +359,7 @@ def create_classification_rule_record(
     _validate_target_category(db, payload.target_category, payload.transaction_type)
 
     rule = ClassificationRule(
-        **payload.model_dump(),
+        **payload.model_dump(exclude={"scope"}),
         scope=scope,
         family_id=family_id,
         created_by=user_id,
