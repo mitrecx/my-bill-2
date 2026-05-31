@@ -9,6 +9,8 @@ from config.logging import init_logging, get_logger
 
 # 导入路由
 from api import api_router
+from api.mcp_settings import register_mcp_transport
+from bill_mcp.server import mcp
 
 # 导入异常处理和中间件
 from core.exceptions import setup_exception_handlers
@@ -40,8 +42,11 @@ async def lifespan(app: FastAPI):
     # 确保必要目录存在
     settings.upload_path.mkdir(parents=True, exist_ok=True)
     settings.log_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    yield
+
+    # 启动 MCP Streamable HTTP session manager
+    mcp.streamable_http_app()
+    async with mcp.session_manager.run():
+        yield
     
     # 关闭时清理
     logger.info("应用关闭")
@@ -83,6 +88,9 @@ if settings.is_production:
 
 # 注册路由
 app.include_router(api_router)
+
+# MCP Streamable HTTP 传输（标准路径 /mcp）
+register_mcp_transport(app)
 
 
 @app.get("/", response_model=ApiResponse)

@@ -21,6 +21,7 @@ import {
   MessageOutlined,
   TeamOutlined,
   FilterOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
 import type { MenuProps } from 'antd';
@@ -94,6 +95,11 @@ const Layout: React.FC = () => {
       key: '/profile',
       icon: <UserOutlined />,
       label: '个人资料',
+    },
+    {
+      key: '/mcp-settings',
+      icon: <ApiOutlined />,
+      label: 'MCP 设置',
     },
   ];
 

@@ -4,6 +4,7 @@ from .bill import Bill, BillCategory
 from .message import Message, MessageAction
 from .system_config import SystemConfig
 from .classification_rule import ClassificationRule
+from .mcp_api_key import McpApiKey
 
 __all__ = [
     "User",
@@ -15,4 +16,5 @@ __all__ = [
     "MessageAction",
     "SystemConfig",
     "ClassificationRule",
+    "McpApiKey",
 ]
