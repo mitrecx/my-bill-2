@@ -172,6 +172,7 @@ export interface ClassificationRule {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
+  transaction_type: 'expense' | 'income' | 'transfer' | 'all';
   priority: number;
   is_active: boolean;
   created_by: number;
@@ -183,6 +184,7 @@ export interface ClassificationRuleCreate {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
+  transaction_type?: 'expense' | 'income' | 'transfer' | 'all';
   priority?: number;
   is_active?: boolean;
 }
@@ -191,6 +193,7 @@ export interface ClassificationRuleUpdate {
   rule_text?: string;
   source_type?: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category?: string;
+  transaction_type?: 'expense' | 'income' | 'transfer' | 'all';
   priority?: number;
   is_active?: boolean;
 }
@@ -208,8 +211,17 @@ export interface SourceTypeOption {
   label: string;
 }
 
+export interface TransactionTypeOption {
+  value: 'expense' | 'income' | 'transfer' | 'all';
+  label: string;
+}
+
 export interface SourceTypeOptionsResponse {
   source_types: SourceTypeOption[];
+}
+
+export interface TransactionTypeOptionsResponse {
+  transaction_types: TransactionTypeOption[];
 }
 
 // 导出其他模块的类型

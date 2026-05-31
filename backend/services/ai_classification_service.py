@@ -64,9 +64,19 @@ class AIClassificationService:
             logger.error(f"获取分类上下文失败: {e}")
             return "无法获取分类信息"
     
-    def get_classification_rules_context(self, db: Session, user_id: int, source_type: str = None) -> str:
+    def get_classification_rules_context(
+        self,
+        db: Session,
+        user_id: int,
+        source_type: str = None,
+        transaction_type: str = None,
+    ) -> str:
         """获取分类规则上下文信息"""
         try:
+            from services.classification_rule_service import TRANSACTION_TYPE_LABELS, normalize_transaction_type
+
+            normalized_transaction_type = normalize_transaction_type(transaction_type)
+
             # 查询当前用户启用的分类规则
             query = db.query(ClassificationRule).filter(
                 ClassificationRule.created_by == user_id,
@@ -82,6 +92,12 @@ class AIClassificationService:
             else:
                 # 如果没有指定来源类型，只获取通用规则
                 query = query.filter(ClassificationRule.source_type == 'all')
+
+            if normalized_transaction_type:
+                query = query.filter(
+                    (ClassificationRule.transaction_type == normalized_transaction_type) |
+                    (ClassificationRule.transaction_type == 'all')
+                )
             
             # 按优先级排序
             rules = query.order_by(ClassificationRule.priority.desc()).all()
@@ -91,9 +107,12 @@ class AIClassificationService:
             
             context = "\n分类规则（请优先按照以下规则进行分类）：\n"
             
-            # 构建规则文本，不按来源分组
             for rule in rules:
-                context += f"- 如果账单描述包含「{rule.rule_text}」，则分类为「{rule.target_category}」\n"
+                type_label = TRANSACTION_TYPE_LABELS.get(rule.transaction_type, rule.transaction_type)
+                context += (
+                    f"- 如果账单描述包含「{rule.rule_text}」"
+                    f"（适用类型：{type_label}），则分类为「{rule.target_category}」\n"
+                )
             
             context += "\n注意：以上规则具有优先级，请优先匹配高优先级规则。如果没有匹配的规则，再根据账单描述进行智能分类。\n"
             
@@ -127,7 +146,10 @@ class AIClassificationService:
             
             # 获取分类规则上下文
             source_type = bill_data.get('source_type')
-            rules_context = self.get_classification_rules_context(db, user_id, source_type)
+            transaction_type = bill_data.get('transaction_type')
+            rules_context = self.get_classification_rules_context(
+                db, user_id, source_type, transaction_type
+            )
             
             # 构建账单信息（删除金额字段，因为对AI推理分类没有帮助）
             bill_info = f"""账单信息：
@@ -304,16 +326,57 @@ class AIClassificationService:
             # 构建分类上下文
             categories_context = self.get_categories_context(db)
             
-            # 获取分类规则上下文（根据账单类型动态获取）
-            source_types = set(bill.get('source_type') for bill in bills_batch if bill.get('source_type'))
-            rules_context = ""
-            
-            # 为每种账单类型获取相应的规则
-            for source_type in source_types:
-                rules_context += self.get_classification_rules_context(db, user_id, source_type)
-            
-            # 如果没有特定来源的规则，获取通用规则
-            if not rules_context:
+            # 获取分类规则上下文（匹配批次内任一账单的来源与交易类型）
+            from services.classification_rule_service import (
+                TRANSACTION_TYPE_LABELS,
+                normalize_transaction_type,
+            )
+
+            source_types = {
+                bill.get('source_type')
+                for bill in bills_batch
+                if bill.get('source_type')
+            }
+            transaction_types = {
+                normalize_transaction_type(bill.get('transaction_type'))
+                for bill in bills_batch
+                if normalize_transaction_type(bill.get('transaction_type'))
+            }
+
+            rules_query = db.query(ClassificationRule).filter(
+                ClassificationRule.created_by == user_id,
+                ClassificationRule.is_active == True,
+            )
+            if source_types:
+                rules_query = rules_query.filter(
+                    ClassificationRule.source_type.in_(source_types)
+                    | (ClassificationRule.source_type == 'all')
+                )
+            else:
+                rules_query = rules_query.filter(ClassificationRule.source_type == 'all')
+
+            if transaction_types:
+                rules_query = rules_query.filter(
+                    ClassificationRule.transaction_type.in_(transaction_types)
+                    | (ClassificationRule.transaction_type == 'all')
+                )
+
+            rules = rules_query.order_by(ClassificationRule.priority.desc()).all()
+            if rules:
+                rules_context = "\n分类规则（请优先按照以下规则进行分类）：\n"
+                for rule in rules:
+                    type_label = TRANSACTION_TYPE_LABELS.get(
+                        rule.transaction_type, rule.transaction_type
+                    )
+                    rules_context += (
+                        f"- 如果账单描述包含「{rule.rule_text}」"
+                        f"（适用类型：{type_label}），则分类为「{rule.target_category}」\n"
+                    )
+                rules_context += (
+                    "\n注意：以上规则具有优先级，请优先匹配高优先级规则。"
+                    "如果没有匹配的规则，再根据账单描述进行智能分类。\n"
+                )
+            else:
                 rules_context = self.get_classification_rules_context(db, user_id)
             
             # 构建批量账单信息（删除金额字段和来源字段）

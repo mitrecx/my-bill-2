@@ -7,6 +7,10 @@ class ClassificationRuleBase(BaseModel):
     rule_text: str = Field(..., description="分类规则的自然语言描述")
     source_type: Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"] = Field(..., description="账单来源类型")
     target_category: str = Field(..., description="目标分类名称")
+    transaction_type: Literal["expense", "income", "transfer", "all"] = Field(
+        default="all",
+        description="适用交易类型：expense=支出，income=收入，transfer=不计收支，all=全部",
+    )
     priority: int = Field(default=0, description="规则优先级，数字越大优先级越高")
     is_active: bool = Field(default=True, description="规则是否启用")
 
@@ -32,6 +36,7 @@ class ClassificationRuleUpdate(BaseModel):
     rule_text: Optional[str] = None
     source_type: Optional[Literal["alipay", "jd", "cmb", "wechat", "meituan", "manual", "all"]] = None
     target_category: Optional[str] = None
+    transaction_type: Optional[Literal["expense", "income", "transfer", "all"]] = None
     priority: Optional[int] = None
     is_active: Optional[bool] = None
     

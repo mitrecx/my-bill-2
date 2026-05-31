@@ -11,6 +11,7 @@ class ClassificationRule(Base):
     rule_text = Column(String, nullable=False)
     source_type = Column(String(20), nullable=False)
     target_category = Column(String(50), nullable=False)
+    transaction_type = Column(String(20), nullable=False, default="all")
     priority = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # 不能为空
@@ -24,8 +25,15 @@ class ClassificationRule(Base):
             "source_type IN ('alipay', 'jd', 'cmb', 'wechat', 'meituan', 'manual', 'all')",
             name='check_source_type'
         ),
+        CheckConstraint(
+            "transaction_type IN ('expense', 'income', 'transfer', 'all')",
+            name='check_classification_rule_transaction_type'
+        ),
         # 用户隔离的唯一约束
-        UniqueConstraint('created_by', 'rule_text', 'source_type', name='unique_rule_per_user'),
+        UniqueConstraint(
+            'created_by', 'rule_text', 'source_type', 'transaction_type',
+            name='uq_classification_rules_user_rule_source_type',
+        ),
     )
 
     # 关系

@@ -27,6 +27,7 @@ async def get_classification_rules(
     page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     source_type: Optional[str] = Query(None, description="按来源类型筛选"),
     target_category: Optional[str] = Query(None, description="按目标分类筛选"),
+    transaction_type: Optional[str] = Query(None, description="按交易类型筛选 expense/income/transfer/all"),
     is_active: Optional[bool] = Query(None, description="按启用状态筛选"),
     search: Optional[str] = Query(None, description="搜索规则文本"),
     db: Session = Depends(get_db),
@@ -43,6 +44,9 @@ async def get_classification_rules(
     
     if target_category:
         query = query.filter(ClassificationRule.target_category == target_category)
+
+    if transaction_type:
+        query = query.filter(ClassificationRule.transaction_type == transaction_type)
     
     if is_active is not None:
         query = query.filter(ClassificationRule.is_active == is_active)
@@ -88,7 +92,8 @@ async def create_classification_rule(
         and_(
             ClassificationRule.created_by == current_user.id,
             ClassificationRule.rule_text == rule_data.rule_text,
-            ClassificationRule.source_type == rule_data.source_type
+            ClassificationRule.source_type == rule_data.source_type,
+            ClassificationRule.transaction_type == rule_data.transaction_type,
         )
     ).first()
     
@@ -107,6 +112,11 @@ async def create_classification_rule(
     ).first()
     if not category:
         raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
+
+    if rule_data.transaction_type == "expense" and category.category_type != "expense":
+        raise HTTPException(status_code=400, detail="支出规则的目标分类必须是支出类分类")
+    if rule_data.transaction_type == "income" and category.category_type != "income":
+        raise HTTPException(status_code=400, detail="收入规则的目标分类必须是收入类分类")
     
     # 创建新规则
     rule = ClassificationRule(
@@ -139,7 +149,8 @@ async def create_classification_rules_batch(
                 and_(
                     ClassificationRule.created_by == current_user.id,
                     ClassificationRule.rule_text == rule_data.rule_text,
-                    ClassificationRule.source_type == rule_data.source_type
+                    ClassificationRule.source_type == rule_data.source_type,
+                    ClassificationRule.transaction_type == rule_data.transaction_type,
                 )
             ).first()
             
@@ -156,6 +167,13 @@ async def create_classification_rules_batch(
             ).first()
             if not category:
                 errors.append(f"规则 {i+1}: 目标分类不存在或已被删除")
+                continue
+
+            if rule_data.transaction_type == "expense" and category.category_type != "expense":
+                errors.append(f"规则 {i+1}: 支出规则的目标分类必须是支出类分类")
+                continue
+            if rule_data.transaction_type == "income" and category.category_type != "income":
+                errors.append(f"规则 {i+1}: 收入规则的目标分类必须是收入类分类")
                 continue
             
             # 创建新规则
@@ -228,16 +246,18 @@ async def update_classification_rule(
     if not rule:
         raise HTTPException(status_code=404, detail="分类规则不存在")
     
-    # 如果更新了规则文本或来源类型，检查是否与其他规则冲突
-    if rule_data.rule_text or rule_data.source_type:
+    # 如果更新了规则文本、来源类型或交易类型，检查是否与其他规则冲突
+    if rule_data.rule_text or rule_data.source_type or rule_data.transaction_type:
         new_rule_text = rule_data.rule_text or rule.rule_text
         new_source_type = rule_data.source_type or rule.source_type
+        new_transaction_type = rule_data.transaction_type or rule.transaction_type
         
         existing_rule = db.query(ClassificationRule).filter(
             and_(
                 ClassificationRule.created_by == current_user.id,
                 ClassificationRule.rule_text == new_rule_text,
                 ClassificationRule.source_type == new_source_type,
+                ClassificationRule.transaction_type == new_transaction_type,
                 ClassificationRule.id != rule_id
             )
         ).first()
@@ -250,6 +270,7 @@ async def update_classification_rule(
     
     # 如果目标分类被更新或最终目标分类无效，需要校验目标分类有效性
     new_target_category = rule_data.target_category if rule_data.target_category is not None else rule.target_category
+    new_transaction_type = rule_data.transaction_type if rule_data.transaction_type is not None else rule.transaction_type
     if new_target_category:
         category = db.query(BillCategory).filter(
             and_(
@@ -259,6 +280,10 @@ async def update_classification_rule(
         ).first()
         if not category:
             raise HTTPException(status_code=400, detail="目标分类不存在或已被删除")
+        if new_transaction_type == "expense" and category.category_type != "expense":
+            raise HTTPException(status_code=400, detail="支出规则的目标分类必须是支出类分类")
+        if new_transaction_type == "income" and category.category_type != "income":
+            raise HTTPException(status_code=400, detail="收入规则的目标分类必须是收入类分类")
     
     # 更新规则
     update_data = rule_data.dict(exclude_unset=True)
@@ -332,6 +357,20 @@ async def toggle_classification_rule_status(
     db.refresh(rule)
     
     return ApiResponse(success=True, data=rule, message="分类规则状态切换成功")
+
+
+@router.get("/transaction-types/options")
+async def get_transaction_type_options():
+    """获取可用的交易类型选项"""
+    data = {
+        "transaction_types": [
+            {"value": "expense", "label": "支出"},
+            {"value": "income", "label": "收入"},
+            {"value": "transfer", "label": "不计收支"},
+            {"value": "all", "label": "全部"},
+        ]
+    }
+    return ApiResponse(success=True, data=data, message="获取交易类型选项成功")
 
 
 @router.get("/source-types/options")

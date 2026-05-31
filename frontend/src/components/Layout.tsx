@@ -64,21 +64,14 @@ const Layout: React.FC = () => {
       label: '账单总览',
     },
     {
-      key: 'bills-group',
-      icon: <FileTextOutlined />,
-      label: '账单管理',
-      children: [
-        {
-          key: '/upload',
-          icon: <UploadOutlined />,
-          label: '导入账单',
-        },
-        {
-          key: '/classification-rules',
-          icon: <FilterOutlined />,
-          label: '分类规则',
-        },
-      ],
+      key: '/upload',
+      icon: <UploadOutlined />,
+      label: '导入账单',
+    },
+    {
+      key: '/classification-rules',
+      icon: <FilterOutlined />,
+      label: '分类规则',
     },
     {
       key: '/messages',

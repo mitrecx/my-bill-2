@@ -29,6 +29,7 @@ import { ClassificationRuleService, BillService } from '../api/services';
 import type {
   ClassificationRule,
   SourceTypeOption,
+  TransactionTypeOption,
   BillCategory,
 } from '../types';
 import type { ColumnsType } from 'antd/es/table';
@@ -40,6 +41,7 @@ interface RuleFormData {
   rule_text: string;
   source_type: 'alipay' | 'jd' | 'cmb' | 'wechat' | 'meituan' | 'manual' | 'all';
   target_category: string;
+  transaction_type: 'expense' | 'income' | 'transfer' | 'all';
   priority: number;
   is_active: boolean;
 }
@@ -47,6 +49,7 @@ interface RuleFormData {
 const ClassificationRulesPage: React.FC = () => {
   const [rules, setRules] = useState<ClassificationRule[]>([]);
   const [sourceTypeOptions, setSourceTypeOptions] = useState<SourceTypeOption[]>([]);
+  const [transactionTypeOptions, setTransactionTypeOptions] = useState<TransactionTypeOption[]>([]);
   const [categories, setCategories] = useState<BillCategory[]>([]);
   const [loading, setLoading] = useState(false);
   
@@ -61,6 +64,7 @@ const ClassificationRulesPage: React.FC = () => {
   const [filters, setFilters] = useState({
     source_type: '',
     target_category: '',
+    transaction_type: '',
     is_active: undefined as boolean | undefined,
     search: '',
   });
@@ -72,6 +76,14 @@ const ClassificationRulesPage: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingRule, setEditingRule] = useState<ClassificationRule | null>(null);
   const [form] = Form.useForm<RuleFormData>();
+  const selectedTransactionType = Form.useWatch('transaction_type', form);
+
+  const filteredCategories = categories.filter((category) => {
+    if (!selectedTransactionType || selectedTransactionType === 'all' || selectedTransactionType === 'transfer') {
+      return true;
+    }
+    return category.category_type === selectedTransactionType;
+  });
 
   // 获取来源类型选项
   const fetchSourceTypeOptions = async () => {
@@ -82,6 +94,18 @@ const ClassificationRulesPage: React.FC = () => {
       }
     } catch (error) {
       console.error('获取来源类型选项失败:', error);
+    }
+  };
+
+  // 获取交易类型选项
+  const fetchTransactionTypeOptions = async () => {
+    try {
+      const response = await ClassificationRuleService.getTransactionTypeOptions();
+      if (response.success) {
+        setTransactionTypeOptions(response.data.transaction_types);
+      }
+    } catch (error) {
+      console.error('获取交易类型选项失败:', error);
     }
   };
 
@@ -108,6 +132,7 @@ const ClassificationRulesPage: React.FC = () => {
       
       if (filters.source_type) params.source_type = filters.source_type;
       if (filters.target_category) params.target_category = filters.target_category;
+      if (filters.transaction_type) params.transaction_type = filters.transaction_type;
       if (filters.is_active !== undefined) params.is_active = filters.is_active;
       if (filters.search) params.search = filters.search;
 
@@ -132,6 +157,7 @@ const ClassificationRulesPage: React.FC = () => {
   // 初始化数据
   useEffect(() => {
     fetchSourceTypeOptions();
+    fetchTransactionTypeOptions();
     fetchCategories();
   }, []);
 
@@ -145,6 +171,7 @@ const ClassificationRulesPage: React.FC = () => {
     form.resetFields();
     form.setFieldsValue({
       source_type: 'all',
+      transaction_type: 'expense',
       priority: 1,
       is_active: true,
     });
@@ -158,6 +185,7 @@ const ClassificationRulesPage: React.FC = () => {
       rule_text: rule.rule_text,
       source_type: rule.source_type,
       target_category: rule.target_category,
+      transaction_type: rule.transaction_type,
       priority: rule.priority,
       is_active: rule.is_active,
     });
@@ -234,7 +262,7 @@ const ClassificationRulesPage: React.FC = () => {
   // 重置筛选
   const handleReset = () => {
     setSearchInput('');
-    setFilters({ source_type: '', target_category: '', is_active: undefined, search: '' });
+    setFilters({ source_type: '', target_category: '', transaction_type: '', is_active: undefined, search: '' });
     setPagination({ ...pagination, current: 1 });
   };
 
@@ -242,6 +270,11 @@ const ClassificationRulesPage: React.FC = () => {
   const getSourceTypeLabel = (sourceType: string) => {
     const option = sourceTypeOptions.find(opt => opt.value === sourceType);
     return option ? option.label : sourceType;
+  };
+
+  const getTransactionTypeLabel = (transactionType: string) => {
+    const option = transactionTypeOptions.find(opt => opt.value === transactionType);
+    return option ? option.label : transactionType;
   };
 
   // 获取分类名称
@@ -273,6 +306,15 @@ const ClassificationRulesPage: React.FC = () => {
       width: 120,
       render: (sourceType: string) => (
         <Tag color="blue">{getSourceTypeLabel(sourceType)}</Tag>
+      ),
+    },
+    {
+      title: '交易类型',
+      dataIndex: 'transaction_type',
+      key: 'transaction_type',
+      width: 100,
+      render: (transactionType: string) => (
+        <Tag color="purple">{getTransactionTypeLabel(transactionType)}</Tag>
       ),
     },
     {
@@ -407,6 +449,25 @@ const ClassificationRulesPage: React.FC = () => {
 
           <Col xs={24} sm={12} md={6}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
+              <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>交易类型：</Text>
+              <Select
+                placeholder="请选择"
+                value={filters.transaction_type || undefined}
+                onChange={(value) => setFilters({ ...filters, transaction_type: value || '' })}
+                allowClear
+                style={{ flex: 1, minWidth: 0 }}
+              >
+                {transactionTypeOptions.map((option) => (
+                  <Option key={option.value} value={option.value}>
+                    {option.label}
+                  </Option>
+                ))}
+              </Select>
+            </div>
+          </Col>
+
+          <Col xs={24} sm={12} md={6}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
               <Text style={{ flex: '0 0 80px', textAlign: 'right' }}>状态：</Text>
               <Select
                 placeholder="请选择"
@@ -471,6 +532,7 @@ const ClassificationRulesPage: React.FC = () => {
           layout="vertical"
           initialValues={{
             source_type: 'all',
+            transaction_type: 'expense',
             priority: 1,
             is_active: true,
           }}
@@ -497,6 +559,23 @@ const ClassificationRulesPage: React.FC = () => {
               ))}
             </Select>
           </Form.Item>
+
+          <Form.Item
+            label="交易类型"
+            name="transaction_type"
+            rules={[{ required: true, message: '请选择交易类型' }]}
+          >
+            <Select
+              placeholder="请选择交易类型"
+              onChange={() => form.setFieldValue('target_category', undefined)}
+            >
+              {transactionTypeOptions.map((option) => (
+                <Option key={option.value} value={option.value}>
+                  {option.label}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
           
           <Form.Item
             label="目标分类"
@@ -504,7 +583,7 @@ const ClassificationRulesPage: React.FC = () => {
             rules={[{ required: true, message: '请选择目标分类' }]}
           >
             <Select placeholder="请选择目标分类">
-              {categories.map((category) => (
+              {filteredCategories.map((category) => (
                 <Option key={category.id} value={category.name}>
                   {category.name}
                 </Option>

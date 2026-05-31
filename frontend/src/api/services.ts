@@ -23,6 +23,7 @@ import type {
   ClassificationRuleUpdate,
   ClassificationRuleListResponse,
   SourceTypeOptionsResponse,
+  TransactionTypeOptionsResponse,
   FinanceSummary,
   AvailableYearsResponse,
 } from '../types';
@@ -401,7 +402,7 @@ export const familyApi = {
 
 // 分类规则服务
 export const ClassificationRuleService = {
-  async getRules(params?: { page?: number; page_size?: number; source_type?: string; target_category?: string; is_active?: boolean; search?: string; }) {
+  async getRules(params?: { page?: number; page_size?: number; source_type?: string; target_category?: string; transaction_type?: string; is_active?: boolean; search?: string; }) {
     const response = await ApiClient.get<ClassificationRuleListResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.BASE, { params });
     return response;
   },
@@ -423,6 +424,11 @@ export const ClassificationRuleService = {
 
   async getSourceTypeOptions() {
     const response = await ApiClient.get<SourceTypeOptionsResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.SOURCE_TYPES);
+    return response;
+  },
+
+  async getTransactionTypeOptions() {
+    const response = await ApiClient.get<TransactionTypeOptionsResponse>(API_ENDPOINTS.CLASSIFICATION_RULES.TRANSACTION_TYPES);
     return response;
   },
 

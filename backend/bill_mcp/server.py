@@ -9,6 +9,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from config.database import SessionLocal
 from bill_mcp.context import get_current_mcp_user_id
 from schemas.bills import BillCreate, BillUpdate
+from schemas.classification_rule import ClassificationRuleCreate, ClassificationRuleUpdate
 from services.bill_service import (
     create_bill_record,
     create_bills_batch as create_bills_batch_records,
@@ -18,6 +19,13 @@ from services.bill_service import (
     query_bills,
     update_bill_record,
     update_bills_batch as update_bills_batch_records,
+)
+from services.classification_rule_service import (
+    create_classification_rule_record,
+    delete_classification_rule_record,
+    list_classification_rules,
+    serialize_classification_rule,
+    update_classification_rule_record,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,6 +232,165 @@ def query_bill_categories(
         )
     except Exception as exc:
         logger.error("MCP query_bill_categories failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def query_classification_rules(
+    page: int = 1,
+    page_size: int = 20,
+    source_type: Optional[str] = None,
+    target_category: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    is_active: Optional[bool] = None,
+    search: Optional[str] = None,
+) -> str:
+    """查询当前用户的自定义分类规则列表。
+
+    Args:
+        page: 页码，从 1 开始
+        page_size: 每页条数，最大 100
+        source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
+        target_category: 目标分类名称
+        transaction_type: 交易类型 expense/income/transfer/all
+        is_active: 是否启用
+        search: 搜索规则文本或目标分类
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        result = list_classification_rules(
+            db,
+            user_id,
+            page=page,
+            page_size=page_size,
+            source_type=source_type,
+            target_category=target_category,
+            transaction_type=transaction_type,
+            is_active=is_active,
+            search=search,
+        )
+        return json.dumps({"success": True, **result}, ensure_ascii=False)
+    except Exception as exc:
+        logger.error("MCP query_classification_rules failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def create_classification_rule(
+    rule_text: str,
+    source_type: str,
+    target_category: str,
+    transaction_type: str = "all",
+    priority: int = 0,
+    is_active: bool = True,
+) -> str:
+    """创建自定义分类规则（仅当前用户可见，用于 AI/规则优先分类）。
+
+    Args:
+        rule_text: 规则关键词或描述（匹配账单描述）
+        source_type: 来源类型 alipay/jd/cmb/wechat/meituan/manual/all
+        target_category: 目标分类名称（须为系统中已存在的分类名）
+        transaction_type: 适用交易类型 expense/income/transfer/all
+        priority: 优先级，数字越大越优先
+        is_active: 是否启用
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        payload = ClassificationRuleCreate(
+            rule_text=rule_text,
+            source_type=source_type,
+            target_category=target_category,
+            transaction_type=transaction_type,
+            priority=priority,
+            is_active=is_active,
+        )
+        rule = create_classification_rule_record(db, user_id, payload)
+        return json.dumps(
+            {
+                "success": True,
+                "message": "分类规则创建成功",
+                "rule": serialize_classification_rule(rule),
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP create_classification_rule failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def update_classification_rule(
+    rule_id: int,
+    rule_text: Optional[str] = None,
+    source_type: Optional[str] = None,
+    target_category: Optional[str] = None,
+    transaction_type: Optional[str] = None,
+    priority: Optional[int] = None,
+    is_active: Optional[bool] = None,
+) -> str:
+    """更新自定义分类规则（仅可更新当前用户自己的规则）。
+
+    Args:
+        rule_id: 规则 ID
+        rule_text: 规则关键词（可选）
+        source_type: 来源类型（可选）
+        target_category: 目标分类名称（可选）
+        transaction_type: 适用交易类型 expense/income/transfer/all（可选）
+        priority: 优先级（可选）
+        is_active: 是否启用（可选）
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        payload = ClassificationRuleUpdate(
+            rule_text=rule_text,
+            source_type=source_type,
+            target_category=target_category,
+            transaction_type=transaction_type,
+            priority=priority,
+            is_active=is_active,
+        )
+        rule = update_classification_rule_record(db, user_id, rule_id, payload)
+        return json.dumps(
+            {
+                "success": True,
+                "message": "分类规则更新成功",
+                "rule": serialize_classification_rule(rule),
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP update_classification_rule failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def delete_classification_rule(rule_id: int) -> str:
+    """删除自定义分类规则（仅可删除当前用户自己的规则）。
+
+    Args:
+        rule_id: 规则 ID
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        delete_classification_rule_record(db, user_id, rule_id)
+        return json.dumps(
+            {"success": True, "message": "分类规则删除成功", "rule_id": rule_id},
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP delete_classification_rule failed: %s", exc)
         return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
     finally:
         db.close()

@@ -85,6 +85,7 @@ export const API_ENDPOINTS = {
   CLASSIFICATION_RULES: {
     BASE: '/api/v1/classification-rules',
     SOURCE_TYPES: '/api/v1/classification-rules/source-types/options',
+    TRANSACTION_TYPES: '/api/v1/classification-rules/transaction-types/options',
     TOGGLE_STATUS: (id: number) => `/api/v1/classification-rules/${id}/toggle`,
     BATCH: '/api/v1/classification-rules/batch',
   },
