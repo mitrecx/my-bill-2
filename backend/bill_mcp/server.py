@@ -339,3 +339,21 @@ def update_bills_batch(bills: List[Dict[str, Any]]) -> str:
         return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
     finally:
         db.close()
+
+
+def _tool_description_summary(description: Optional[str]) -> str:
+    if not description:
+        return ""
+    first_line = description.strip().splitlines()[0].strip()
+    return first_line.rstrip("：:")
+
+
+def list_registered_mcp_tools() -> List[Dict[str, str]]:
+    """Return MCP tools registered on the server (name + short description)."""
+    return [
+        {
+            "name": tool.name,
+            "description": _tool_description_summary(tool.description),
+        }
+        for tool in mcp._tool_manager.list_tools()
+    ]

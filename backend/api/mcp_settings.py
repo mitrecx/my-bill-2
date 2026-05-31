@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from api.auth import get_current_user
 from bill_mcp.context import current_mcp_user_id
-from bill_mcp.server import mcp
+from bill_mcp.server import list_registered_mcp_tools, mcp
 from config.database import SessionLocal, get_db
 from config.settings import settings
 from models.user import User
@@ -145,16 +145,7 @@ async def get_mcp_server_info(
         data=McpServerInfoResponse(
             server_name="Family Bills MCP",
             mcp_url=mcp_url,
-            tools=[
-                "create_bill",
-                "create_bills_batch",
-                "query_bills_batch",
-                "query_bill_categories",
-                "update_bill",
-                "update_bills_batch",
-                "delete_bill",
-                "delete_bills_batch",
-            ],
+            tools=list_registered_mcp_tools(),
             cursor_config_example={
                 "mcpServers": {
                     "family-bills": {

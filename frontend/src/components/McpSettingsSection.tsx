@@ -161,21 +161,12 @@ const McpSettingsSection: React.FC = () => {
             <List
               size="small"
               bordered
-              dataSource={[
-                { name: 'create_bill', desc: '单条账单录入' },
-                { name: 'create_bills_batch', desc: '批量账单录入' },
-                { name: 'query_bills_batch', desc: '批量账单查询（支持多条件筛选）' },
-                { name: 'query_bill_categories', desc: '查询账单分类列表（获取 category_id）' },
-                { name: 'update_bill', desc: '单条账单修改（仅限本人账单）' },
-                { name: 'update_bills_batch', desc: '批量账单修改（仅限本人账单）' },
-                { name: 'delete_bill', desc: '单条账单删除（仅限本人账单）' },
-                { name: 'delete_bills_batch', desc: '批量账单删除（仅限本人账单）' },
-              ]}
+              dataSource={serverInfo.tools}
               renderItem={(item) => (
                 <List.Item>
                   <Space>
                     <Tag color="blue">{item.name}</Tag>
-                    <Text>{item.desc}</Text>
+                    <Text>{item.description || '-'}</Text>
                   </Space>
                 </List.Item>
               )}

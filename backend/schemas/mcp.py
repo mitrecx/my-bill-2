@@ -4,6 +4,11 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class McpToolInfo(BaseModel):
+    name: str
+    description: str = ""
+
+
 class McpApiKeyResponse(BaseModel):
     has_key: bool
     key_prefix: Optional[str] = None
@@ -21,5 +26,5 @@ class McpApiKeyCreateResponse(BaseModel):
 class McpServerInfoResponse(BaseModel):
     server_name: str
     mcp_url: str
-    tools: List[str]
+    tools: List[McpToolInfo]
     cursor_config_example: dict

@@ -12,9 +12,14 @@ export interface McpApiKeyCreateResult {
   created_at: string;
 }
 
+export interface McpToolInfo {
+  name: string;
+  description: string;
+}
+
 export interface McpServerInfo {
   server_name: string;
   mcp_url: string;
-  tools: string[];
+  tools: McpToolInfo[];
   cursor_config_example: Record<string, unknown>;
 }
