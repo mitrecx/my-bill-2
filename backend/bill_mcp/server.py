@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 
 from config.database import SessionLocal
 from bill_mcp.context import get_current_mcp_user
@@ -12,7 +13,20 @@ from services.bill_service import create_bill_record, create_bills_batch, query_
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Family Bills MCP", stateless_http=True)
+mcp = FastMCP(
+    "Family Bills MCP",
+    stateless_http=True,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=[
+            "127.0.0.1:*",
+            "localhost:*",
+            "[::1]:*",
+            "bill.mitrecx.top",
+            "bill.mitrecx.top:*",
+        ],
+    ),
+)
 
 
 def _parse_datetime(value: str) -> datetime:
