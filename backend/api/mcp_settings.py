@@ -149,6 +149,7 @@ async def get_mcp_server_info(
                 "create_bill",
                 "create_bills_batch",
                 "query_bills_batch",
+                "query_bill_categories",
                 "update_bill",
                 "update_bills_batch",
                 "delete_bill",

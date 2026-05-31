@@ -233,3 +233,32 @@ def update_bills_batch(db: Session, user_id: int, items: List[Dict[str, Any]]) -
     if updated:
         db.commit()
     return {"updated": updated, "failed": failed}
+
+
+def list_bill_categories(
+    db: Session,
+    *,
+    category_type: Optional[str] = None,
+    search: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    query = db.query(BillCategory).filter(BillCategory.is_deleted == False)
+    if category_type:
+        query = query.filter(BillCategory.category_type == category_type)
+    if search:
+        pattern = f"%{search.strip()}%"
+        query = query.filter(
+            (BillCategory.category_name.ilike(pattern))
+            | (BillCategory.description.ilike(pattern))
+        )
+    categories = query.order_by(BillCategory.category_type.asc(), BillCategory.id.asc()).all()
+    return [
+        {
+            "id": category.id,
+            "name": category.category_name,
+            "category_type": category.category_type,
+            "description": category.description,
+            "icon": category.icon,
+            "color": category.color,
+        }
+        for category in categories
+    ]

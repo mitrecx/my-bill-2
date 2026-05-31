@@ -11,9 +11,10 @@ from bill_mcp.context import get_current_mcp_user_id
 from schemas.bills import BillCreate, BillUpdate
 from services.bill_service import (
     create_bill_record,
-    create_bills_batch,
+    create_bills_batch as create_bills_batch_records,
     delete_bill_record,
     delete_bills_batch as delete_bills_batch_records,
+    list_bill_categories,
     query_bills,
     update_bill_record,
     update_bills_batch as update_bills_batch_records,
@@ -121,7 +122,7 @@ def create_bills_batch(bills: List[Dict[str, Any]]) -> str:
     db = SessionLocal()
     try:
         payloads = [_build_bill_create(item) for item in bills]
-        created = create_bills_batch(db, user_id, payloads)
+        created = create_bills_batch_records(db, user_id, payloads)
         return json.dumps(
             {
                 "success": True,
@@ -189,6 +190,40 @@ def query_bills_batch(
         return json.dumps({"success": True, "data": result}, ensure_ascii=False, default=str)
     except Exception as exc:
         logger.error("MCP query_bills_batch failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def query_bill_categories(
+    category_type: Optional[str] = None,
+    search: Optional[str] = None,
+) -> str:
+    """查询账单分类列表，用于创建/修改账单时确定 category_id。
+
+    Args:
+        category_type: 分类类型，可选 income（收入）或 expense（支出）
+        search: 按分类名称或描述关键词筛选
+    """
+    db = SessionLocal()
+    try:
+        if category_type and category_type not in ("income", "expense"):
+            return json.dumps(
+                {"success": False, "message": "category_type 仅支持 income 或 expense"},
+                ensure_ascii=False,
+            )
+        categories = list_bill_categories(db, category_type=category_type, search=search)
+        return json.dumps(
+            {
+                "success": True,
+                "total": len(categories),
+                "categories": categories,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP query_bill_categories failed: %s", exc)
         return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
     finally:
         db.close()
