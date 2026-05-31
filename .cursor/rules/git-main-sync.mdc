@@ -1,0 +1,32 @@
+---
+description: 保持本地 main 与 origin/main 同步
+alwaysApply: true
+---
+
+# Git main 分支同步
+
+在本项目中，本地 `main` 应始终与远程 `origin/main` 保持同步。
+
+## 要求
+
+- 开始新功能、修复或部署前，先确认本地 `main` 已更新到最新远程状态
+- PR 合并到 `main` 后，切换到 `main` 并执行 `git pull origin main`
+- 不要在长期落后的本地 `main` 上继续开发或判断代码是否最新
+
+## 推荐流程
+
+```bash
+git fetch origin
+git checkout main
+git pull origin main
+```
+
+需要新分支时，从已更新的 `main` 创建：
+
+```bash
+git checkout -b feat/your-feature main
+```
+
+## 判断是否需要同步
+
+若 `git status` 或 `git log main..origin/main` 显示本地 `main` 落后，应先 pull 再继续其他 git 操作。
