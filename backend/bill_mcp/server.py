@@ -8,8 +8,16 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from config.database import SessionLocal
 from bill_mcp.context import get_current_mcp_user_id
-from schemas.bills import BillCreate
-from services.bill_service import create_bill_record, create_bills_batch, query_bills
+from schemas.bills import BillCreate, BillUpdate
+from services.bill_service import (
+    create_bill_record,
+    create_bills_batch,
+    delete_bill_record,
+    delete_bills_batch as delete_bills_batch_records,
+    query_bills,
+    update_bill_record,
+    update_bills_batch as update_bills_batch_records,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +189,118 @@ def query_bills_batch(
         return json.dumps({"success": True, "data": result}, ensure_ascii=False, default=str)
     except Exception as exc:
         logger.error("MCP query_bills_batch failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def delete_bill(bill_id: int) -> str:
+    """删除单条账单（仅可删除当前用户自己的账单）。
+
+    Args:
+        bill_id: 账单 ID
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        delete_bill_record(db, user_id, bill_id)
+        return json.dumps({"success": True, "message": "账单删除成功", "bill_id": bill_id}, ensure_ascii=False)
+    except Exception as exc:
+        logger.error("MCP delete_bill failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def delete_bills_batch(bill_ids: List[int]) -> str:
+    """批量删除账单（仅可删除当前用户自己的账单）。
+
+    Args:
+        bill_ids: 要删除的账单 ID 列表
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        result = delete_bills_batch_records(db, user_id, bill_ids)
+        return json.dumps(
+            {
+                "success": len(result["failed"]) == 0,
+                "message": f"成功删除 {len(result['deleted_ids'])} 条账单",
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP delete_bills_batch failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def update_bill(
+    bill_id: int,
+    amount: Optional[float] = None,
+    transaction_type: Optional[str] = None,
+    transaction_desc: Optional[str] = None,
+    category_id: Optional[int] = None,
+    remark: Optional[str] = None,
+) -> str:
+    """修改单条账单（仅可修改当前用户自己的账单，只更新传入的字段）。
+
+    Args:
+        bill_id: 账单 ID
+        amount: 金额（可选）
+        transaction_type: 交易类型 income/expense/transfer（可选）
+        transaction_desc: 交易描述（可选）
+        category_id: 分类 ID（可选）
+        remark: 备注（可选）
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        payload = BillUpdate(
+            amount=amount,
+            transaction_type=transaction_type,
+            transaction_desc=transaction_desc,
+            category_id=category_id,
+            remark=remark,
+        )
+        bill = update_bill_record(db, user_id, bill_id, payload)
+        return json.dumps(
+            {"success": True, "message": "更新账单成功", "bill": {"id": bill.id, "amount": bill.amount}},
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP update_bill failed: %s", exc)
+        return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def update_bills_batch(bills: List[Dict[str, Any]]) -> str:
+    """批量修改账单（仅可修改当前用户自己的账单）。
+
+    Args:
+        bills: 账单更新列表，每项需包含 bill_id，以及要更新的字段
+    """
+    user_id = get_current_mcp_user_id()
+    db = SessionLocal()
+    try:
+        result = update_bills_batch_records(db, user_id, bills)
+        return json.dumps(
+            {
+                "success": len(result["failed"]) == 0,
+                "message": f"成功更新 {len(result['updated'])} 条账单",
+                **result,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        logger.error("MCP update_bills_batch failed: %s", exc)
         return json.dumps({"success": False, "message": str(exc)}, ensure_ascii=False)
     finally:
         db.close()

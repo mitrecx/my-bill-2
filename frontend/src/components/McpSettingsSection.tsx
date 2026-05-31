@@ -165,6 +165,10 @@ const McpSettingsSection: React.FC = () => {
                 { name: 'create_bill', desc: '单条账单录入' },
                 { name: 'create_bills_batch', desc: '批量账单录入' },
                 { name: 'query_bills_batch', desc: '批量账单查询（支持多条件筛选）' },
+                { name: 'update_bill', desc: '单条账单修改（仅限本人账单）' },
+                { name: 'update_bills_batch', desc: '批量账单修改（仅限本人账单）' },
+                { name: 'delete_bill', desc: '单条账单删除（仅限本人账单）' },
+                { name: 'delete_bills_batch', desc: '批量账单删除（仅限本人账单）' },
               ]}
               renderItem={(item) => (
                 <List.Item>

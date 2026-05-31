@@ -145,7 +145,15 @@ async def get_mcp_server_info(
         data=McpServerInfoResponse(
             server_name="Family Bills MCP",
             mcp_url=mcp_url,
-            tools=["create_bill", "create_bills_batch", "query_bills_batch"],
+            tools=[
+                "create_bill",
+                "create_bills_batch",
+                "query_bills_batch",
+                "update_bill",
+                "update_bills_batch",
+                "delete_bill",
+                "delete_bills_batch",
+            ],
             cursor_config_example={
                 "mcpServers": {
                     "family-bills": {
