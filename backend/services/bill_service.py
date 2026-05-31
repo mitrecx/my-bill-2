@@ -6,7 +6,7 @@ from sqlalchemy import desc
 
 from models.bill import Bill, BillCategory
 from models.family import FamilyMember
-from schemas.bills import BillCreate, BillResponse
+from schemas.bills import BillCreate, BillResponse, BillUpdate
 
 
 TRANSACTION_TYPE_TO_CN = {
@@ -148,3 +148,88 @@ def query_bills(
         "size": size,
         "items": [BillResponse.from_bill(bill).model_dump(mode="json") for bill in items],
     }
+
+
+def delete_bill_record(db: Session, user_id: int, bill_id: int) -> None:
+    bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
+    if not bill:
+        raise ValueError("无法删除他人的账单数据或账单不存在")
+    db.delete(bill)
+    db.commit()
+
+
+def delete_bills_batch(db: Session, user_id: int, bill_ids: List[int]) -> Dict[str, Any]:
+    deleted_ids: List[int] = []
+    failed: List[Dict[str, Any]] = []
+
+    for bill_id in bill_ids:
+        bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
+        if not bill:
+            failed.append({"bill_id": bill_id, "reason": "无法删除他人的账单数据或账单不存在"})
+            continue
+        db.delete(bill)
+        deleted_ids.append(bill_id)
+
+    if deleted_ids:
+        db.commit()
+    return {"deleted_ids": deleted_ids, "failed": failed}
+
+
+def _apply_bill_update(bill: Bill, payload: BillUpdate) -> None:
+    if payload.amount is not None:
+        bill.amount = payload.amount
+    if payload.transaction_type is not None:
+        bill.transaction_type = TRANSACTION_TYPE_TO_CN.get(payload.transaction_type, payload.transaction_type)
+    if payload.transaction_desc is not None:
+        bill.transaction_desc = payload.transaction_desc
+    if payload.category_id is not None:
+        bill.category_id = payload.category_id
+    if payload.remark is not None:
+        bill.remark = payload.remark
+
+
+def update_bill_record(db: Session, user_id: int, bill_id: int, payload: BillUpdate) -> Bill:
+    bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
+    if not bill:
+        raise ValueError("无法修改他人的账单数据或账单不存在")
+    if payload.category_id is not None:
+        _validate_category(db, payload.category_id)
+    _apply_bill_update(bill, payload)
+    db.commit()
+    db.refresh(bill)
+    return bill
+
+
+def update_bills_batch(db: Session, user_id: int, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+    updated: List[Dict[str, Any]] = []
+    failed: List[Dict[str, Any]] = []
+
+    for item in items:
+        bill_id = item.get("bill_id")
+        if not bill_id:
+            failed.append({"bill_id": None, "reason": "缺少 bill_id"})
+            continue
+
+        bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
+        if not bill:
+            failed.append({"bill_id": bill_id, "reason": "无法修改他人的账单数据或账单不存在"})
+            continue
+
+        try:
+            payload = BillUpdate(
+                amount=item.get("amount"),
+                transaction_type=item.get("transaction_type"),
+                transaction_desc=item.get("transaction_desc"),
+                category_id=item.get("category_id"),
+                remark=item.get("remark"),
+            )
+            if payload.category_id is not None:
+                _validate_category(db, payload.category_id)
+            _apply_bill_update(bill, payload)
+            updated.append({"bill_id": bill_id})
+        except ValueError as exc:
+            failed.append({"bill_id": bill_id, "reason": str(exc)})
+
+    if updated:
+        db.commit()
+    return {"updated": updated, "failed": failed}
