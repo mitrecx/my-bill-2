@@ -14,16 +14,25 @@ class AlipayParser(BaseParser):
         super().__init__()
         self.source_type = "alipay"
         
-        # 支付宝CSV字段映射
+        # 支付宝CSV字段映射（旧版导出 + 新版「交易明细」导出）
         self.field_mapping = {
             "记录时间": "transaction_time",
+            "交易时间": "transaction_time",
             "分类": "category",
+            "交易分类": "category",
             "收支类型": "income_expense",
+            "收/支": "income_expense",
             "金额": "amount",
-            "备注": "transaction_desc",
+            "备注": "remark",
             "账户": "account",
+            "收/付款方式": "account",
             "来源": "source",
-            "标签": "tags"
+            "标签": "tags",
+            "交易对方": "counter_party",
+            "商品说明": "product",
+            "交易状态": "transaction_status",
+            "交易订单号": "order_id",
+            "商家订单号": "merchant_order_id",
         }
     
     def parse_file(self, file_path: str) -> ParseResult:
@@ -109,8 +118,11 @@ class AlipayParser(BaseParser):
     def _find_data_start(self, lines) -> int:
         """找到数据开始的行号"""
         for i, line in enumerate(lines):
-            # 查找包含字段名的行
-            if "记录时间" in line and "分类" in line and "金额" in line:
+            if "金额" not in line:
+                continue
+            if "记录时间" in line and "分类" in line:
+                return i
+            if "交易时间" in line and "交易分类" in line:
                 return i
         return -1
     
@@ -156,11 +168,11 @@ class AlipayParser(BaseParser):
         # 处理收支情况
         income_expense = cleaned_record.get("income_expense", "")
         if income_expense:
-            if "收入" in income_expense:
+            if "收入" in str(income_expense):
                 processed["transaction_type"] = "收入"
-            elif "支出" in income_expense:
+            elif "支出" in str(income_expense):
                 processed["transaction_type"] = "支出"
-            elif "不计收支" in income_expense:
+            elif "不计收支" in str(income_expense):
                 processed["transaction_type"] = "不计收支"
         
         # 使用分类字段作为交易类型的补充
@@ -168,11 +180,17 @@ class AlipayParser(BaseParser):
         if category and not processed.get("transaction_type"):
             processed["transaction_type"] = category
         
-        # 处理交易描述，只使用备注字段
-        if cleaned_record.get("transaction_desc"):
-            processed["transaction_desc"] = str(cleaned_record["transaction_desc"])
-        
-        # 商户名称信息保留在raw_data中，不再设置到processed记录
+        counter_party = self._clean_string_value(cleaned_record.get("counter_party"))
+        product = self._clean_string_value(cleaned_record.get("product"))
+        remark = self._clean_string_value(cleaned_record.get("remark"))
+        if counter_party and product:
+            processed["transaction_desc"] = f"{counter_party} - {product}"
+        elif product:
+            processed["transaction_desc"] = product
+        elif counter_party:
+            processed["transaction_desc"] = counter_party
+        elif remark:
+            processed["transaction_desc"] = remark
         
         # 处理支付方式
         account = cleaned_record.get("account", "")
@@ -183,13 +201,22 @@ class AlipayParser(BaseParser):
         # 中文字段名到英文字段名的映射
         raw_field_mapping = {
             "记录时间": "record_time",
-            "分类": "category", 
+            "交易时间": "transaction_time",
+            "分类": "category",
+            "交易分类": "category",
             "收支类型": "transaction_type",
+            "收/支": "income_expense",
             "金额": "amount",
             "备注": "description",
             "账户": "account",
+            "收/付款方式": "payment_method",
             "来源": "source",
-            "标签": "tags"
+            "标签": "tags",
+            "交易对方": "counter_party",
+            "商品说明": "product",
+            "交易状态": "transaction_status",
+            "交易订单号": "order_id",
+            "商家订单号": "merchant_order_id",
         }
         
         raw_data = {}
@@ -212,6 +239,12 @@ class AlipayParser(BaseParser):
             del processed["_original_record"]
         
         return processed
+    
+    def _clean_string_value(self, value: Any) -> str:
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            return ""
+        text = str(value).strip()
+        return "" if text in ("/", "nan", "None") else text
     
     def _detect_encoding(self, file_path: str) -> str:
         """检测文件编码，支付宝文件通常是GBK编码"""

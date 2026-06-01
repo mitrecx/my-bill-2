@@ -201,7 +201,7 @@ class BillStatsResponse(BaseModel):
 
 # 新增：分类统计项
 class CategoryStatsItem(BaseModel):
-    category_id: int
+    category_id: Optional[int] = None
     category_name: str
     total_amount: float
     transaction_count: int

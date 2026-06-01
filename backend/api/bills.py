@@ -78,6 +78,7 @@ async def get_bills(
     min_amount: Optional[float] = Query(None, ge=0, description="最小金额"),
     max_amount: Optional[float] = Query(None, ge=0, description="最大金额"),
     search: Optional[str] = Query(None, description="搜索关键词"),
+    uncategorized: Optional[bool] = Query(None, description="仅筛选未分类账单"),
     sort_by: str = Query("transaction_time", description="排序字段"),
     sort_order: str = Query("desc", regex="^(asc|desc)$", description="排序顺序"),
     current_user: User = Depends(get_current_user),
@@ -118,6 +119,8 @@ async def get_bills(
             merged_category_ids = (merged_category_ids or []) + category_id_brackets
         if merged_category_ids:
             query = query.filter(Bill.category_id.in_(merged_category_ids))
+        elif uncategorized:
+            query = query.filter(Bill.category_id.is_(None))
         
         # 合并两种形式的交易类型参数，并支持多选
         merged_tx_types: Optional[List[str]] = None
@@ -635,7 +638,24 @@ async def get_category_stats(
 
         rows = q.all()
 
-        total_amount = sum([float(r.total_amount) for r in rows]) if rows else 0.0
+        uncat_q = db.query(
+            func.coalesce(func.sum(Bill.amount), 0).label("total_amount"),
+            func.count(Bill.id).label("transaction_count"),
+        ).filter(
+            Bill.user_id.in_(target_user_ids),
+            Bill.transaction_type == "支出",
+            Bill.category_id.is_(None),
+        )
+        if start_date:
+            uncat_q = uncat_q.filter(Bill.transaction_time >= start_date)
+        if end_date:
+            uncat_q = uncat_q.filter(Bill.transaction_time < (end_date + timedelta(days=1)))
+        uncat_row = uncat_q.first()
+
+        total_amount = sum(float(r.total_amount) for r in rows) if rows else 0.0
+        if uncat_row and uncat_row.transaction_count:
+            total_amount += float(uncat_row.total_amount or 0)
+
         items: List[CategoryStatsItem] = []
         for r in rows:
             amt = float(Decimal(str(r.total_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
@@ -647,6 +667,19 @@ async def get_category_stats(
                 transaction_count=int(r.transaction_count or 0),
                 percentage=float(Decimal(str(pct)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
             ))
+
+        if uncat_row and uncat_row.transaction_count:
+            amt = float(Decimal(str(uncat_row.total_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            pct = (amt / total_amount * 100.0) if total_amount > 0 else 0.0
+            items.append(CategoryStatsItem(
+                category_id=None,
+                category_name="未分类",
+                total_amount=amt,
+                transaction_count=int(uncat_row.transaction_count or 0),
+                percentage=float(Decimal(str(pct)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            ))
+
+        items.sort(key=lambda item: item.total_amount, reverse=True)
 
         return ApiResponse[List[CategoryStatsItem]](
             data=items,

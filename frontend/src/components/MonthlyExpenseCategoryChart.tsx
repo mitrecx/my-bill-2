@@ -151,8 +151,11 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
 
       // 清空无关查询条件，避免带入之前的筛选
       resetQueryParams();
+      const isUncategorized = item.category_name === '未分类' || item.category_id == null;
       setQueryParams({
-        category_id: item.category_id,
+        ...(isUncategorized
+          ? { uncategorized: true, category_id: undefined }
+          : { category_id: item.category_id ?? undefined, uncategorized: undefined }),
         transaction_type: 'expense',
         start_date: start.format('YYYY-MM-DD'),
         end_date: end.format('YYYY-MM-DD'),

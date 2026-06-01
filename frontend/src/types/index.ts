@@ -120,6 +120,7 @@ export interface BillListQueryParams {
   user_id?: number | number[];
   // 支持单选或多选分类
   category_id?: number | number[];
+  uncategorized?: boolean;
   // 支持单选或多选交易类型
   transaction_type?: ('income' | 'expense' | 'transfer') | ('income' | 'expense' | 'transfer')[];
   // 改为支持单选或多选来源
@@ -144,7 +145,7 @@ export interface BillStats {
 }
 
 export interface CategoryStats {
-  category_id: number;
+  category_id?: number | null;
   category_name: string;
   total_amount: number;
   transaction_count: number;
