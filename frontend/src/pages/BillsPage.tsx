@@ -81,96 +81,74 @@ const BillsPage: React.FC = () => {
   // 新增：批量选择与批量更新弹窗
   const [selectedRowKeys, setSelectedRowKeys] = useState<number[]>([]);
   const [isBatchModalVisible, setIsBatchModalVisible] = useState(false);
-  // 账单表格滚动容器，用于 Table sticky 绑定
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  // 账单表格区域，用于计算 Table 滚动高度
+  const tableWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollY, setTableScrollY] = useState(400);
   const [batchForm] = Form.useForm();
 
   // 搜索区域显示/隐藏状态
   const [isSearchVisible, setIsSearchVisible] = useState(true);
-  const [lastScrollTop, setLastScrollTop] = useState(0);
+  const lastScrollTopRef = useRef(0);
   const scrollThreshold = 50; // 滚动阈值，超过此距离才触发显示/隐藏
-  const [searchAreaHeight, setSearchAreaHeight] = useState(120); // 动态搜索区域高度
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
   // 新增：自动隐藏开关状态
   const [autoHideEnabled, setAutoHideEnabled] = useState(false);
 
-  // 滚动监听逻辑 - 添加防抖优化和边界检查
+  const getTableScrollElement = useCallback(() => {
+    return tableWrapperRef.current?.querySelector('.ant-table-body') as HTMLElement | null;
+  }, []);
+
+  // 根据表格容器实际高度设置 scroll.y，避免 100vh 与嵌套滚动冲突
+  useEffect(() => {
+    const wrapper = tableWrapperRef.current;
+    if (!wrapper) return;
+
+    const updateTableScrollY = () => {
+      const height = wrapper.clientHeight;
+      if (height > 0) {
+        setTableScrollY(Math.max(height - 8, 200));
+      }
+    };
+
+    updateTableScrollY();
+    const resizeObserver = new ResizeObserver(updateTableScrollY);
+    resizeObserver.observe(wrapper);
+    return () => resizeObserver.disconnect();
+  }, [isSearchVisible]);
+
+  // 滚动监听逻辑 - 绑定到 Table 内部滚动容器
   const handleScroll = useCallback(() => {
-    if (!scrollContainerRef.current) return;
-    
-    const scrollContainer = scrollContainerRef.current;
+    const scrollContainer = getTableScrollElement();
+    if (!scrollContainer) return;
+
     const currentScrollTop = scrollContainer.scrollTop;
     const scrollHeight = scrollContainer.scrollHeight;
     const clientHeight = scrollContainer.clientHeight;
-    const scrollDiff = currentScrollTop - lastScrollTop;
-    
-    // 防止在滚动到底部时的抖动 - 添加边界检查
-    const isAtBottom = currentScrollTop + clientHeight >= scrollHeight - 10; // 10px 容差
-    
-    // 如果已经滚动到底部，不再处理搜索区域的显示/隐藏
-    if (isAtBottom) {
-      setLastScrollTop(currentScrollTop);
+    const scrollDiff = currentScrollTop - lastScrollTopRef.current;
+
+    const isAtBottom = currentScrollTop + clientHeight >= scrollHeight - 16;
+
+    lastScrollTopRef.current = currentScrollTop;
+
+    // 滚到底部时不切换搜索区，避免布局高度变化引起抖动
+    if (isAtBottom || !autoHideEnabled) {
       return;
     }
-    
-    // 新增：只有在自动隐藏开关开启时才处理搜索区域的显示/隐藏
-    if (!autoHideEnabled) {
-      setLastScrollTop(currentScrollTop);
-      return;
-    }
-    
-    // 使用 requestAnimationFrame 优化性能
-    requestAnimationFrame(() => {
-      // 向下滚动且超过阈值时隐藏搜索区域
-      if (scrollDiff > scrollThreshold && currentScrollTop > scrollThreshold) {
-        if (isSearchVisible) {
-          setIsSearchVisible(false);
-        }
-      }
-      // 向上滚动且超过阈值时显示搜索区域
-      else if (scrollDiff < -scrollThreshold || currentScrollTop <= scrollThreshold) {
-        if (!isSearchVisible) {
-          setIsSearchVisible(true);
-        }
-      }
-    });
-    
-    setLastScrollTop(currentScrollTop);
-  }, [lastScrollTop, scrollThreshold, isSearchVisible, autoHideEnabled]);
 
-  // 添加滚动监听器
+    if (scrollDiff > scrollThreshold && currentScrollTop > scrollThreshold) {
+      setIsSearchVisible(false);
+    } else if (scrollDiff < -scrollThreshold || currentScrollTop <= scrollThreshold) {
+      setIsSearchVisible(true);
+    }
+  }, [autoHideEnabled, getTableScrollElement, scrollThreshold]);
+
   useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer) {
-      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-      return () => {
-        scrollContainer.removeEventListener('scroll', handleScroll);
-      };
-    }
-  }, [handleScroll]);
+    const scrollContainer = getTableScrollElement();
+    if (!scrollContainer) return;
 
-  // 动态检测搜索区域高度
-  useEffect(() => {
-    const updateSearchAreaHeight = () => {
-      if (searchAreaRef.current) {
-        const height = searchAreaRef.current.offsetHeight;
-        setSearchAreaHeight(height);
-      }
-    };
-
-    // 初始检测
-    updateSearchAreaHeight();
-
-    // 监听窗口大小变化
-    const resizeObserver = new ResizeObserver(updateSearchAreaHeight);
-    if (searchAreaRef.current) {
-      resizeObserver.observe(searchAreaRef.current);
-    }
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, [handleScroll, getTableScrollElement, bills.length, isSearchVisible, tableScrollY]);
 
   // 当编辑弹窗打开且存在当前账单时，同步表单字段，确保分类等字段正常显示
   useEffect(() => {
@@ -502,10 +480,12 @@ const BillsPage: React.FC = () => {
   ];
 
   return (<>
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      height: '100%', 
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
       position: 'relative',
     }}>
       {/* 手动显示按钮 - 向下箭头（搜索区域隐藏时显示） */}
@@ -534,20 +514,13 @@ const BillsPage: React.FC = () => {
       )}
 
       {/* 筛选区域 */}
-      <Card 
+      {isSearchVisible && (
+      <Card
         ref={searchAreaRef}
-        style={{ 
-          marginBottom: isSearchVisible ? 8 : 0,
-          transform: isSearchVisible ? 'translateY(0)' : 'translateY(-100%)',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 10,
-          opacity: isSearchVisible ? 1 : 0,
-          transition: 'all 0.3s ease-in-out',
-          visibility: isSearchVisible ? 'visible' : 'hidden',
-        }} 
+        style={{
+          marginBottom: 8,
+          flexShrink: 0,
+        }}
         bodyStyle={{ padding: 12 }}
       >
         <Space wrap align="center" size={8}>
@@ -780,17 +753,16 @@ const BillsPage: React.FC = () => {
           title="隐藏搜索区域"
         />
       </Card>
+      )}
 
       {/* 账单表格 */}
-      <div 
-        style={{ 
-          flex: 1, 
-          overflow: 'auto', 
+      <div
+        ref={tableWrapperRef}
+        style={{
+          flex: 1,
           minHeight: 0,
-          paddingTop: isSearchVisible ? `${searchAreaHeight}px` : '0px',
-          transition: 'padding-top 0.3s ease-in-out',
-        }} 
-        ref={scrollContainerRef}
+          overflow: 'hidden',
+        }}
       >
         <Table
           columns={columns}
@@ -798,7 +770,6 @@ const BillsPage: React.FC = () => {
           rowKey="id"
           loading={isLoading}
           size="small"
-          sticky={{ getContainer: () => scrollContainerRef?.current || document.body }}
           rowSelection={{
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys as number[]),
@@ -807,16 +778,15 @@ const BillsPage: React.FC = () => {
           onChange={(_paginationInfo, _filters, _sorter) => {
             // 移除排序逻辑，仅保留客户端排序
           }}
-          scroll={{ x: 1200, y: isSearchVisible ? 'calc(100vh - 220px)' : 'calc(100vh - 120px)' }}
+          scroll={{ x: 1200, y: tableScrollY }}
         />
       </div>
 
       {/* 固定在底部的翻页组件 */}
-      <div style={{ 
-        position: 'sticky', 
-        bottom: 0, 
-        backgroundColor: '#fff', 
-        padding: '8px 0', 
+      <div style={{
+        flexShrink: 0,
+        backgroundColor: '#fff',
+        padding: '8px 0',
         borderTop: '1px solid #f0f0f0',
         display: 'flex',
         justifyContent: 'center',
