@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Card,
   Table,
@@ -13,8 +13,9 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import { AuditService } from '../api/services';
+import { AuditService, BillService } from '../api/services';
 import type { AuditLog } from '../types/audit';
+import type { BillCategory } from '../types';
 
 const { Title, Text } = Typography;
 
@@ -37,6 +38,15 @@ const SOURCE_LABELS: Record<string, string> = {
   service: '系统',
 };
 
+const SOURCE_TYPE_LABELS: Record<string, string> = {
+  alipay: '支付宝',
+  wechat: '微信',
+  jd: '京东',
+  cmb: '招商银行',
+  meituan: '美团',
+  manual: '手动录入',
+};
+
 const FIELD_LABELS: Record<string, string> = {
   amount: '金额',
   transaction_type: '交易类型',
@@ -44,15 +54,51 @@ const FIELD_LABELS: Record<string, string> = {
   category_id: '分类',
   remark: '备注',
   transaction_time: '交易时间',
-  source_type: '来源',
+  source_type: '来源类型',
   source_filename: '来源文件',
   currency: '货币',
   user_id: '归属用户',
 };
 
-const formatFieldValue = (value: unknown): string => {
+const BILL_INFO_FIELDS = [
+  'transaction_desc',
+  'amount',
+  'transaction_time',
+  'transaction_type',
+  'category_id',
+  'remark',
+  'source_type',
+] as const;
+
+const getBillSnapshot = (log: AuditLog): Record<string, unknown> | null => {
+  if (log.action === 'delete') return log.old_data || null;
+  return log.new_data || log.old_data || null;
+};
+
+const formatAuditFieldValue = (
+  field: string,
+  value: unknown,
+  categoryMap: Map<number, string>,
+): string => {
   if (value == null || value === '') return '-';
-  if (typeof value === 'number') return String(value);
+  if (field === 'category_id') {
+    const id = Number(value);
+    if (!Number.isFinite(id)) return String(value);
+    return categoryMap.get(id) || `未知分类 (#${id})`;
+  }
+  if (field === 'amount') {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return String(value);
+    return `¥${num.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+  }
+  if (field === 'transaction_time') {
+    const parsed = dayjs(String(value));
+    return parsed.isValid() ? parsed.format('YYYY-MM-DD HH:mm:ss') : String(value);
+  }
+  if (field === 'source_type') {
+    const key = String(value);
+    return SOURCE_TYPE_LABELS[key] || key;
+  }
   return String(value);
 };
 
@@ -64,6 +110,25 @@ const AuditLogsPage: React.FC = () => {
   const [actionFilter, setActionFilter] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [detailLog, setDetailLog] = useState<AuditLog | null>(null);
+  const [categoryMap, setCategoryMap] = useState<Map<number, string>>(new Map());
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await BillService.getCategories();
+        if (response.success && Array.isArray(response.data)) {
+          const map = new Map<number, string>();
+          (response.data as BillCategory[]).forEach((category) => {
+            map.set(category.id, category.name);
+          });
+          setCategoryMap(map);
+        }
+      } catch (error) {
+        console.error('加载分类失败:', error);
+      }
+    };
+    loadCategories();
+  }, []);
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -93,6 +158,16 @@ const AuditLogsPage: React.FC = () => {
     loadLogs();
   }, [loadLogs]);
 
+  const formatValue = useCallback(
+    (field: string, value: unknown) => formatAuditFieldValue(field, value, categoryMap),
+    [categoryMap],
+  );
+
+  const detailBillSnapshot = useMemo(
+    () => (detailLog ? getBillSnapshot(detailLog) : null),
+    [detailLog],
+  );
+
   const columns: ColumnsType<AuditLog> = [
     {
       title: '时间',
@@ -112,6 +187,16 @@ const AuditLogsPage: React.FC = () => {
       title: '账单 ID',
       dataIndex: 'entity_id',
       width: 90,
+    },
+    {
+      title: '描述',
+      key: 'desc',
+      ellipsis: true,
+      render: (_: unknown, record: AuditLog) => {
+        const snapshot = getBillSnapshot(record);
+        const desc = snapshot?.transaction_desc;
+        return desc ? String(desc) : '-';
+      },
     },
     {
       title: '操作人',
@@ -137,15 +222,23 @@ const AuditLogsPage: React.FC = () => {
       render: (_: unknown, record: AuditLog) => {
         if (record.action === 'create') {
           const amount = record.new_data?.amount;
-          return amount != null ? `新增金额 ¥${formatFieldValue(amount)}` : '新增账单';
+          return amount != null ? `新增 ${formatValue('amount', amount)}` : '新增账单';
         }
         if (record.action === 'delete') {
           const amount = record.old_data?.amount;
-          return amount != null ? `删除金额 ¥${formatFieldValue(amount)}` : '删除账单';
+          return amount != null ? `删除 ${formatValue('amount', amount)}` : '删除账单';
         }
         const fields = record.changed_fields ? Object.keys(record.changed_fields) : [];
         if (fields.length === 0) return '-';
-        return fields.map((field) => FIELD_LABELS[field] || field).join('、');
+        return fields
+          .map((field) => {
+            const change = record.changed_fields?.[field];
+            if (field === 'category_id' && change) {
+              return `${FIELD_LABELS[field]}: ${formatValue(field, change.old)} → ${formatValue(field, change.new)}`;
+            }
+            return FIELD_LABELS[field] || field;
+          })
+          .join('、');
       },
     },
     {
@@ -206,7 +299,7 @@ const AuditLogsPage: React.FC = () => {
         title="审计详情"
         open={!!detailLog}
         footer={null}
-        width={720}
+        width={760}
         onCancel={() => setDetailLog(null)}
       >
         {detailLog && (
@@ -226,6 +319,26 @@ const AuditLogsPage: React.FC = () => {
               <Descriptions.Item label="账单归属">{detailLog.target_username || '-'}</Descriptions.Item>
             </Descriptions>
 
+            {detailBillSnapshot && (
+              <Descriptions
+                title="账单信息"
+                column={1}
+                size="small"
+                bordered
+                style={{ marginBottom: 16 }}
+              >
+                {BILL_INFO_FIELDS.map((field) => {
+                  const value = detailBillSnapshot[field];
+                  if (value == null || value === '') return null;
+                  return (
+                    <Descriptions.Item key={field} label={FIELD_LABELS[field]}>
+                      {formatValue(field, value)}
+                    </Descriptions.Item>
+                  );
+                })}
+              </Descriptions>
+            )}
+
             {detailLog.changed_fields && Object.keys(detailLog.changed_fields).length > 0 && (
               <Table
                 size="small"
@@ -234,8 +347,8 @@ const AuditLogsPage: React.FC = () => {
                 dataSource={Object.entries(detailLog.changed_fields).map(([field, change]) => ({
                   field,
                   label: FIELD_LABELS[field] || field,
-                  oldValue: formatFieldValue(change?.old),
-                  newValue: formatFieldValue(change?.new),
+                  oldValue: formatValue(field, change?.old),
+                  newValue: formatValue(field, change?.new),
                 }))}
                 columns={[
                   { title: '字段', dataIndex: 'label', width: 120 },
@@ -243,18 +356,6 @@ const AuditLogsPage: React.FC = () => {
                   { title: '变更后', dataIndex: 'newValue' },
                 ]}
               />
-            )}
-
-            {detailLog.action === 'create' && detailLog.new_data && (
-              <pre style={{ marginTop: 16, background: '#fafafa', padding: 12, borderRadius: 6, overflow: 'auto' }}>
-                {JSON.stringify(detailLog.new_data, null, 2)}
-              </pre>
-            )}
-
-            {detailLog.action === 'delete' && detailLog.old_data && (
-              <pre style={{ marginTop: 16, background: '#fafafa', padding: 12, borderRadius: 6, overflow: 'auto' }}>
-                {JSON.stringify(detailLog.old_data, null, 2)}
-              </pre>
             )}
           </>
         )}
