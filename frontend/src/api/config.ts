@@ -111,4 +111,9 @@ export const API_ENDPOINTS = {
     API_KEY: '/api/v1/mcp/settings/api-key',
     INFO: '/api/v1/mcp/info',
   },
+
+  // 审计日志
+  AUDIT: {
+    BASE: '/api/v1/audit-logs',
+  },
 }

@@ -16,6 +16,7 @@ import FamilyManagePage from './pages/FamilyManagePage';
 import UsersManagePage from './pages/UsersManagePage';
 import ClassificationRulesPage from './pages/ClassificationRulesPage';
 import PersonalCenterPage from './pages/PersonalCenterPage';
+import AuditLogsPage from './pages/AuditLogsPage';
 import './App.css';
 
 // 受保护的路由组件
@@ -115,6 +116,7 @@ const App: React.FC = () => {
               <Route path="users" element={<UsersManagePage />} />
               <Route path="family" element={<FamilyManagePage />} />
               <Route path="classification-rules" element={<ClassificationRulesPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="profile" element={<PersonalCenterPage />} />
               <Route path="mcp-settings" element={<Navigate to="/profile?tab=mcp" replace />} />

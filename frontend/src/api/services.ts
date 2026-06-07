@@ -38,6 +38,7 @@ import type {
   MessageUpdate,
   MessageActionCreate,
 } from '../types/message';
+import type { AuditLogListResponse, AuditLogQueryParams } from '../types/audit';
 
 // 认证服务
 export const AuthService = {
@@ -456,6 +457,12 @@ export const McpService = {
   },
 };
 
+export const AuditService = {
+  async listAuditLogs(params?: AuditLogQueryParams): Promise<ApiResponse<AuditLogListResponse>> {
+    return ApiClient.get<AuditLogListResponse>(API_ENDPOINTS.AUDIT.BASE, { params });
+  },
+};
+
 export default {
   AuthService,
   UserService,
@@ -466,4 +473,5 @@ export default {
   MessageService,
   ClassificationRuleService,
   McpService,
+  AuditService,
 };

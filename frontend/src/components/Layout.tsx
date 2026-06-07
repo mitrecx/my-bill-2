@@ -21,6 +21,7 @@ import {
   MessageOutlined,
   TeamOutlined,
   FilterOutlined,
+  HistoryOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/auth';
 import type { MenuProps } from 'antd';
@@ -72,6 +73,11 @@ const Layout: React.FC = () => {
       key: '/classification-rules',
       icon: <FilterOutlined />,
       label: '分类规则',
+    },
+    {
+      key: '/audit-logs',
+      icon: <HistoryOutlined />,
+      label: '审计日志',
     },
     {
       key: '/messages',
