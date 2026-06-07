@@ -1,16 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Avatar, Typography, Space, Descriptions, Button, Modal, Form, Input, message, Tabs } from 'antd';
-import { SettingOutlined, UserOutlined, ApiOutlined } from '@ant-design/icons';
+import { SettingOutlined, UserOutlined, ApiOutlined, TeamOutlined } from '@ant-design/icons';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/auth';
 import { UserService } from '../api/services';
 import McpSettingsSection from '../components/McpSettingsSection';
+import BillDelegationSection from '../components/BillDelegationSection';
 
 const { Title, Text } = Typography;
 
 const PersonalCenterPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'mcp' ? 'mcp' : 'profile';
+  const tabParam = searchParams.get('tab');
+  const activeTab = tabParam === 'mcp' || tabParam === 'delegation' ? tabParam : 'profile';
 
   const { user, loadUser, isAuthenticated, setUser } = useAuthStore();
   const [editOpen, setEditOpen] = useState(false);
@@ -205,6 +207,15 @@ const PersonalCenterPage: React.FC = () => {
               </span>
             ),
             children: <McpSettingsSection />,
+          },
+          {
+            key: 'delegation',
+            label: (
+              <span>
+                <TeamOutlined /> 账单授权
+              </span>
+            ),
+            children: <BillDelegationSection />,
           },
         ]}
       />

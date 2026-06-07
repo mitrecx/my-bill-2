@@ -6,6 +6,7 @@ from .system_config import SystemConfig
 from .classification_rule import ClassificationRule
 from .mcp_api_key import McpApiKey
 from .audit_log import AuditLog
+from .bill_delegation import BillDelegation
 
 __all__ = [
     "User",
@@ -19,4 +20,5 @@ __all__ = [
     "ClassificationRule",
     "McpApiKey",
     "AuditLog",
+    "BillDelegation",
 ]

@@ -10,6 +10,7 @@ from .system_config import router as system_config_router
 from .classification_rules import router as classification_rules_router
 from .mcp_settings import router as mcp_settings_router
 from .audit import router as audit_router
+from .bill_delegations import router as bill_delegations_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -23,5 +24,6 @@ api_router.include_router(system_config_router)
 api_router.include_router(classification_rules_router)
 api_router.include_router(mcp_settings_router)
 api_router.include_router(audit_router)
+api_router.include_router(bill_delegations_router)
 
 __all__ = ["api_router"]

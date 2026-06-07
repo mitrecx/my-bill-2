@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   Typography,
   Table,
@@ -29,7 +29,8 @@ import type { Bill, BillListQueryParams } from '../types';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
 import TransactionTypeTag from '../components/TransactionTypeTag';
-import { ClassificationRuleService } from '../api/services';
+import { BillDelegationService, ClassificationRuleService } from '../api/services';
+import type { BillDelegation } from '../types/billDelegation';
 import type { SourceTypeOption } from '../types';
 import { useFamilyStore } from '../stores/family';
 
@@ -70,6 +71,12 @@ const BillsPage: React.FC = () => {
     }
   }, [currentFamily?.id, fetchFamilyMembers]);
 
+  useEffect(() => {
+    BillDelegationService.list()
+      .then((res) => setReceivedDelegations(res.data.received || []))
+      .catch(() => setReceivedDelegations([]));
+  }, []);
+
   const [searchText, setSearchText] = useState('');
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -93,6 +100,41 @@ const BillsPage: React.FC = () => {
   const searchAreaRef = useRef<HTMLDivElement | null>(null);
   // 新增：自动隐藏开关状态
   const [autoHideEnabled, setAutoHideEnabled] = useState(false);
+  // 他人授予我的账单代管权限
+  const [receivedDelegations, setReceivedDelegations] = useState<BillDelegation[]>([]);
+
+  const canUpdateBill = useCallback((ownerUserId: number) => {
+    if (!currentUser) return false;
+    if (currentUser.id === ownerUserId) return true;
+    const delegation = receivedDelegations.find((d) => d.grantor_user_id === ownerUserId);
+    return delegation?.can_update ?? false;
+  }, [currentUser, receivedDelegations]);
+
+  const canDeleteBill = useCallback((ownerUserId: number) => {
+    if (!currentUser) return false;
+    if (currentUser.id === ownerUserId) return true;
+    const delegation = receivedDelegations.find((d) => d.grantor_user_id === ownerUserId);
+    return delegation?.can_delete ?? false;
+  }, [currentUser, receivedDelegations]);
+
+  const createTargetOptions = useMemo(() => {
+    if (!currentUser) return [];
+    const options = [
+      {
+        value: currentUser.id,
+        label: currentUser.full_name || currentUser.username || '本人',
+      },
+    ];
+    receivedDelegations
+      .filter((d) => d.can_create)
+      .forEach((d) => {
+        options.push({
+          value: d.grantor_user_id,
+          label: d.grantor_name || `用户 ${d.grantor_user_id}`,
+        });
+      });
+    return options;
+  }, [currentUser, receivedDelegations]);
 
   const getTableScrollElement = useCallback(() => {
     return tableWrapperRef.current?.querySelector('.ant-table-body') as HTMLElement | null;
@@ -288,6 +330,7 @@ const BillsPage: React.FC = () => {
             ? values.transaction_time.toDate().toISOString()
             : new Date().toISOString(),
           source_type: values.source_type || 'manual',
+          target_user_id: values.target_user_id || currentUser?.id,
         };
         await createBill(createData);
         message.success('创建成功');
@@ -439,9 +482,9 @@ const BillsPage: React.FC = () => {
       width: 80,
       fixed: 'right',
       render: (_, record: Bill) => {
-          // 判断当前用户是否有权限编辑和删除此账单
-          const canEdit = currentUser && (currentUser.id === record.user_id);
-          
+          const canEdit = canUpdateBill(record.user_id);
+          const canDelete = canDeleteBill(record.user_id);
+
           return (
             <Space size="small">
               {canEdit && (
@@ -455,7 +498,7 @@ const BillsPage: React.FC = () => {
                   }}
                 />
               )}
-              {canEdit && (
+              {canDelete && (
                 <Popconfirm
                   title="确定删除这条账单吗？"
                   onConfirm={() => handleDelete(record.id)}
@@ -470,7 +513,7 @@ const BillsPage: React.FC = () => {
                   />
                 </Popconfirm>
               )}
-              {!canEdit && (
+              {!canEdit && !canDelete && (
                 <span style={{ color: '#999', fontSize: '12px' }}>-</span>
               )}
             </Space>
@@ -773,6 +816,9 @@ const BillsPage: React.FC = () => {
           rowSelection={{
             selectedRowKeys,
             onChange: (keys) => setSelectedRowKeys(keys as number[]),
+            getCheckboxProps: (record: Bill) => ({
+              disabled: !canUpdateBill(record.user_id),
+            }),
           }}
           pagination={false}
           onChange={(_paginationInfo, _filters, _sorter) => {
@@ -881,6 +927,17 @@ const BillsPage: React.FC = () => {
             source_type: 'manual',
           }}
         >
+          {!editingBill && createTargetOptions.length > 1 && (
+            <Form.Item
+              label="归属成员"
+              name="target_user_id"
+              initialValue={currentUser?.id}
+              rules={[{ required: true, message: '请选择账单归属成员' }]}
+            >
+              <Select placeholder="选择账单归属成员" options={createTargetOptions} />
+            </Form.Item>
+          )}
+
           {!editingBill && (
             <Form.Item
               label="交易时间"

@@ -30,6 +30,7 @@ class BillCreate(BillBase):
     # 兼容前端字段命名：transaction_desc 与 remark
     transaction_desc: Optional[str] = Field(None, max_length=500, description="交易描述")
     remark: Optional[str] = Field(None, max_length=1000, description="备注")
+    target_user_id: Optional[int] = Field(None, description="账单归属成员（代管录入时使用）")
 
 
 class BillUpdate(BaseModel):

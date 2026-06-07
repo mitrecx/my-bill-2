@@ -12,6 +12,7 @@ from models.bill import Bill, BillCategory
 from models.family import FamilyMember
 from api.auth import get_current_user
 from services.bill_service import create_bill_record, update_bill_record, delete_bill_record
+from services.bill_permission_service import can_manage_bill, delegation_audit_meta
 from services.audit_service import bill_snapshot, log_bill_update
 from schemas.bills import (
     BillResponse,
@@ -940,6 +941,10 @@ async def update_bills_batch(
                 errors.append(f"第{idx + 1}条: 账单不存在或无权限访问 (ID: {item.bill_id})")
                 continue
 
+            if not can_manage_bill(db, current_user.id, bill.user_id, "update"):
+                errors.append(f"第{idx + 1}条: 无权限修改该账单 (ID: {item.bill_id})")
+                continue
+
             old_snapshot = bill_snapshot(bill)
 
             if item.amount is not None:
@@ -967,6 +972,7 @@ async def update_bills_batch(
                 old_snapshot=old_snapshot,
                 actor_user_id=current_user.id,
                 source="rest",
+                meta=delegation_audit_meta(current_user.id, bill.user_id),
             )
             db.add(bill)
             db.flush()

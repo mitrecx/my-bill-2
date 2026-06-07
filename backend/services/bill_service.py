@@ -12,8 +12,12 @@ from services.audit_service import (
     log_bill_create,
     log_bill_creates_batch,
     log_bill_delete,
-    log_bill_deletes_batch,
     log_bill_update,
+)
+from services.bill_permission_service import (
+    delegation_audit_meta,
+    get_family_member_user_ids,
+    require_manage_bill,
 )
 
 
@@ -25,12 +29,7 @@ TRANSACTION_TYPE_TO_CN = {
 
 
 def get_user_family_member_ids(db: Session, user_id: int) -> List[int]:
-    family_member = db.query(FamilyMember).filter(FamilyMember.user_id == user_id).first()
-    if not family_member:
-        return [user_id]
-
-    members = db.query(FamilyMember).filter(FamilyMember.family_id == family_member.family_id).all()
-    return [member.user_id for member in members]
+    return get_family_member_user_ids(db, user_id)
 
 
 def _validate_category(db: Session, category_id: Optional[int]) -> None:
@@ -45,19 +44,29 @@ def _validate_category(db: Session, category_id: Optional[int]) -> None:
         raise ValueError("分类不存在或已删除")
 
 
+def _get_bill_in_family_scope(db: Session, actor_user_id: int, bill_id: int) -> Bill:
+    family_user_ids = get_family_member_user_ids(db, actor_user_id)
+    bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id.in_(family_user_ids)).first()
+    if not bill:
+        raise ValueError("账单不存在或无权限访问")
+    return bill
+
+
 def create_bill_record(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     payload: BillCreate,
     *,
-    actor_user_id: Optional[int] = None,
+    owner_user_id: Optional[int] = None,
     source: str = "service",
 ) -> Bill:
+    owner_id = owner_user_id or payload.target_user_id or actor_user_id
+    require_manage_bill(db, actor_user_id, owner_id, "create")
     _validate_category(db, payload.category_id)
 
     transaction_type_cn = TRANSACTION_TYPE_TO_CN.get(payload.transaction_type, payload.transaction_type)
     bill = Bill(
-        user_id=user_id,
+        user_id=owner_id,
         category_id=payload.category_id,
         transaction_time=payload.transaction_time,
         amount=payload.amount,
@@ -69,7 +78,13 @@ def create_bill_record(
     )
     db.add(bill)
     db.flush()
-    log_bill_create(db, bill, actor_user_id=actor_user_id or user_id, source=source)
+    log_bill_create(
+        db,
+        bill,
+        actor_user_id=actor_user_id,
+        source=source,
+        meta=delegation_audit_meta(actor_user_id, owner_id),
+    )
     db.commit()
     db.refresh(bill)
     return bill
@@ -77,19 +92,22 @@ def create_bill_record(
 
 def create_bills_batch(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     bills: List[BillCreate],
     *,
-    actor_user_id: Optional[int] = None,
+    owner_user_id: Optional[int] = None,
     source: str = "service",
 ) -> List[Bill]:
+    owner_id = owner_user_id or actor_user_id
+    require_manage_bill(db, actor_user_id, owner_id, "create")
     created: List[Bill] = []
+    audit_meta = delegation_audit_meta(actor_user_id, owner_id)
     try:
         for payload in bills:
             _validate_category(db, payload.category_id)
             transaction_type_cn = TRANSACTION_TYPE_TO_CN.get(payload.transaction_type, payload.transaction_type)
             bill = Bill(
-                user_id=user_id,
+                user_id=owner_id,
                 category_id=payload.category_id,
                 transaction_time=payload.transaction_time,
                 amount=payload.amount,
@@ -105,8 +123,9 @@ def create_bills_batch(
         log_bill_creates_batch(
             db,
             created,
-            actor_user_id=actor_user_id or user_id,
+            actor_user_id=actor_user_id,
             source=source,
+            meta=audit_meta,
         )
         db.commit()
         for bill in created:
@@ -183,26 +202,29 @@ def query_bills(
 
 def delete_bill_record(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     bill_id: int,
     *,
-    actor_user_id: Optional[int] = None,
     source: str = "service",
 ) -> None:
-    bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
-    if not bill:
-        raise ValueError("无法删除他人的账单数据或账单不存在")
-    log_bill_delete(db, bill, actor_user_id=actor_user_id or user_id, source=source)
+    bill = _get_bill_in_family_scope(db, actor_user_id, bill_id)
+    require_manage_bill(db, actor_user_id, bill.user_id, "delete")
+    log_bill_delete(
+        db,
+        bill,
+        actor_user_id=actor_user_id,
+        source=source,
+        meta=delegation_audit_meta(actor_user_id, bill.user_id),
+    )
     db.delete(bill)
     db.commit()
 
 
 def delete_bills_batch(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     bill_ids: List[int],
     *,
-    actor_user_id: Optional[int] = None,
     source: str = "service",
 ) -> Dict[str, Any]:
     deleted_ids: List[int] = []
@@ -210,21 +232,23 @@ def delete_bills_batch(
     bills_to_delete: List[Bill] = []
 
     for bill_id in bill_ids:
-        bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
-        if not bill:
-            failed.append({"bill_id": bill_id, "reason": "无法删除他人的账单数据或账单不存在"})
-            continue
-        bills_to_delete.append(bill)
-        deleted_ids.append(bill_id)
+        try:
+            bill = _get_bill_in_family_scope(db, actor_user_id, bill_id)
+            require_manage_bill(db, actor_user_id, bill.user_id, "delete")
+            bills_to_delete.append(bill)
+            deleted_ids.append(bill_id)
+        except ValueError as exc:
+            failed.append({"bill_id": bill_id, "reason": str(exc)})
 
     if bills_to_delete:
-        log_bill_deletes_batch(
-            db,
-            bills_to_delete,
-            actor_user_id=actor_user_id or user_id,
-            source=source,
-        )
         for bill in bills_to_delete:
+            log_bill_delete(
+                db,
+                bill,
+                actor_user_id=actor_user_id,
+                source=source,
+                meta=delegation_audit_meta(actor_user_id, bill.user_id),
+            )
             db.delete(bill)
         db.commit()
     return {"deleted_ids": deleted_ids, "failed": failed}
@@ -245,16 +269,14 @@ def _apply_bill_update(bill: Bill, payload: BillUpdate) -> None:
 
 def update_bill_record(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     bill_id: int,
     payload: BillUpdate,
     *,
-    actor_user_id: Optional[int] = None,
     source: str = "service",
 ) -> Bill:
-    bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
-    if not bill:
-        raise ValueError("无法修改他人的账单数据或账单不存在")
+    bill = _get_bill_in_family_scope(db, actor_user_id, bill_id)
+    require_manage_bill(db, actor_user_id, bill.user_id, "update")
     if payload.category_id is not None:
         _validate_category(db, payload.category_id)
     old_snapshot = bill_snapshot(bill)
@@ -263,8 +285,9 @@ def update_bill_record(
         db,
         bill,
         old_snapshot=old_snapshot,
-        actor_user_id=actor_user_id or user_id,
+        actor_user_id=actor_user_id,
         source=source,
+        meta=delegation_audit_meta(actor_user_id, bill.user_id),
     )
     db.commit()
     db.refresh(bill)
@@ -273,10 +296,9 @@ def update_bill_record(
 
 def update_bills_batch(
     db: Session,
-    user_id: int,
+    actor_user_id: int,
     items: List[Dict[str, Any]],
     *,
-    actor_user_id: Optional[int] = None,
     source: str = "service",
 ) -> Dict[str, Any]:
     updated: List[Dict[str, Any]] = []
@@ -288,12 +310,9 @@ def update_bills_batch(
             failed.append({"bill_id": None, "reason": "缺少 bill_id"})
             continue
 
-        bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
-        if not bill:
-            failed.append({"bill_id": bill_id, "reason": "无法修改他人的账单数据或账单不存在"})
-            continue
-
         try:
+            bill = _get_bill_in_family_scope(db, actor_user_id, bill_id)
+            require_manage_bill(db, actor_user_id, bill.user_id, "update")
             payload = BillUpdate(
                 amount=item.get("amount"),
                 transaction_type=item.get("transaction_type"),
@@ -309,8 +328,9 @@ def update_bills_batch(
                 db,
                 bill,
                 old_snapshot=old_snapshot,
-                actor_user_id=actor_user_id or user_id,
+                actor_user_id=actor_user_id,
                 source=source,
+                meta=delegation_audit_meta(actor_user_id, bill.user_id),
             )
             updated.append({"bill_id": bill_id})
         except ValueError as exc:

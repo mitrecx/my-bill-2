@@ -40,6 +40,11 @@ import type {
   MessageActionCreate,
 } from '../types/message';
 import type { AuditLogListResponse, AuditLogQueryParams } from '../types/audit';
+import type {
+  BillDelegation,
+  BillDelegationCreate,
+  BillDelegationList,
+} from '../types/billDelegation';
 
 // 认证服务
 export const AuthService = {
@@ -470,6 +475,20 @@ export const AuditService = {
   },
 };
 
+export const BillDelegationService = {
+  async list(): Promise<ApiResponse<BillDelegationList>> {
+    return ApiClient.get<BillDelegationList>(API_ENDPOINTS.BILL_DELEGATIONS.BASE);
+  },
+
+  async create(data: BillDelegationCreate): Promise<ApiResponse<BillDelegation>> {
+    return ApiClient.post<BillDelegation>(API_ENDPOINTS.BILL_DELEGATIONS.BASE, data);
+  },
+
+  async revoke(id: number): Promise<ApiResponse<{ message: string }>> {
+    return ApiClient.delete<{ message: string }>(API_ENDPOINTS.BILL_DELEGATIONS.BY_ID(id));
+  },
+};
+
 export default {
   AuthService,
   UserService,
@@ -481,4 +500,5 @@ export default {
   ClassificationRuleService,
   McpService,
   AuditService,
+  BillDelegationService,
 };

@@ -117,4 +117,10 @@ export const API_ENDPOINTS = {
   AUDIT: {
     BASE: '/api/v1/audit-logs',
   },
+
+  // 账单代管授权
+  BILL_DELEGATIONS: {
+    BASE: '/api/v1/bill-delegations',
+    BY_ID: (id: number) => `/api/v1/bill-delegations/${id}`,
+  },
 }
