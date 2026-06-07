@@ -5,6 +5,7 @@ from .message import Message, MessageAction
 from .system_config import SystemConfig
 from .classification_rule import ClassificationRule
 from .mcp_api_key import McpApiKey
+from .audit_log import AuditLog
 
 __all__ = [
     "User",
@@ -17,4 +18,5 @@ __all__ = [
     "SystemConfig",
     "ClassificationRule",
     "McpApiKey",
+    "AuditLog",
 ]

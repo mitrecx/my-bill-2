@@ -7,6 +7,14 @@ from sqlalchemy import desc
 from models.bill import Bill, BillCategory
 from models.family import FamilyMember
 from schemas.bills import BillCreate, BillResponse, BillUpdate
+from services.audit_service import (
+    bill_snapshot,
+    log_bill_create,
+    log_bill_creates_batch,
+    log_bill_delete,
+    log_bill_deletes_batch,
+    log_bill_update,
+)
 
 
 TRANSACTION_TYPE_TO_CN = {
@@ -37,7 +45,14 @@ def _validate_category(db: Session, category_id: Optional[int]) -> None:
         raise ValueError("分类不存在或已删除")
 
 
-def create_bill_record(db: Session, user_id: int, payload: BillCreate) -> Bill:
+def create_bill_record(
+    db: Session,
+    user_id: int,
+    payload: BillCreate,
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> Bill:
     _validate_category(db, payload.category_id)
 
     transaction_type_cn = TRANSACTION_TYPE_TO_CN.get(payload.transaction_type, payload.transaction_type)
@@ -53,12 +68,21 @@ def create_bill_record(db: Session, user_id: int, payload: BillCreate) -> Bill:
         raw_data=payload.raw_data,
     )
     db.add(bill)
+    db.flush()
+    log_bill_create(db, bill, actor_user_id=actor_user_id or user_id, source=source)
     db.commit()
     db.refresh(bill)
     return bill
 
 
-def create_bills_batch(db: Session, user_id: int, bills: List[BillCreate]) -> List[Bill]:
+def create_bills_batch(
+    db: Session,
+    user_id: int,
+    bills: List[BillCreate],
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> List[Bill]:
     created: List[Bill] = []
     try:
         for payload in bills:
@@ -77,6 +101,13 @@ def create_bills_batch(db: Session, user_id: int, bills: List[BillCreate]) -> Li
             )
             db.add(bill)
             created.append(bill)
+        db.flush()
+        log_bill_creates_batch(
+            db,
+            created,
+            actor_user_id=actor_user_id or user_id,
+            source=source,
+        )
         db.commit()
         for bill in created:
             db.refresh(bill)
@@ -150,27 +181,51 @@ def query_bills(
     }
 
 
-def delete_bill_record(db: Session, user_id: int, bill_id: int) -> None:
+def delete_bill_record(
+    db: Session,
+    user_id: int,
+    bill_id: int,
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> None:
     bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
     if not bill:
         raise ValueError("无法删除他人的账单数据或账单不存在")
+    log_bill_delete(db, bill, actor_user_id=actor_user_id or user_id, source=source)
     db.delete(bill)
     db.commit()
 
 
-def delete_bills_batch(db: Session, user_id: int, bill_ids: List[int]) -> Dict[str, Any]:
+def delete_bills_batch(
+    db: Session,
+    user_id: int,
+    bill_ids: List[int],
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> Dict[str, Any]:
     deleted_ids: List[int] = []
     failed: List[Dict[str, Any]] = []
+    bills_to_delete: List[Bill] = []
 
     for bill_id in bill_ids:
         bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
         if not bill:
             failed.append({"bill_id": bill_id, "reason": "无法删除他人的账单数据或账单不存在"})
             continue
-        db.delete(bill)
+        bills_to_delete.append(bill)
         deleted_ids.append(bill_id)
 
-    if deleted_ids:
+    if bills_to_delete:
+        log_bill_deletes_batch(
+            db,
+            bills_to_delete,
+            actor_user_id=actor_user_id or user_id,
+            source=source,
+        )
+        for bill in bills_to_delete:
+            db.delete(bill)
         db.commit()
     return {"deleted_ids": deleted_ids, "failed": failed}
 
@@ -188,19 +243,42 @@ def _apply_bill_update(bill: Bill, payload: BillUpdate) -> None:
         bill.remark = payload.remark
 
 
-def update_bill_record(db: Session, user_id: int, bill_id: int, payload: BillUpdate) -> Bill:
+def update_bill_record(
+    db: Session,
+    user_id: int,
+    bill_id: int,
+    payload: BillUpdate,
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> Bill:
     bill = db.query(Bill).filter(Bill.id == bill_id, Bill.user_id == user_id).first()
     if not bill:
         raise ValueError("无法修改他人的账单数据或账单不存在")
     if payload.category_id is not None:
         _validate_category(db, payload.category_id)
+    old_snapshot = bill_snapshot(bill)
     _apply_bill_update(bill, payload)
+    log_bill_update(
+        db,
+        bill,
+        old_snapshot=old_snapshot,
+        actor_user_id=actor_user_id or user_id,
+        source=source,
+    )
     db.commit()
     db.refresh(bill)
     return bill
 
 
-def update_bills_batch(db: Session, user_id: int, items: List[Dict[str, Any]]) -> Dict[str, Any]:
+def update_bills_batch(
+    db: Session,
+    user_id: int,
+    items: List[Dict[str, Any]],
+    *,
+    actor_user_id: Optional[int] = None,
+    source: str = "service",
+) -> Dict[str, Any]:
     updated: List[Dict[str, Any]] = []
     failed: List[Dict[str, Any]] = []
 
@@ -225,7 +303,15 @@ def update_bills_batch(db: Session, user_id: int, items: List[Dict[str, Any]]) -
             )
             if payload.category_id is not None:
                 _validate_category(db, payload.category_id)
+            old_snapshot = bill_snapshot(bill)
             _apply_bill_update(bill, payload)
+            log_bill_update(
+                db,
+                bill,
+                old_snapshot=old_snapshot,
+                actor_user_id=actor_user_id or user_id,
+                source=source,
+            )
             updated.append({"bill_id": bill_id})
         except ValueError as exc:
             failed.append({"bill_id": bill_id, "reason": str(exc)})

@@ -107,7 +107,7 @@ def create_bill(
                 "source_type": source_type,
             }
         )
-        bill = create_bill_record(db, user_id, payload)
+        bill = create_bill_record(db, user_id, payload, actor_user_id=user_id, source="mcp")
         return json.dumps(
             {"success": True, "message": "创建账单成功", "bill": {"id": bill.id, "amount": bill.amount}},
             ensure_ascii=False,
@@ -130,7 +130,7 @@ def create_bills_batch(bills: List[Dict[str, Any]]) -> str:
     db = SessionLocal()
     try:
         payloads = [_build_bill_create(item) for item in bills]
-        created = create_bills_batch_records(db, user_id, payloads)
+        created = create_bills_batch_records(db, user_id, payloads, actor_user_id=user_id, source="mcp")
         return json.dumps(
             {
                 "success": True,
@@ -415,7 +415,7 @@ def delete_bill(bill_id: int) -> str:
     user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
-        delete_bill_record(db, user_id, bill_id)
+        delete_bill_record(db, user_id, bill_id, actor_user_id=user_id, source="mcp")
         return json.dumps({"success": True, "message": "账单删除成功", "bill_id": bill_id}, ensure_ascii=False)
     except Exception as exc:
         logger.error("MCP delete_bill failed: %s", exc)
@@ -434,7 +434,7 @@ def delete_bills_batch(bill_ids: List[int]) -> str:
     user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
-        result = delete_bills_batch_records(db, user_id, bill_ids)
+        result = delete_bills_batch_records(db, user_id, bill_ids, actor_user_id=user_id, source="mcp")
         return json.dumps(
             {
                 "success": len(result["failed"]) == 0,
@@ -479,7 +479,7 @@ def update_bill(
             category_id=category_id,
             remark=remark,
         )
-        bill = update_bill_record(db, user_id, bill_id, payload)
+        bill = update_bill_record(db, user_id, bill_id, payload, actor_user_id=user_id, source="mcp")
         return json.dumps(
             {"success": True, "message": "更新账单成功", "bill": {"id": bill.id, "amount": bill.amount}},
             ensure_ascii=False,
@@ -501,7 +501,7 @@ def update_bills_batch(bills: List[Dict[str, Any]]) -> str:
     user_id = get_current_mcp_user_id()
     db = SessionLocal()
     try:
-        result = update_bills_batch_records(db, user_id, bills)
+        result = update_bills_batch_records(db, user_id, bills, actor_user_id=user_id, source="mcp")
         return json.dumps(
             {
                 "success": len(result["failed"]) == 0,

@@ -13,6 +13,7 @@ from models.user import User
 from models.bill import Bill, BillCategory
 from models.family import FamilyMember
 from api.auth import get_current_user
+from services.audit_service import bill_snapshot, log_bill_creates_batch, log_bill_deletes_batch, log_bill_update
 from parsers import get_parser, get_available_parsers
 from utils.validators import validate_file_extension, validate_file_size, detect_file_source_type
 from schemas.upload import (
@@ -112,7 +113,14 @@ def handle_jd_bill_overlap(filename: str, records: List[Dict[str, Any]], family_
             
             if deleted_count > 0:
                 logger.info(f"准备删除 {deleted_count} 条JD记录")
-                
+                log_bill_deletes_batch(
+                    db,
+                    bills_to_delete,
+                    actor_user_id=family_user_ids[0] if family_user_ids else None,
+                    source="upload",
+                    meta={"reason": "jd_overlap_replace", "filename": filename},
+                )
+
                 # 批量删除
                 db.query(Bill).filter(
                     Bill.user_id.in_(family_user_ids),
@@ -351,7 +359,14 @@ def handle_alipay_bill_overlap(filename: str, records: List[Dict[str, Any]], fam
             
             if deleted_count > 0:
                 logger.info(f"准备删除 {deleted_count} 条支付宝记录")
-                
+                log_bill_deletes_batch(
+                    db,
+                    bills_to_delete,
+                    actor_user_id=family_user_ids[0] if family_user_ids else None,
+                    source="upload",
+                    meta={"reason": "alipay_overlap_replace", "filename": filename},
+                )
+
                 # 批量删除
                 db.query(Bill).filter(
                     Bill.user_id.in_(family_user_ids),
@@ -427,7 +442,14 @@ def handle_wechat_bill_overlap(filename: str, records: List[Dict[str, Any]], fam
             
             if deleted_count > 0:
                 logger.info(f"准备删除 {deleted_count} 条微信记录")
-                
+                log_bill_deletes_batch(
+                    db,
+                    bills_to_delete,
+                    actor_user_id=family_user_ids[0] if family_user_ids else None,
+                    source="upload",
+                    meta={"reason": "wechat_overlap_replace", "filename": filename},
+                )
+
                 # 批量删除
                 db.query(Bill).filter(
                     Bill.user_id.in_(family_user_ids),
@@ -503,7 +525,14 @@ def handle_cmb_bill_overlap(filename: str, records: List[Dict[str, Any]], family
             
             if deleted_count > 0:
                 logger.info(f"准备删除 {deleted_count} 条CMB记录")
-                
+                log_bill_deletes_batch(
+                    db,
+                    bills_to_delete,
+                    actor_user_id=family_user_ids[0] if family_user_ids else None,
+                    source="upload",
+                    meta={"reason": "cmb_overlap_replace", "filename": filename},
+                )
+
                 # 批量删除
                 db.query(Bill).filter(
                     Bill.user_id.in_(family_user_ids),
@@ -889,6 +918,15 @@ async def upload_file(
 
             # 最终提交所有成功的记录
             try:
+                if created_bills:
+                    db.flush()
+                    log_bill_creates_batch(
+                        db,
+                        created_bills,
+                        actor_user_id=current_user.id,
+                        source="upload",
+                        meta={"filename": file.filename, "source_type": source_type},
+                    )
                 db.commit()
             except Exception as commit_error:
                 logger.error(f"最终提交失败: {commit_error}")
@@ -957,7 +995,16 @@ async def upload_file(
                                 ).first()
                                 
                                 if bill and category:
+                                    old_snapshot = bill_snapshot(bill)
                                     bill.category_id = category.id
+                                    log_bill_update(
+                                        db,
+                                        bill,
+                                        old_snapshot=old_snapshot,
+                                        actor_user_id=current_user.id,
+                                        source="upload",
+                                        meta={"reason": "ai_classification"},
+                                    )
                                     ai_classified_count += 1
                                     logger.info(f"账单 {bill_id} 分类为: {category_name}")
                         

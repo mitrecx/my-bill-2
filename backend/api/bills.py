@@ -11,6 +11,8 @@ from models.user import User
 from models.bill import Bill, BillCategory
 from models.family import FamilyMember
 from api.auth import get_current_user
+from services.bill_service import create_bill_record, update_bill_record, delete_bill_record
+from services.audit_service import bill_snapshot, log_bill_update
 from schemas.bills import (
     BillResponse,
     BillListResponse,
@@ -215,41 +217,13 @@ async def create_bill(
 ):
     """创建账单。前端提交英文交易类型，需转换为中文后入库。"""
     try:
-        # 验证分类是否存在且未删除（如果提供了分类）
-        if payload.category_id is not None:
-            valid_category = db.query(BillCategory).filter(
-                BillCategory.id == payload.category_id,
-                BillCategory.is_deleted == False
-            ).first()
-            if not valid_category:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类不存在或已删除")
-
-        # 英文到中文的交易类型映射
-        type_map = {
-            "income": "收入",
-            "expense": "支出",
-            "transfer": "不计收支",
-        }
-        transaction_type_cn = type_map.get(payload.transaction_type, payload.transaction_type)
-
-        # 创建账单记录（字段名称与模型对齐）
-        bill = Bill(
-            user_id=current_user.id,
-            category_id=payload.category_id,
-            transaction_time=payload.transaction_time,
-            amount=payload.amount,
-            transaction_type=transaction_type_cn,
-            # 优先采用前端传入的 transaction_desc，其次回退到 description
-            transaction_desc=payload.transaction_desc or payload.description,
-            source_type=payload.source_type,
-            # 优先采用前端传入的 remark，其次回退到 notes
-            remark=payload.remark or payload.notes,
-            raw_data=payload.raw_data,
+        bill = create_bill_record(
+            db,
+            current_user.id,
+            payload,
+            actor_user_id=current_user.id,
+            source="rest",
         )
-
-        db.add(bill)
-        db.commit()
-        db.refresh(bill)
 
         return ApiResponse[BillResponse](
             data=BillResponse.from_bill(bill),
@@ -257,6 +231,9 @@ async def create_bill(
             message="创建账单成功"
         )
 
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except HTTPException:
         db.rollback()
         raise
@@ -962,6 +939,8 @@ async def update_bills_batch(
                 errors.append(f"第{idx + 1}条: 账单不存在或无权限访问 (ID: {item.bill_id})")
                 continue
 
+            old_snapshot = bill_snapshot(bill)
+
             if item.amount is not None:
                 bill.amount = item.amount
             if item.transaction_type is not None:
@@ -981,6 +960,13 @@ async def update_bills_batch(
             if item.remark is not None:
                 bill.remark = item.remark
 
+            log_bill_update(
+                db,
+                bill,
+                old_snapshot=old_snapshot,
+                actor_user_id=current_user.id,
+                source="rest",
+            )
             db.add(bill)
             db.flush()
             updated_bills.append(bill)
@@ -1123,43 +1109,14 @@ async def update_bill(
 ):
     """更新账单信息。前端提交英文交易类型，需转换为中文后入库。"""
     try:
-        # 校验账单归属：仅允许更新当前用户自己的账单
-        bill: Bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id == current_user.id
-        ).first()
-        if not bill:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="无法修改他人的账单数据!")
-
-        # 英文到中文的交易类型映射
-        type_map = {
-            "income": "收入",
-            "expense": "支出",
-            "transfer": "不计收支",
-        }
-
-        # 按需更新字段（仅对传入的字段进行更新）
-        if payload.amount is not None:
-            bill.amount = payload.amount
-        if payload.transaction_type is not None:
-            bill.transaction_type = type_map.get(payload.transaction_type, payload.transaction_type)
-        if payload.transaction_desc is not None:
-            bill.transaction_desc = payload.transaction_desc
-        if payload.category_id is not None:
-            # 验证分类未被删除
-            valid_category = db.query(BillCategory).filter(
-                BillCategory.id == payload.category_id,
-                BillCategory.is_deleted == False
-            ).first()
-            if not valid_category:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="分类不存在或已删除")
-            bill.category_id = payload.category_id
-        if payload.remark is not None:
-            bill.remark = payload.remark
-
-        db.add(bill)
-        db.commit()
-        db.refresh(bill)
+        bill = update_bill_record(
+            db,
+            current_user.id,
+            bill_id,
+            payload,
+            actor_user_id=current_user.id,
+            source="rest",
+        )
 
         return ApiResponse[BillResponse](
             data=BillResponse.from_bill(bill),
@@ -1167,6 +1124,15 @@ async def update_bill(
             message="更新账单成功"
         )
 
+    except ValueError as e:
+        db.rollback()
+        detail = str(e)
+        status_code = (
+            status.HTTP_404_NOT_FOUND
+            if "无法修改他人的账单" in detail or "账单不存在" in detail
+            else status.HTTP_400_BAD_REQUEST
+        )
+        raise HTTPException(status_code=status_code, detail=detail)
     except HTTPException:
         db.rollback()
         raise
@@ -1272,26 +1238,23 @@ async def delete_bill(
 ):
     """删除账单"""
     try:
-        # 校验账单归属：仅允许删除当前用户自己的账单
-        bill = db.query(Bill).filter(
-            Bill.id == bill_id,
-            Bill.user_id == current_user.id
-        ).first()
-        
-        if not bill:
-            raise HTTPException(status_code=404, detail="无法删除他人的账单数据!")
-        
-        # 删除账单
-        db.delete(bill)
-        db.commit()
-        
+        delete_bill_record(
+            db,
+            current_user.id,
+            bill_id,
+            actor_user_id=current_user.id,
+            source="rest",
+        )
+
         logger.info(f"用户 {current_user.username} 删除了账单 {bill_id}")
-        
+
         return ApiResponse(
             data={"message": "账单删除成功"},
             success=True
         )
-        
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
