@@ -1,0 +1,12 @@
+#!/bin/sh
+# 与 commit-msg 相同：在提交流程早期去掉 Cursor 署名行
+MSG_FILE="$1"
+[ -f "$MSG_FILE" ] || exit 0
+
+if sed --version >/dev/null 2>&1; then
+  sed -i '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$MSG_FILE"
+else
+  sed -i '' '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$MSG_FILE"
+fi
+
+exit 0

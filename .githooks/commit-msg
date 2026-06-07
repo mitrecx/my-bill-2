@@ -1,0 +1,12 @@
+#!/bin/sh
+# 移除 Cursor 自动注入的 commit trailer（规则无法单独阻止产品层行为）
+MSG_FILE="$1"
+[ -f "$MSG_FILE" ] || exit 0
+
+if sed --version >/dev/null 2>&1; then
+  sed -i '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$MSG_FILE"
+else
+  sed -i '' '/Co-authored-by: Cursor/d;/cursoragent@cursor\.com/d;/Made-with: Cursor/d' "$MSG_FILE"
+fi
+
+exit 0
