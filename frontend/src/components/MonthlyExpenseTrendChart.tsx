@@ -110,7 +110,7 @@ const MonthlyExpenseTrendChart: React.FC = () => {
           return `${date}<br/>日支出: <strong style=\"color:#cf1322\">¥${val}</strong>`;
         },
       },
-      legend: { data: ['日支出'] },
+      legend: { show: false },
       grid: { left: '3%', right: '4%', top: '18%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: x, axisTick: { alignWithLabel: true }, name: '日' },
       yAxis,

@@ -96,7 +96,7 @@ const YearlyProfitChart: React.FC = () => {
         },
       },
       legend: {
-        data: ['净收益'],
+        show: false,
       },
       grid: {
         left: '3%',
