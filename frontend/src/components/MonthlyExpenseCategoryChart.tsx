@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
 import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
 import { SOFT_RED } from '../utils/colors';
+import { barTopIntegerLabel } from '../utils/chart';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { CategoryStats } from '../types';
@@ -108,7 +109,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
           return `${name}<br/>金额：<strong style="color:#cf1322">¥${amt}</strong><br/>占比：${pct}%`;
         },
       },
-      grid: { left: '3%', right: '4%', bottom: 60, top: 30, containLabel: true },
+      grid: { left: '3%', right: '4%', bottom: 60, top: '18%', containLabel: true },
       xAxis: {
         type: 'category',
         data: names,
@@ -126,6 +127,7 @@ const MonthlyExpenseCategoryChart: React.FC = () => {
           data: values,
           itemStyle: { color: SOFT_RED },
           barMaxWidth: 36,
+          label: barTopIntegerLabel,
         },
       ],
     };
