@@ -18,9 +18,15 @@ export const API_CONFIG = {
 
 // 获取当前API基础URL
 export const getApiBaseUrl = (): string => {
-  // 仅当显式开启使用生产API时，才返回生产URL；否则统一使用本地开发URL，避免预览环境误连生产导致权限不一致
   if (import.meta.env.VITE_USE_PROD_API === 'true') {
     return API_CONFIG.PROD_BASE_URL;
+  }
+  // 生产构建部署在正式域名时，自动使用当前站点，避免未注入环境变量时误连 localhost
+  if (import.meta.env.PROD && typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host !== 'localhost' && host !== '127.0.0.1') {
+      return window.location.origin;
+    }
   }
   return API_CONFIG.BASE_URL;
 }
