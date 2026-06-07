@@ -248,3 +248,8 @@ export interface AvailableYearsResponse {
   years: number[];
   total_count: number;
 }
+
+export interface LatestExpenseMonthResponse {
+  year?: number | null;
+  month?: number | null;
+}

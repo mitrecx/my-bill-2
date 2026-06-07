@@ -323,3 +323,9 @@ class AvailableYearsResponse(BaseModel):
     """可用年份列表响应模型"""
     years: List[int] = Field(..., description="有账单数据的年份列表，按降序排列")
     total_count: int = Field(..., description="总年份数量")
+
+
+class LatestExpenseMonthResponse(BaseModel):
+    """最近有支出数据的年月"""
+    year: Optional[int] = Field(None, description="年份")
+    month: Optional[int] = Field(None, description="月份 1-12")

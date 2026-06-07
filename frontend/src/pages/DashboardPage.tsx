@@ -20,6 +20,7 @@ const DashboardPage: React.FC = () => {
     dashboardScope,
     isLoading,
     fetchAvailableYears,
+    fetchLatestExpenseMonth,
     setQueryParams,
     resetQueryParams,
   } = useBillsStore();
@@ -39,9 +40,9 @@ const DashboardPage: React.FC = () => {
   }, [fetchStats, dashboardScope]);
 
   useEffect(() => {
-    // 获取有账单数据的年份列表
     fetchAvailableYears();
-  }, [fetchAvailableYears]);
+    fetchLatestExpenseMonth(dashboardScope);
+  }, [fetchAvailableYears, fetchLatestExpenseMonth, dashboardScope]);
 
   // 处理总收入卡片点击
   const handleIncomeClick = () => {

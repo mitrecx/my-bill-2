@@ -26,6 +26,7 @@ import type {
   TransactionTypeOptionsResponse,
   FinanceSummary,
   AvailableYearsResponse,
+  LatestExpenseMonthResponse,
 } from '../types';
 import type { MonthlyExpenseTrendResponse } from '../types/bills';
 import type {
@@ -254,6 +255,12 @@ export const BillService = {
   async getAvailableYears() {
     const response = await ApiClient.get<AvailableYearsResponse>(API_ENDPOINTS.BILLS.AVAILABLE_YEARS);
     return response;
+  },
+
+  async getLatestExpenseMonth(scope: 'personal' | 'family' = 'family') {
+    return ApiClient.get<LatestExpenseMonthResponse>(API_ENDPOINTS.BILLS.LATEST_EXPENSE_MONTH, {
+      params: { scope },
+    });
   },
 };
 

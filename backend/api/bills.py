@@ -30,7 +30,8 @@ from schemas.bills import (
     DailyExpenseItem,
     MonthlyExpenseTrendResponse,
     BillBatchUpdateRequest,
-    AvailableYearsResponse
+    AvailableYearsResponse,
+    LatestExpenseMonthResponse,
 )
 from services.ai_classification_service import ai_classification_service
 from schemas.common import ApiResponse
@@ -1140,6 +1141,43 @@ async def update_bill(
         db.rollback()
         logger.error(f"更新账单失败: {e}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="更新账单失败")
+
+
+@router.get("/latest-expense-month", response_model=ApiResponse[LatestExpenseMonthResponse])
+async def get_latest_expense_month(
+    scope: str = Query("family", regex="^(personal|family)$", description="统计范围：personal|family"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取最近一条支出账单所在的年月，用于月度图表默认选中。"""
+    try:
+        target_user_ids = [current_user.id] if scope == "personal" else await get_user_family_members(current_user, db)
+        latest = (
+            db.query(Bill.transaction_time)
+            .filter(
+                Bill.user_id.in_(target_user_ids),
+                Bill.transaction_type == "支出",
+            )
+            .order_by(Bill.transaction_time.desc())
+            .first()
+        )
+        if not latest or not latest.transaction_time:
+            return ApiResponse(
+                data=LatestExpenseMonthResponse(year=None, month=None),
+                success=True,
+            )
+
+        tx_time = latest.transaction_time
+        return ApiResponse(
+            data=LatestExpenseMonthResponse(
+                year=tx_time.year,
+                month=tx_time.month,
+            ),
+            success=True,
+        )
+    except Exception as e:
+        logger.error(f"获取最近支出月份失败: {e}")
+        raise HTTPException(status_code=500, detail="获取最近支出月份失败")
 
 
 @router.get("/available-years", response_model=ApiResponse[AvailableYearsResponse])

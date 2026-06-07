@@ -68,6 +68,7 @@ export const API_ENDPOINTS = {
     YEARLY_EXPENSE_CHART: '/api/v1/bills/yearly-expense-chart',
     MONTHLY_EXPENSE_TREND: '/api/v1/bills/monthly-expense-trend', // 新增
     AVAILABLE_YEARS: '/api/v1/bills/available-years', // 新增：获取可用年份
+    LATEST_EXPENSE_MONTH: '/api/v1/bills/latest-expense-month',
     BY_ID: (id: number) => `/api/v1/bills/${id}`,
     BATCH: '/api/v1/bills/batch', // 新增：批量更新
   },
