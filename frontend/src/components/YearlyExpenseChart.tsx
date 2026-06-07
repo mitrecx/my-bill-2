@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
-import { SOFT_RED, SOFT_RED_AREA, SOFT_GREEN, SOFT_GREEN_AREA } from '../utils/colors';
+import { Select, Card, Spin, Alert, Typography } from 'antd';
+import { SOFT_RED, SOFT_GREEN } from '../utils/colors';
+import { barTopIntegerLabel } from '../utils/chart';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
@@ -13,10 +14,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const YearlyExpenseChart: React.FC = () => {
-  // 共享：图表类型、年份
-  const chartType = useBillsStore(s => s.yearlyChartType);
   const selectedYear = useBillsStore(s => s.yearlyChartYear);
-  const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
   const setQueryParams = useBillsStore(s => s.setQueryParams);
   const resetQueryParams = useBillsStore(s => s.resetQueryParams);
@@ -87,6 +85,7 @@ const YearlyExpenseChart: React.FC = () => {
       grid: {
         left: '3%',
         right: '4%',
+        top: '18%',
         bottom: '3%',
         containLabel: true
       },
@@ -106,31 +105,25 @@ const YearlyExpenseChart: React.FC = () => {
       series: [
         {
           name: '支出金额',
-          type: chartType,
+          type: 'bar',
           data: chartData.map(item => item.amount),
-          smooth: false,
           itemStyle: {
-            color: SOFT_RED // 支出使用柔和红
+            color: SOFT_RED,
           },
-          areaStyle: chartType === 'line' ? {
-            color: SOFT_RED_AREA
-          } : undefined,
+          label: barTopIntegerLabel,
         },
         {
           name: '收入金额',
-          type: chartType,
+          type: 'bar',
           data: chartData.map(item => item.income),
-          smooth: false,
           itemStyle: {
-            color: SOFT_GREEN // 收入使用柔和绿
+            color: SOFT_GREEN,
           },
-          areaStyle: chartType === 'line' ? {
-            color: SOFT_GREEN_AREA
-          } : undefined,
+          label: barTopIntegerLabel,
         }
       ]
     };
-  }, [chartData, chartType]);
+  }, [chartData]);
 
   // 处理总收入点击
   const handleTotalIncomeClick = () => {
@@ -199,10 +192,6 @@ const YearlyExpenseChart: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={5} style={{ margin: 0 }}>年度收支趋势</Title>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Radio.Group value={chartType} onChange={(e) => setChartType(e.target.value)}>
-            <Radio.Button value="line">折线图</Radio.Button>
-            <Radio.Button value="bar">直方图</Radio.Button>
-          </Radio.Group>
           <Select value={selectedYear} onChange={(value) => setSelectedYear(value)} style={{ width: 120 }}>
             {yearOptions.map(year => (
               <Option key={year} value={year}>{year}年</Option>

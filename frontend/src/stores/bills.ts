@@ -29,7 +29,6 @@ interface BillsState {
   dashboardScope: 'personal' | 'family';
   // --- 新增：年度图表共享控制 ---
   yearlyChartYear: number;
-  yearlyChartType: 'line' | 'bar';
   // --- 新增：月度图表共享时间范围 ---
   monthlyChartYear: number;
   monthlyChartMonth: number;
@@ -66,7 +65,6 @@ interface BillsActions {
   setDashboardScope: (scope: 'personal' | 'family') => void;
   // --- 新增：年度图表共享控制 ---
   setYearlyChartYear: (year: number) => void;
-  setYearlyChartType: (type: 'line' | 'bar') => void;
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => void;
   setMonthlyChartMonth: (month: number) => void;
@@ -105,7 +103,6 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
   dashboardScope: 'personal',
   // --- 新增：年度图表共享控制 ---
   yearlyChartYear: new Date().getFullYear(),
-  yearlyChartType: 'line',
   // --- 新增：月度图表共享时间范围 ---
   monthlyChartYear: new Date().getFullYear(),
   monthlyChartMonth: new Date().getMonth() + 1,
@@ -364,7 +361,6 @@ export const useBillsStore = create<BillsState & BillsActions>((set, get) => ({
 
   // --- 新增：年度图表共享控制 ---
   setYearlyChartYear: (year: number) => set({ yearlyChartYear: year }),
-  setYearlyChartType: (type: 'line' | 'bar') => set({ yearlyChartType: type }),
 
   // --- 新增：月度图表共享时间范围 ---
   setMonthlyChartYear: (year: number) => set({ monthlyChartYear: year }),

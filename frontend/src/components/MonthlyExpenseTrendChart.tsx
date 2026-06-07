@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { Card, Typography, Radio, Select, Spin, Alert } from 'antd';
-import { SOFT_RED, SOFT_RED_AREA } from '../utils/colors';
+import { Card, Typography, Select, Spin, Alert } from 'antd';
+import { SOFT_RED } from '../utils/colors';
+import { barTopIntegerLabel } from '../utils/chart';
 import dayjs from 'dayjs';
 import { BillService } from '../api/services';
 import type { MonthlyExpenseTrendResponse, DailyExpenseItem } from '../types/bills';
@@ -15,7 +16,6 @@ const { Option } = Select;
 const generateMonthOptions = () => Array.from({ length: 12 }, (_, i) => i + 1);
 
 const MonthlyExpenseTrendChart: React.FC = () => {
-  const [chartType, setChartType] = useState<'line' | 'bar'>('line');
   const { monthlyChartYear, monthlyChartMonth, setMonthlyChartYear, setMonthlyChartMonth, setQueryParams, resetQueryParams, dashboardScope, availableYears } = useBillsStore();
   const [data, setData] = useState<DailyExpenseItem[]>([]);
   const [total, setTotal] = useState<number>(0);
@@ -64,24 +64,13 @@ const MonthlyExpenseTrendChart: React.FC = () => {
     const y = yRaw.map(v => (v > 0 ? v : null));
     const hasPositive = yRaw.some(v => v > 0);
 
-    const series = chartType === 'line'
-      ? [{
-          name: '日支出',
-          type: 'line',
-          data: y,
-          smooth: false,
-          symbol: 'circle',
-          connectNulls: true,
-          lineStyle: { color: SOFT_RED },
-          itemStyle: { color: SOFT_RED },
-          areaStyle: { color: SOFT_RED_AREA },
-        }]
-      : [{
-          name: '日支出',
-          type: 'bar',
-          data: y,
-          itemStyle: { color: SOFT_RED },
-        }];
+    const series = [{
+      name: '日支出',
+      type: 'bar',
+      data: y,
+      itemStyle: { color: SOFT_RED },
+      label: barTopIntegerLabel,
+    }];
 
     const monthStr = `${monthlyChartYear}-${String(monthlyChartMonth).padStart(2, '0')}`;
 
@@ -122,12 +111,12 @@ const MonthlyExpenseTrendChart: React.FC = () => {
         },
       },
       legend: { data: ['日支出'] },
-      grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+      grid: { left: '3%', right: '4%', top: '18%', bottom: '3%', containLabel: true },
       xAxis: { type: 'category', data: x, axisTick: { alignWithLabel: true }, name: '日' },
       yAxis,
       series,
     };
-  }, [data, chartType, monthlyChartYear, monthlyChartMonth]);
+  }, [data, monthlyChartYear, monthlyChartMonth]);
 
   // 新增：图表点击交互，点击某一天跳转到账单总览并预设日期与支出筛选
   const handleChartClick = (param: any) => {
@@ -161,10 +150,6 @@ const MonthlyExpenseTrendChart: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={5} style={{ margin: 0 }}>月度支出趋势</Title>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Radio.Group value={chartType} onChange={(e) => setChartType(e.target.value)}>
-            <Radio.Button value="line">折线图</Radio.Button>
-            <Radio.Button value="bar">直方图</Radio.Button>
-          </Radio.Group>
           <Select value={monthlyChartYear} onChange={setMonthlyChartYear} style={{ width: 120 }}>
             {yearOptions.map((y: number) => <Option key={y} value={y}>{y}年</Option>)}
           </Select>

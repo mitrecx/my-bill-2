@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ReactECharts from 'echarts-for-react';
-import { Radio, Select, Card, Spin, Alert, Typography } from 'antd';
+import { Select, Card, Spin, Alert, Typography } from 'antd';
 import { SOFT_RED, SOFT_GREEN } from '../utils/colors';
+import { signedBarTopIntegerLabel } from '../utils/chart';
 import { BillService } from '../api/services';
 import type { YearlyExpenseChartResponse, MonthlyExpenseItem } from '../types/bills';
 import { useBillsStore } from '../stores/bills';
@@ -13,10 +14,7 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 
 const YearlyProfitChart: React.FC = () => {
-  // 共享：图表类型、年份
-  const chartType = useBillsStore(s => s.yearlyChartType);
   const selectedYear = useBillsStore(s => s.yearlyChartYear);
-  const setChartType = useBillsStore(s => s.setYearlyChartType);
   const setSelectedYear = useBillsStore(s => s.setYearlyChartYear);
   const dashboardScope = useBillsStore(s => s.dashboardScope);
   const availableYears = useBillsStore(s => s.availableYears);
@@ -65,77 +63,27 @@ const YearlyProfitChart: React.FC = () => {
 
   const getChartOption = useMemo(() => {
     const profits = chartData.map(item => (item.income ?? 0) - (item.amount ?? 0));
-    const positiveArea = profits.map(v => (v > 0 ? v : 0));
-    const negativeArea = profits.map(v => (v < 0 ? v : 0));
 
-    const series = chartType === 'line'
-      ? [
-          // 绿色正收益填充区域（隐藏折线，仅显示面积）
-          {
-            name: '正收益区域',
-            type: 'line',
-            data: positiveArea,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: { opacity: 0 },
-            areaStyle: undefined,
-            tooltip: { show: false },
-            z: 1,
-          },
-          // 红色负收益填充区域（隐藏折线，仅显示面积）
-          {
-            name: '负收益区域',
-            type: 'line',
-            data: negativeArea,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: { opacity: 0 },
-            areaStyle: undefined,
-            tooltip: { show: false },
-            z: 1,
-          },
-          // 实际净收益折线（位于最上层）
-          {
-            name: '净收益',
-            type: 'line',
-            data: profits,
-            smooth: false,
-            symbol: 'circle',
-            itemStyle: {
-              color: (params: any) => (params.value >= 0 ? SOFT_GREEN : SOFT_RED),
+    const series = [
+      {
+        name: '净收益',
+        type: 'bar',
+        data: profits,
+        itemStyle: {
+          color: (params: any) => (params.value >= 0 ? SOFT_GREEN : SOFT_RED),
+        },
+        label: signedBarTopIntegerLabel,
+        markLine: {
+          data: [
+            {
+              yAxis: 0,
+              lineStyle: { color: '#666', type: 'solid', width: 1 },
+              label: { show: false },
             },
-            lineStyle: { color: '#722ED1' },
-            z: 3,
-            markLine: {
-              data: [
-                {
-                  yAxis: 0,
-                  lineStyle: { color: '#666', type: 'solid', width: 1 },
-                  label: { show: false },
-                },
-              ],
-            },
-          },
-        ]
-      : [
-          {
-            name: '净收益',
-            type: 'bar',
-            data: profits,
-            itemStyle: {
-              color: (params: any) => (params.value >= 0 ? SOFT_GREEN : SOFT_RED),
-            },
-            markLine: {
-              data: [
-                {
-                  yAxis: 0,
-                  lineStyle: { color: '#666', type: 'solid', width: 1 },
-                  label: { show: false },
-                },
-              ],
-            },
-          },
-        ];
+          ],
+        },
+      },
+    ];
 
     return {
       tooltip: {
@@ -153,6 +101,7 @@ const YearlyProfitChart: React.FC = () => {
       grid: {
         left: '3%',
         right: '4%',
+        top: '18%',
         bottom: '3%',
         containLabel: true,
       },
@@ -168,7 +117,7 @@ const YearlyProfitChart: React.FC = () => {
       },
       series,
     };
-  }, [chartData, chartType]);
+  }, [chartData]);
 
   // 在组件内部，补充导航与筛选参数设置
   const setQueryParams = useBillsStore(s => s.setQueryParams);
@@ -225,10 +174,6 @@ const YearlyProfitChart: React.FC = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={5} style={{ margin: 0 }}>年度收益趋势</Title>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <Radio.Group value={chartType} onChange={(e) => setChartType(e.target.value)}>
-            <Radio.Button value="line">折线图</Radio.Button>
-            <Radio.Button value="bar">直方图</Radio.Button>
-          </Radio.Group>
           <Select value={selectedYear} onChange={(value: number) => setSelectedYear(value)} style={{ width: 120 }}>
             {yearOptions.map((year: number) => (
               <Option key={year} value={year}>{year}年</Option>
