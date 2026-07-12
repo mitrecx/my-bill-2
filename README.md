@@ -14,9 +14,12 @@ Import bills from **Alipay, JD.com, China Merchants Bank, WeChat Pay, Meituan**,
 - **Bill parsing**: Platform-specific parsers registered by `source_type` under `backend/parsers/` (Alipay, JD, CMB, WeChat, Meituan, etc.)
 - **Bills & categories**: Bill CRUD, category tree, upload preview and confirm, optional duplicate detection and overwrite logic (see code and migration scripts)
 - **Statistics & charts**: Dashboard, yearly expenses, monthly trends, category breakdown (Recharts / ECharts)
-- **Classification rules**: Custom rule maintenance, batch and test APIs (`/api/v1/classification-rules`)
+- **Classification rules**: Custom rules with `personal` / `family` scope (`/api/v1/classification-rules`)
+- **Bill delegation**: Family members can grant create/update/delete permissions on their bills (`/api/v1/bill-delegations`)
+- **Audit logs**: Track bill create/update/delete with actor and delegation metadata (`/api/v1/audit-logs`)
+- **MCP**: 13 tools for agents via `/mcp` (API key management at `/api/v1/mcp/*`)
 - **Messages**: Family/system message APIs and frontend pages
-- **Operations**: Health checks and metrics (`/api/v1/health`), structured logging, optional Redis; Swagger can be disabled in production
+- **Operations**: Health checks and metrics (`/api/v1/health`), structured logging, optional Redis; Swagger disabled in production
 
 ## Tech Stack
 
@@ -33,7 +36,8 @@ Import bills from **Alipay, JD.com, China Merchants Bank, WeChat Pay, Meituan**,
 ```text
 my-bill-2/
 ├── backend/                 # FastAPI app (often run from backend/)
-│   ├── api/                 # Routes: auth, bills, upload, families, users, messages, system_config, classification_rules, health
+│   ├── api/                 # Routes: auth, bills, upload, families, users, messages, system_config, classification_rules, health, mcp, audit-logs, bill-delegations
+│   ├── bill_mcp/            # MCP tool server (Family Bills MCP)
 │   ├── config/              # settings, database, logging; environments/*.env samples
 │   ├── core/                # Middleware, exceptions
 │   ├── models/              # SQLAlchemy models
@@ -42,8 +46,8 @@ my-bill-2/
 │   ├── parsers/             # Platform bill parsers
 │   ├── migrations/          # SQL/Python migration scripts
 │   ├── main.py              # FastAPI entry
-│   ├── run.py               # Dev server (uvicorn)
-│   ├── create_tables.py     # Dev table bootstrap (make db-init)
+│   ├── run.py               # Alternate uvicorn entry
+│   ├── create_tables.py     # Core tables only (make db-init); run backend/migrations/*.sql for the rest
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -83,11 +87,13 @@ cp .env.example backend/.env
 # Install dependencies
 make install
 
-# Initialize database tables (runs create_tables.py under backend/)
+# Initialize core database tables (runs create_tables.py under backend/)
 make db-init
+# Apply incremental SQL as needed, e.g.:
+# psql $DATABASE_URL -f backend/migrations/add_audit_logs.sql
 
-# Run in two terminals
-make dev-backend    # http://127.0.0.1:8000
+# Run in two terminals (`make dev` only prints URLs; use dev-backend / dev-frontend)
+make dev-backend    # http://127.0.0.1:8000  (runs python main.py)
 make dev-frontend   # http://localhost:5173
 ```
 
@@ -100,12 +106,14 @@ Useful commands: `make help`, `make test` (requires `tests/` and test cases), `m
 - **CORS_ORIGINS**: comma-separated; defaults include `localhost:5173`, etc.
 - **ALLOWED_EXTENSIONS**: per `settings`; may include `.csv,.xlsx,.xls,.pdf`, etc.
 - **ZHIPU_API_KEY**: optional, for AI classification.
+- **ACCESS_TOKEN_EXPIRE_MINUTES**: default **240** in `settings.py`; production env files often use 30.
 - Root `.env.example` maps to backend fields; `Field` definitions in `settings.py` are authoritative.
 
 ### Frontend API Base URL
 
 - Development defaults to `http://localhost:8000` (see `frontend/src/api/config.ts`).
-- To point a build/preview at production API, set **`VITE_USE_PROD_API=true`** (see `getApiBaseUrl()`).
+- Production builds on a non-localhost host auto-use `window.location.origin`.
+- To force the production API URL, set **`VITE_USE_PROD_API=true`** (see `getApiBaseUrl()`).
 
 ## Main Frontend Routes
 
@@ -119,8 +127,10 @@ Useful commands: `make help`, `make test` (requires `tests/` and test cases), `m
 | `/users` | User management (role-based) |
 | `/family` | Family management |
 | `/classification-rules` | Classification rules |
+| `/audit-logs` | Audit logs |
 | `/settings` | Settings |
-| `/profile` | Profile |
+| `/profile` | Profile (tabs: MCP, bill delegation) |
+| `/mcp-settings` | Redirects to `/profile?tab=mcp` |
 
 ## Backend API & Docs
 
@@ -129,14 +139,17 @@ Useful commands: `make help`, `make test` (requires `tests/` and test cases), `m
 - Examples:
   - `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, `GET /api/v1/auth/me`
   - `GET|POST /api/v1/bills`, `GET /api/v1/bills/stats`, finance summary and chart endpoints
-  - `POST /api/v1/upload/preview`, `POST /api/v1/upload/confirm`
+  - `POST /api/v1/upload` (direct import), `GET /api/v1/upload/history`
+  - `GET /api/v1/audit-logs`, `GET|POST /api/v1/bill-delegations`
+  - `GET /api/v1/mcp/settings`, `GET /api/v1/mcp/info`
   - `GET /api/v1/health/...` health checks
+- MCP agent endpoint: **`/mcp`** (13 tools; see `docs/project_overview.md`)
 
 See OpenAPI for the full list.
 
 ## Data Model (summary)
 
-Core entities include `User`, `Family`, `FamilyMember`, `Bill`, `BillCategory`, `Message` / `MessageAction`, `SystemConfig`, `ClassificationRule`, and more. See `backend/models/` for relationships and fields.
+Core entities: `User`, `Family`, `FamilyMember`, `Bill`, `BillCategory`, `Message`, `MessageAction`, `SystemConfig`, `ClassificationRule`, `McpApiKey`, `AuditLog`, `BillDelegation`. See `backend/models/` for relationships and fields.
 
 ## Security
 

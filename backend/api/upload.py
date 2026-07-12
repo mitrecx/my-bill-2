@@ -141,27 +141,6 @@ def handle_jd_bill_overlap(filename: str, records: List[Dict[str, Any]], family_
         return 0
 
 
-def check_duplicate_alipay_file(filename: str, family_id: int, db: Session) -> bool:
-    """
-    检查支付宝文件是否已经上传过
-    """
-    try:
-        logger.info(f"检查支付宝文件重复: filename={filename}, family_id={family_id}")
-        existing_bill = db.query(Bill).filter(
-            Bill.family_id == family_id,
-            Bill.source_type == "alipay",
-            Bill.source_filename == filename
-        ).first()
-        
-        result = existing_bill is not None
-        logger.info(f"支付宝文件重复检查结果: {result}, existing_bill_id={existing_bill.id if existing_bill else None}")
-        return result
-        
-    except Exception as e:
-        logger.error(f"检查支付宝文件重复失败: {e}")
-        return False
-
-
 def check_duplicate_alipay_file(filename: str, family_user_ids: List[int], db: Session) -> bool:
     """
     检查支付宝文件是否已经上传过
@@ -1092,8 +1071,8 @@ async def get_upload_history(
             Bill.source_filename.isnot(None)
         ).order_by(Bill.created_at.desc()).all()
         
-        # 按文件名分组统计
-        file_stats = {}
+        # 按文件名分组统计，并映射为 UploadHistoryResponse
+        file_stats: Dict[str, Dict[str, Any]] = {}
         for bill in bills:
             filename = bill.source_filename
             if filename not in file_stats:
@@ -1102,11 +1081,26 @@ async def get_upload_history(
                     "source_type": bill.source_type,
                     "upload_time": bill.created_at,
                     "total_records": 0,
-                    "uploader": bill.user.username if bill.user else "未知用户"
+                    "uploader": bill.user.username if bill.user else "未知用户",
                 }
             file_stats[filename]["total_records"] += 1
-        
-        return list(file_stats.values())
+
+        history: List[UploadHistoryResponse] = []
+        for idx, stats in enumerate(file_stats.values(), start=1):
+            history.append(
+                UploadHistoryResponse(
+                    id=idx,
+                    filename=stats["filename"],
+                    file_size=0,
+                    source_type=stats["source_type"],
+                    upload_time=stats["upload_time"],
+                    success_count=stats["total_records"],
+                    failed_count=0,
+                    status="completed",
+                    message=f"上传者: {stats['uploader']}",
+                )
+            )
+        return history
         
     except Exception as e:
         logger.error(f"获取上传历史失败: {e}")
@@ -1148,10 +1142,14 @@ async def get_upload_stats(
             Bill.source_filename.isnot(None)
         ).scalar()
         
+        by_source_type = {stat.source_type: stat.count for stat in source_stats}
         return UploadStatsResponse(
-            total_bills=total_bills,
-            uploaded_files=uploaded_files or 0,
-            source_stats={stat.source_type: stat.count for stat in source_stats}
+            total_uploads=uploaded_files or 0,
+            total_success=total_bills,
+            total_failed=0,
+            total_processing=0,
+            by_source_type=by_source_type,
+            recent_uploads=[],
         )
         
     except Exception as e:

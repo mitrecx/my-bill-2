@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { Message, MessageListResponse, MessageActionCreate } from '../types/message';
-import { messageApi } from '../api/services';
+import { MessageService, messageApi } from '../api/services';
 
 interface MessageState {
   messages: Message[];
@@ -68,7 +68,7 @@ export const useMessageStore = create<MessageState>()(
 
       markAsRead: async (messageId: number) => {
         try {
-          await messageApi.updateMessage(messageId, { is_read: true });
+          await MessageService.markAsRead(messageId);
           
           // 更新本地状态
           set((state) => ({

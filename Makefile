@@ -9,7 +9,7 @@ help:
 	@echo ""
 	@echo "开发相关:"
 	@echo "  install     - 安装依赖"
-	@echo "  dev         - 启动开发服务器"
+	@echo "  dev         - 打印开发环境地址（不启动服务）"
 	@echo "  dev-frontend - 启动前端开发服务器"
 	@echo "  dev-backend  - 启动后端开发服务器"
 	@echo ""

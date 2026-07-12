@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 前端部署脚本
-# 部署到 bill.mitrecx.top 服务器
+# 部署配置见仓库根目录 .env.deploy（参考 .env.deploy.example）
 # 仅更新静态资源与 nginx reload，不覆盖 HTTPS / vhost 配置（避免误用过期证书副本）
 # 使用方法:
 #   ./deploy.sh           # 正常部署，智能检测是否需要安装依赖
@@ -9,6 +9,16 @@
 #   ./deploy.sh --no-deps  # 跳过依赖安装
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=../scripts/load-deploy-env.sh
+source "${SCRIPT_DIR}/../scripts/load-deploy-env.sh"
+
+REMOTE_USER="${DEPLOY_REMOTE_USER}"
+REMOTE_HOST="${DEPLOY_REMOTE_HOST}"
+REMOTE_PATH="${DEPLOY_FRONTEND_REMOTE_PATH}"
+PUBLIC_URL="${DEPLOY_PUBLIC_URL}"
+LOCAL_PATH="."
 
 # 解析命令行参数
 FORCE_DEPS=false
@@ -33,12 +43,6 @@ for arg in "$@"; do
 done
 
 echo "开始部署家庭账单管理系统前端..."
-
-# 配置变量
-REMOTE_USER="josie"
-REMOTE_HOST="bill.mitrecx.top"
-REMOTE_PATH="/var/www/family-bills-frontend"
-LOCAL_PATH="."
 
 # 检查是否需要安装依赖
 INSTALL_DEPS=false
@@ -118,7 +122,7 @@ ssh ${REMOTE_USER}@${REMOTE_HOST} << EOF
     # 检查nginx状态
     if sudo systemctl is-active --quiet nginx; then
         echo "✅ Nginx重新加载成功！"
-        echo "前端地址: https://bill.mitrecx.top"
+        echo "前端地址: ${PUBLIC_URL}"
     else
         echo "❌ Nginx重新加载失败，请检查配置"
         sudo systemctl status nginx
@@ -133,6 +137,6 @@ echo "6. 清理本地临时文件..."
 rm -f family-bills-frontend.tar.gz
 
 echo "✅ 前端部署完成！"
-echo "网站地址: https://bill.mitrecx.top"
-echo "API地址: https://bill.mitrecx.top/api"
-echo "后端文档: https://bill.mitrecx.top/api/docs"
+echo "网站地址: ${PUBLIC_URL}"
+echo "API地址: ${PUBLIC_URL}/api"
+echo "后端文档: ${PUBLIC_URL}/api/docs"

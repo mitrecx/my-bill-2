@@ -73,7 +73,14 @@ const BillsPage: React.FC = () => {
 
   useEffect(() => {
     BillDelegationService.list()
-      .then((res) => setReceivedDelegations(res.data.received || []))
+      .then((res) => {
+        const now = Date.now();
+        const active = (res.data.received || []).filter((d) => {
+          if (!d.expires_at) return true;
+          return new Date(d.expires_at).getTime() > now;
+        });
+        setReceivedDelegations(active);
+      })
       .catch(() => setReceivedDelegations([]));
   }, []);
 

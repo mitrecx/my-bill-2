@@ -322,8 +322,13 @@ export const SystemConfigService = {
 
 // 消息服务
 export const MessageService = {
-  async getMessages(params?: { page?: number; page_size?: number; is_read?: boolean }) {
-    const response = await ApiClient.get<MessageListResponse>(API_ENDPOINTS.MESSAGES.BASE, { params });
+  async getMessages(params?: { page?: number; size?: number; page_size?: number; is_read?: boolean }) {
+    const query = { ...params };
+    if (query.page_size !== undefined && query.size === undefined) {
+      query.size = query.page_size;
+      delete query.page_size;
+    }
+    const response = await ApiClient.get<MessageListResponse>(API_ENDPOINTS.MESSAGES.BASE, { params: query });
     return response;
   },
 
@@ -332,18 +337,13 @@ export const MessageService = {
     return response;
   },
 
-  async markAllAsRead() {
-    const response = await ApiClient.post(`${API_ENDPOINTS.MESSAGES.BASE}/mark-all-read`);
-    return response;
-  },
-
   async createAction(messageId: number, action: MessageActionCreate) {
-    const response = await ApiClient.post(`${API_ENDPOINTS.MESSAGES.ACTION(messageId)}`, action);
+    const response = await ApiClient.post(API_ENDPOINTS.MESSAGES.ACTION(messageId), action);
     return response;
   },
 
   async updateMessage(id: number, update: MessageUpdate) {
-    const response = await ApiClient.put(API_ENDPOINTS.MESSAGES.BY_ID(id), update);
+    const response = await ApiClient.patch(API_ENDPOINTS.MESSAGES.BY_ID(id), update);
     return response;
   },
 

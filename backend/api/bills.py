@@ -223,7 +223,6 @@ async def create_bill(
             db,
             current_user.id,
             payload,
-            actor_user_id=current_user.id,
             source="rest",
         )
 
@@ -1121,7 +1120,6 @@ async def update_bill(
             current_user.id,
             bill_id,
             payload,
-            actor_user_id=current_user.id,
             source="rest",
         )
 
@@ -1286,7 +1284,6 @@ async def delete_bill(
             db,
             current_user.id,
             bill_id,
-            actor_user_id=current_user.id,
             source="rest",
         )
 

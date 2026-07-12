@@ -21,7 +21,9 @@ npm run dev
 VITE_USE_PROD_API=true npm run build
 ```
 
-逻辑见 `getApiBaseUrl()`：仅在显式为 `true` 时使用 `PROD_BASE_URL`。
+逻辑见 `getApiBaseUrl()`：
+- 显式 `VITE_USE_PROD_API=true` 时使用 `PROD_BASE_URL`
+- 生产构建在非 localhost 域名下自动使用 `window.location.origin`
 
 ## 脚本
 
@@ -36,7 +38,7 @@ VITE_USE_PROD_API=true npm run build
 
 - **`src/api/`** — `client.ts`（Axios 实例与拦截器）、`config.ts`（基址与各 API 路径常量）、`services.ts`（接口封装）。
 - **`src/stores/`** — 认证、账单、家庭、消息等 Zustand store。
-- **`src/pages/`** — 路由页面：登录注册、仪表盘、账单、上传、消息、用户、家庭、分类规则、设置、个人中心等。
+- **`src/pages/`** — 路由页面：登录注册、仪表盘、账单、上传、消息、用户、家庭、分类规则、审计日志、设置、个人中心（含 MCP / 账单授权 Tab）等。
 - **`src/components/`** — 布局、各类图表等复用组件。
 
 路由定义见 **`src/App.tsx`**。

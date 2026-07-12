@@ -16,7 +16,11 @@ from schemas.bill_delegations import (
     BillDelegationResponse,
 )
 from schemas.common import ApiResponse
-from services.bill_permission_service import assert_same_family, get_family_id_for_user
+from services.bill_permission_service import (
+    assert_same_family,
+    get_family_id_for_user,
+    is_delegation_valid,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/bill-delegations", tags=["bill-delegations"])
@@ -73,8 +77,16 @@ async def list_bill_delegations(
             )
         )
 
-        granted = base_query.filter(BillDelegation.grantor_user_id == current_user.id).all()
-        received = base_query.filter(BillDelegation.grantee_user_id == current_user.id).all()
+        granted = [
+            item
+            for item in base_query.filter(BillDelegation.grantor_user_id == current_user.id).all()
+            if is_delegation_valid(item)
+        ]
+        received = [
+            item
+            for item in base_query.filter(BillDelegation.grantee_user_id == current_user.id).all()
+            if is_delegation_valid(item)
+        ]
 
         return ApiResponse(
             data=BillDelegationListResponse(
@@ -116,6 +128,16 @@ async def create_or_update_bill_delegation(
             raise HTTPException(status_code=400, detail="被授权成员不在当前家庭中")
 
         assert_same_family(db, current_user.id, payload.grantee_user_id)
+
+        if payload.expires_at is not None:
+            expires_at = payload.expires_at
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            if expires_at <= datetime.now(timezone.utc):
+                raise HTTPException(status_code=400, detail="过期时间必须晚于当前时间")
+
+        if not (payload.can_create or payload.can_update or payload.can_delete):
+            raise HTTPException(status_code=400, detail="至少勾选一项账单操作权限")
 
         existing = (
             db.query(BillDelegation)

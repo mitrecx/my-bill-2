@@ -1,0 +1,17 @@
+[Unit]
+Description=Family Bills Backend API
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=josie
+Group=josie
+WorkingDirectory=/home/josie/apps/family-bills-backend
+Environment="PATH=/home/josie/.local/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/home/josie/apps/family-bills-backend/.env
+ExecStart=/home/josie/.local/bin/gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:8000 main:app
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

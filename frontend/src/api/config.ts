@@ -76,8 +76,6 @@ export const API_ENDPOINTS = {
   // 文件上传相关
   UPLOAD: {
     BASE: '/api/v1/upload',
-    PREVIEW: '/api/v1/upload/preview',
-    CONFIRM: '/api/v1/upload/confirm',
     HISTORY: '/api/v1/upload/history',
   },
   

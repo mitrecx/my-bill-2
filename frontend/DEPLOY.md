@@ -61,8 +61,9 @@
 部署完成后，可以通过以下地址访问：
 
 - **前端应用**：https://bill.mitrecx.top
-- **API 接口**：https://bill.mitrecx.top/api
-- **API 文档**：https://bill.mitrecx.top/api/docs
+- **REST API**：https://bill.mitrecx.top/api/v1/...（经 Nginx 反代至后端）
+- **MCP 端点**：https://bill.mitrecx.top/mcp
+- **Swagger 文档**：仅开发环境可用（`http://localhost:8000/docs`）；生产 `ENVIRONMENT=production` 时关闭，**无** `/api/docs`
 
 ## 智能检测机制
 

@@ -26,6 +26,9 @@ frontend/.DS_Store
 # 依赖标记
 .deps_installed
 
+# 部署配置（含服务器地址，勿提交）
+.env.deploy
+
 # 账单导入文件
 bills/*
 

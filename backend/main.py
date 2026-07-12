@@ -75,6 +75,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-New-Token", "X-Request-ID", "X-Process-Time"],
 )
 
 # 添加其他中间件（注意顺序）

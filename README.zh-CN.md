@@ -14,9 +14,12 @@
 - **账单解析**：`backend/parsers/` 中按 `source_type` 注册解析器（支付宝、京东、招行、微信、美团等）
 - **账单与分类**：账单 CRUD、分类树、上传预览与确认、可选重复检测与覆盖逻辑（见代码与迁移脚本）
 - **统计与图表**：仪表盘、年度支出、月度趋势、分类占比等（Recharts / ECharts）
-- **分类规则**：自定义规则维护、批量与测试接口（`/api/v1/classification-rules`）
+- **分类规则**：自定义规则，支持 `personal` / `family` 作用域（`/api/v1/classification-rules`）
+- **账单代管授权**：家庭成员可授权他人代录/改/删账单（`/api/v1/bill-delegations`）
+- **审计日志**：记录账单增删改及代管操作元数据（`/api/v1/audit-logs`）
+- **MCP**：13 个 Agent 工具，端点 `/mcp`（REST 管理 `/api/v1/mcp/*`）
 - **消息**：家庭/系统消息相关接口与前端页面
-- **运维**：健康检查与指标（`/api/v1/health`）、结构化日志、可选 Redis、生产环境可关闭 Swagger
+- **运维**：健康检查与指标（`/api/v1/health`）、结构化日志、可选 Redis、生产环境关闭 Swagger
 
 ## 技术栈
 
@@ -33,7 +36,8 @@
 ```text
 my-bill-2/
 ├── backend/                 # FastAPI 应用（工作目录常为 backend/）
-│   ├── api/                 # 路由：auth、bills、upload、families、users、messages、system_config、classification_rules、health
+│   ├── api/                 # 路由：auth、bills、upload、families、users、messages、system_config、classification_rules、health、mcp、audit-logs、bill-delegations
+│   ├── bill_mcp/            # MCP 工具服务
 │   ├── config/              # settings、database、logging；environments/*.env 示例
 │   ├── core/                # 中间件、异常
 │   ├── models/              # SQLAlchemy 模型
@@ -42,8 +46,8 @@ my-bill-2/
 │   ├── parsers/             # 各平台账单解析器
 │   ├── migrations/          # SQL/Python 迁移脚本
 │   ├── main.py              # FastAPI 入口
-│   ├── run.py               # 开发启动（uvicorn）
-│   ├── create_tables.py     # 开发期建表（make db-init）
+│   ├── run.py               # 备用 uvicorn 启动
+│   ├── create_tables.py     # 核心表（make db-init）；其余表见 backend/migrations/*.sql
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
@@ -83,11 +87,13 @@ cp .env.example backend/.env
 # 安装依赖
 make install
 
-# 初始化数据库表（在 backend 下执行 create_tables.py）
+# 初始化核心数据库表（在 backend 下执行 create_tables.py）
 make db-init
+# 按需执行增量迁移，例如：
+# psql $DATABASE_URL -f backend/migrations/add_audit_logs.sql
 
-# 分别开两个终端
-make dev-backend    # http://127.0.0.1:8000
+# 分别开两个终端（`make dev` 仅打印地址；实际启动用 dev-backend / dev-frontend）
+make dev-backend    # http://127.0.0.1:8000（python main.py）
 make dev-frontend   # http://localhost:5173
 ```
 
@@ -100,12 +106,14 @@ make dev-frontend   # http://localhost:5173
 - **CORS_ORIGINS**：逗号分隔，默认包含 `localhost:5173` 等。
 - **ALLOWED_EXTENSIONS**：与 `settings` 一致时可包含 `.csv,.xlsx,.xls,.pdf` 等。
 - **ZHIPU_API_KEY**：可选，用于 AI 分类相关能力。
+- **ACCESS_TOKEN_EXPIRE_MINUTES**：`settings.py` 默认 **240** 分钟；生产环境配置常为 30。
 - 根目录 `.env.example` 与后端字段对应；以 `settings.py` 中 `Field` 为准。
 
 ### 前端 API 地址
 
 - 开发默认请求 `http://localhost:8000`（见 `frontend/src/api/config.ts`）。
-- 若构建/预览需指向生产 API，使用环境变量 **`VITE_USE_PROD_API=true`**（详见 `getApiBaseUrl()`）。
+- 生产构建部署在非 localhost 域名时，自动使用 `window.location.origin`。
+- 若需强制指向生产 API，使用环境变量 **`VITE_USE_PROD_API=true`**（详见 `getApiBaseUrl()`）。
 
 ## 主要路由（前端）
 
@@ -119,24 +127,29 @@ make dev-frontend   # http://localhost:5173
 | `/users` | 用户管理（权限依角色） |
 | `/family` | 家庭管理 |
 | `/classification-rules` | 分类规则 |
+| `/audit-logs` | 审计日志 |
 | `/settings` | 设置 |
-| `/profile` | 个人中心 |
+| `/profile` | 个人中心（含 MCP、账单授权 Tab） |
+| `/mcp-settings` | 重定向至 `/profile?tab=mcp` |
 
 ## 后端 API 与文档
 
-- 开发环境 Swagger：**http://localhost:8000/docs**（生产若 `ENVIRONMENT=production` 可能关闭文档 URL，以配置为准）。
+- 开发环境 Swagger：**http://localhost:8000/docs**。生产环境可能关闭文档访问，以 `ENVIRONMENT` 等配置为准。
 - 路由统一前缀：**`/api/v1`**。
 - 示例：
   - `POST /api/v1/auth/register`、`POST /api/v1/auth/login`、`GET /api/v1/auth/me`
   - `GET|POST /api/v1/bills`、`GET /api/v1/bills/stats`、财务汇总与图表相关子路径
-  - `POST /api/v1/upload/preview`、`POST /api/v1/upload/confirm`
+  - `POST /api/v1/upload`（直接导入）、`GET /api/v1/upload/history`
+  - `GET /api/v1/audit-logs`、`GET|POST /api/v1/bill-delegations`
+  - `GET /api/v1/mcp/settings`、`GET /api/v1/mcp/info`
   - `GET /api/v1/health/...` 健康检查
+- MCP Agent 端点：**`/mcp`**（13 个工具，详见 `docs/project_overview.md`）
 
 完整列表以 OpenAPI 为准。
 
 ## 数据模型（概要）
 
-核心实体包括：`User`、`Family`、`FamilyMember`、`Bill`、`BillCategory`、`Message` / `MessageAction`、`SystemConfig`、`ClassificationRule` 等。关系与字段以 `backend/models/` 为准。
+核心实体：`User`、`Family`、`FamilyMember`、`Bill`、`BillCategory`、`Message`、`MessageAction`、`SystemConfig`、`ClassificationRule`、`McpApiKey`、`AuditLog`、`BillDelegation`。关系与字段以 `backend/models/` 为准。
 
 ## 安全说明
 

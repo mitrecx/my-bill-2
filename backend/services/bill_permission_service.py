@@ -37,7 +37,7 @@ def assert_same_family(db: Session, user_a: int, user_b: int) -> None:
         raise ValueError("仅可授权同一家庭成员")
 
 
-def _is_delegation_valid(delegation: BillDelegation, now: Optional[datetime] = None) -> bool:
+def is_delegation_valid(delegation: BillDelegation, now: Optional[datetime] = None) -> bool:
     if not delegation.is_active:
         return False
     if delegation.expires_at is None:
@@ -63,7 +63,7 @@ def get_active_delegation(
         )
         .first()
     )
-    if delegation and _is_delegation_valid(delegation):
+    if delegation and is_delegation_valid(delegation):
         return delegation
     return None
 

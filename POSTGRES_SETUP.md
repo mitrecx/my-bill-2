@@ -52,7 +52,7 @@ DATABASE_URL=postgresql://josie:bills_password_2024@localhost:5432/bills_db
 # JWT配置
 SECRET_KEY=your-secret-key-here-change-in-production
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=240
 
 # 应用配置
 DEBUG=False
@@ -72,8 +72,10 @@ python setup_postgres.py
 
 这个脚本会自动：
 - 创建数据库 `bills_db`
-- 创建所有必要的表
+- 创建**核心**表（`users`、`families`、`family_members`、`bills`、`bill_categories` 等，与 `create_tables.py` 导入的模型一致）
 - 插入默认的账单分类
+
+> 消息、分类规则、系统配置、MCP API Key、审计日志、账单代管授权等表需额外执行 `backend/migrations/*.sql`。
 
 ### 方法二：手动设置
 
@@ -115,13 +117,22 @@ psql -h localhost -U josie -d bills_db -c "\dt"
 # 输入密码: bills_password_2024
 ```
 
-应该看到以下表：
+核心表（`make db-init` / `create_tables.py`）：
 - users
 - families
 - family_members
 - bill_categories
 - bills
-- upload_records
+
+执行 `backend/migrations/*.sql` 后还可能有：
+- messages、message_actions
+- classification_rules
+- system_configs
+- mcp_api_keys
+- audit_logs
+- bill_delegations
+
+> 当前代码库**无** `upload_records` 表；上传历史由账单等数据体现。
 
 ## 5. 启动应用
 

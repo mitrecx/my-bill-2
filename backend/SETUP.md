@@ -34,7 +34,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/bills_db
 # 安全（SECRET_KEY 至少 32 字符）
 SECRET_KEY=your-very-secret-key-at-least-32-characters-long
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ACCESS_TOKEN_EXPIRE_MINUTES=240
 
 # CORS：逗号分隔多个源
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
@@ -66,13 +66,15 @@ psql -h localhost -U josie -d bills_db -f init.sql
 
 ### 4. 运行项目
 
-#### 开发模式
+#### 开发模式（与 Makefile 一致）
 ```bash
-python run.py
+python main.py
 ```
 
-#### 或使用uvicorn直接运行
+#### 备用启动方式
 ```bash
+python run.py
+# 或
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -93,10 +95,14 @@ backend/
 │   ├── upload.py          # 文件上传
 │   ├── families.py        # 家庭
 │   ├── users.py           # 用户管理
-│   ├── messages.py        # 消息
+│   ├── messages.py        # 消息（无 /messages 前缀）
 │   ├── system_config.py   # 系统配置
 │   ├── classification_rules.py  # 分类规则
+│   ├── mcp_settings.py    # MCP API Key 与 info
+│   ├── audit.py           # 审计日志
+│   ├── bill_delegations.py # 账单代管授权
 │   └── health.py          # 健康检查
+├── bill_mcp/              # MCP 工具（/mcp 端点）
 ├── config/                # 配置文件
 │   ├── database.py        # 数据库配置
 │   └── settings.py        # 应用设置
@@ -130,20 +136,25 @@ backend/
 
 ### 2. 家庭管理
 - 多用户家庭系统
-- 角色权限管理(admin/member/viewer)
-- 数据隔离
+- 角色：`owner` / `admin` / `member`（见 `FamilyMember.role`）
+- 账单代管授权（`bill_delegations`）
 
 ### 3. 文件解析
 - 支付宝 CSV、京东 CSV、招商银行 PDF、微信支付 Excel、美团 CSV 等（见 `parsers/__init__.py`）
 - 分类规则与可选 AI 辅助（`services/ai_classification_service.py`、智谱 API Key）
 
 ### 4. 账单管理
-- 账单CRUD操作
+- 账单 CRUD（含代管授权校验）
 - 高级筛选和搜索
 - 统计分析功能
 - 分页查询
+- 审计日志（`audit_logs`）
 
-### 5. 数据安全
+### 5. MCP
+- Streamable HTTP 端点 `/mcp`，13 个工具（见 `bill_mcp/server.py`）
+- REST 管理：`/api/v1/mcp/settings`、`/api/v1/mcp/info`
+
+### 6. 数据安全
 - 数据访问权限控制
 - 原始数据保存
 - 错误处理和日志记录

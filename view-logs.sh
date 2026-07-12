@@ -1,11 +1,16 @@
 #!/bin/bash
 
 # 远程日志查看脚本
-# 用于查看 bill.mitrecx.top 服务器上的各种日志
+# 部署配置见仓库根目录 .env.deploy（参考 .env.deploy.example）
 
-REMOTE_USER="josie"
-REMOTE_HOST="bill.mitrecx.top"
-APP_PATH="/home/josie/apps/family-bills-backend"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/load-deploy-env.sh
+source "${SCRIPT_DIR}/scripts/load-deploy-env.sh"
+
+REMOTE_USER="${DEPLOY_REMOTE_USER}"
+REMOTE_HOST="${DEPLOY_REMOTE_HOST}"
+APP_PATH="${DEPLOY_BACKEND_REMOTE_PATH}"
+SERVICE_NAME="${DEPLOY_SERVICE_NAME}"
 
 # 显示使用帮助
 show_help() {
@@ -15,6 +20,8 @@ show_help() {
     echo "  $0 [选项]"
     echo ""
     echo "选项:"
+    echo "  journal       查看 systemd 日志 (实时)"
+    echo "  journal-tail  查看 systemd 日志 (最后50行)"
     echo "  app           查看应用日志 (实时)"
     echo "  app-tail      查看应用日志 (最后50行)"
     echo "  prod          查看生产日志 (实时)"
@@ -27,8 +34,22 @@ show_help() {
     echo "  help          显示此帮助信息"
     echo ""
     echo "示例:"
+    echo "  $0 journal    # 实时查看 systemd 日志"
     echo "  $0 app        # 实时查看应用日志"
     echo "  $0 all-tail   # 查看所有日志摘要"
+}
+
+# 查看 systemd 日志（实时）
+view_journal_logs() {
+    echo "🧩 查看 systemd 日志 (实时)..."
+    echo "按 Ctrl+C 退出"
+    ssh ${REMOTE_USER}@${REMOTE_HOST} "journalctl -u ${SERVICE_NAME} -f"
+}
+
+# 查看 systemd 日志（最后50行）
+view_journal_logs_tail() {
+    echo "🧩 systemd 日志 (最后50行):"
+    ssh ${REMOTE_USER}@${REMOTE_HOST} "journalctl -u ${SERVICE_NAME} -n 50 --no-pager"
 }
 
 # 查看应用日志（实时）
@@ -101,8 +122,12 @@ view_status() {
     echo ""
     
     ssh ${REMOTE_USER}@${REMOTE_HOST} << 'EOF'
-        echo "=== 后端服务进程 ==="
-        ps aux | grep -E "(python3 run.py|uvicorn)" | grep -v grep || echo "未找到后端服务进程"
+        echo "=== systemd 服务状态 ==="
+        systemctl status ${SERVICE_NAME} --no-pager -l || echo "${SERVICE_NAME} 未运行"
+        echo ""
+        
+        echo "=== 后端进程 ==="
+        ps aux | grep -E "(gunicorn.*main:app|python3 run.py|uvicorn)" | grep -v grep || echo "未找到后端服务进程"
         echo ""
         
         echo "=== 端口占用情况 ==="
@@ -131,6 +156,12 @@ EOF
 
 # 主逻辑
 case "${1:-help}" in
+    "journal")
+        view_journal_logs
+        ;;
+    "journal-tail")
+        view_journal_logs_tail
+        ;;
     "app")
         view_app_logs
         ;;
