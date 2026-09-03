@@ -14,6 +14,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 # shellcheck source=../scripts/load-deploy-env.sh
 source "${SCRIPT_DIR}/../scripts/load-deploy-env.sh"
 
@@ -53,8 +54,9 @@ sync_systemd_unit_and_restart() {
     echo "同步 systemd 单元 (${SERVICE_NAME})..."
     scp "${SCRIPT_DIR}/deploy/${SERVICE_NAME}.service" "${REMOTE_USER}@${REMOTE_HOST}:/tmp/"
 
-    ssh -T "${REMOTE_USER}@${REMOTE_HOST}" "SERVICE_NAME=${SERVICE_NAME}" <<'EOF'
+    ssh -T "${REMOTE_USER}@${REMOTE_HOST}" bash -s -- "${SERVICE_NAME}" <<'EOF'
         set -e
+        SERVICE_NAME="$1"
         LOADED=$(systemctl show -p LoadState --value "${SERVICE_NAME}.service" 2>/dev/null || echo "not-found")
         if [ "$LOADED" != "loaded" ]; then
             echo "  → 停止旧的 nohup 进程..."
@@ -116,8 +118,11 @@ echo "2. 上传文件到服务器..."
 scp family-bills-backend.tar.gz "${REMOTE_USER}@${REMOTE_HOST}:~/"
 
 echo "3. 在远程服务器上部署..."
-ssh -T "${REMOTE_USER}@${REMOTE_HOST}" "FORCE_DEPS=${FORCE_DEPS} SKIP_DEPS=${SKIP_DEPS} PUBLIC_HOST=${PUBLIC_HOST}" << 'EOF'
+ssh -T "${REMOTE_USER}@${REMOTE_HOST}" bash -s -- "${FORCE_DEPS}" "${SKIP_DEPS}" "${PUBLIC_HOST}" << 'EOF'
     set -e
+    FORCE_DEPS="$1"
+    SKIP_DEPS="$2"
+    PUBLIC_HOST="$3"
 
     mkdir -p /home/josie/apps/family-bills-backend
     cd /home/josie/apps

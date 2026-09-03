@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 import logging
 
 from config.database import get_db
@@ -127,9 +128,11 @@ async def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=AuthResponse)
 async def login(user_login: UserLogin, db: Session = Depends(get_db)):
-    """用户登录"""
+    """用户登录（支持用户名或邮箱）"""
     # 查找用户
-    user = db.query(User).filter(User.username == user_login.username).first()
+    user = db.query(User).filter(
+        or_(User.username == user_login.username, User.email == user_login.username)
+    ).first()
     if not user or not verify_password(user_login.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

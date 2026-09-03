@@ -240,7 +240,7 @@ const UsersManagePage: React.FC = () => {
           <Form.Item
             label="用户名"
             name="username"
-            rules={[{ required: true, message: '请输入用户名' }, { min: 3, message: '至少3个字符' }]}
+            rules={[{ required: true, message: '请输入用户名' }, { min: 2, message: '至少2个字符' }]}
           >
             <Input placeholder="用户名" />
           </Form.Item>

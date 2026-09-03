@@ -11,6 +11,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${SCRIPT_DIR}"
 # shellcheck source=../scripts/load-deploy-env.sh
 source "${SCRIPT_DIR}/../scripts/load-deploy-env.sh"
 

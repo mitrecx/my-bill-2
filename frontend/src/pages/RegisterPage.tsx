@@ -63,9 +63,9 @@ const RegisterPage: React.FC = () => {
               name="username"
               rules={[
                 { required: true, message: '请输入用户名' },
-                { min: 3, message: '用户名至少3个字符' },
+                { min: 2, message: '用户名至少2个字符' },
                 { max: 20, message: '用户名最多20个字符' },
-                { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线' },
+                { pattern: /^[a-zA-Z0-9_\u4e00-\u9fa5]+$/, message: '用户名只能包含中文、字母、数字和下划线' },
               ]}
             >
               <Input

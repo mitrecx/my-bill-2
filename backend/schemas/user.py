@@ -10,8 +10,8 @@ class UserCreate(BaseModel):
     
     @validator('username')
     def validate_username(cls, v):
-        if len(v) < 3:
-            raise ValueError('用户名至少需要3个字符')
+        if len(v) < 2:
+            raise ValueError('用户名至少需要2个字符')
         return v
     
     @validator('password')

@@ -203,13 +203,12 @@ const LoginPage: React.FC = () => {
             <Form.Item
               name="username"
               rules={[
-                { required: true, message: '请输入用户名' },
-                { min: 3, message: '用户名至少3个字符' },
+                { required: true, message: '请输入用户名或邮箱' },
               ]}
             >
               <Input
                 prefix={<UserOutlined style={{ color: 'rgba(255, 255, 255, 0.7)' }} />}
-                placeholder="用户名"
+                placeholder="用户名 / 邮箱"
                 style={{
                   backgroundColor: 'rgba(255, 255, 255, 0.2)',
                   border: '1px solid rgba(255, 255, 255, 0.3)',
